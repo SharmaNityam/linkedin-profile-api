@@ -1,4 +1,6 @@
+import { fileURLToPath } from 'node:url';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
@@ -87,7 +89,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   );
 
   app.get('/openapi.json', { config: { rateLimit: false } }, async () => app.swagger());
-  app.get('/', { config: { rateLimit: false } }, async (_req, reply) => reply.redirect('/docs'));
+  // The playground UI. A single self-contained file; no build step.
+  await app.register(fastifyStatic, {
+    root: fileURLToPath(new URL('../public', import.meta.url)),
+    prefix: '/',
+    index: ['index.html'],
+    decorateReply: false,
+  });
 
   await app.register(profileRoutes, { service: options.service });
 

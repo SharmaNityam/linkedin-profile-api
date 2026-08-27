@@ -40,6 +40,14 @@ describe('HTTP API', () => {
   });
   afterAll(() => app.close());
 
+  it('GET / serves the playground UI', async () => {
+    const res = await app.inject({ url: '/' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.body).toContain('LinkedIn Profile API');
+    expect(res.body).toContain('/v1/profile');
+  });
+
   it('GET /health', async () => {
     const res = await app.inject({ url: '/health' });
     expect(res.statusCode).toBe(200);

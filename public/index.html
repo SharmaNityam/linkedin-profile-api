@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LinkedIn Profile API</title>
+<meta name="description" content="Turn a LinkedIn profile URL into structured JSON. Built on LinkedIn's internal Voyager API." />
+<meta name="color-scheme" content="dark" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0b0d10;
+    --surface: #12151a;
+    --surface-2: #171b21;
+    --border: #232830;
+    --border-strong: #2f3641;
+    --text: #e6e8eb;
+    --muted: #8b93a1;
+    --faint: #5c6470;
+    --accent: #f5b942;
+    --accent-ink: #1a1300;
+    --accent-dim: rgba(245, 185, 66, 0.14);
+    --ok: #5fd39a;
+    --err: #ff6b6b;
+    --display: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0;
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text);
+    background:
+      radial-gradient(900px 400px at 50% -10%, rgba(245, 185, 66, 0.07), transparent 70%),
+      var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  button, input { font: inherit; color: inherit; }
+  code, pre, .mono { font-family: var(--mono); font-size: 12.5px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* ---- shell ---- */
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px; border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-dim); }
+  nav.links { display: flex; gap: 6px; }
+  nav.links a {
+    text-decoration: none; color: var(--muted); font-size: 13.5px; padding: 6px 10px; border-radius: 6px;
+  }
+  nav.links a:hover { color: var(--text); background: var(--surface-2); }
+
+  /* ---- hero ---- */
+  .hero { padding: 56px 0 28px; }
+  .hero h1 {
+    font-family: var(--display); font-weight: 600; font-size: clamp(30px, 4.6vw, 46px);
+    line-height: 1.08; letter-spacing: -0.025em; margin: 0 0 12px; max-width: 760px;
+  }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero p { margin: 0; color: var(--muted); max-width: 640px; font-size: 16px; }
+
+  form.lookup {
+    margin-top: 28px; display: flex; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 6px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  form.lookup:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-dim); }
+  form.lookup .prefix { display: flex; align-items: center; padding-left: 12px; color: var(--faint); font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  form.lookup input {
+    flex: 1; min-width: 0; background: transparent; border: 0; padding: 10px 6px; font-family: var(--mono); font-size: 14px;
+  }
+  form.lookup input::placeholder { color: var(--faint); }
+  form.lookup input:focus { outline: none; }
+  .btn {
+    border: 1px solid transparent; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); white-space: nowrap; transition: transform .08s, filter .15s;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(1px); }
+  .btn[disabled] { opacity: .6; cursor: progress; }
+  .btn.ghost { background: transparent; color: var(--muted); border-color: var(--border-strong); padding: 6px 10px; font-weight: 500; font-size: 13px; }
+  .btn.ghost:hover { color: var(--text); border-color: var(--faint); filter: none; }
+
+  .examples { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; color: var(--faint); font-size: 13px; }
+  .chip {
+    background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 4px 11px; cursor: pointer;
+    font-family: var(--mono); font-size: 12.5px;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ---- result grid ---- */
+  .result { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; padding: 20px 0 80px; align-items: start; }
+  @media (max-width: 900px) { .result { grid-template-columns: 1fr; } .side { order: -1; } }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+
+  /* top card */
+  .banner { height: 150px; background: var(--surface-2) center/cover no-repeat; border-bottom: 1px solid var(--border); }
+  .identity { padding: 0 24px 22px; position: relative; }
+  .avatar {
+    width: 112px; height: 112px; border-radius: 50%; border: 4px solid var(--surface); background: var(--surface-2) center/cover no-repeat;
+    margin-top: -56px; position: relative; display: block;
+  }
+  .identity h2 { font-family: var(--display); font-weight: 600; font-size: 26px; letter-spacing: -0.02em; margin: 12px 0 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .identity h2 small { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); }
+  .headline { margin: 0; font-size: 15.5px; }
+  .facts { margin: 8px 0 0; color: var(--muted); font-size: 13.5px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .facts span + span::before { content: "·"; margin-right: 6px; color: var(--faint); }
+  .about { margin: 18px 0 0; padding-top: 18px; border-top: 1px solid var(--border); white-space: pre-wrap; color: #cfd3d9; font-size: 14.5px; }
+  .about[data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .more { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px 0 0; font-size: 13px; font-weight: 500; }
+
+  /* sections */
+  section.block { padding: 20px 24px; border-top: 1px solid var(--border); }
+  section.block > h3 {
+    margin: 0 0 14px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: -0.01em;
+  }
+  section.block > h3 .count { color: var(--muted); font-weight: 500; font-size: 13px; margin-left: 8px; font-family: var(--body); }
+  .prov { font-family: var(--mono); font-size: 11px; color: var(--faint); font-weight: 400; letter-spacing: 0; white-space: nowrap; }
+  .prov b { color: var(--muted); font-weight: 500; }
+
+  .timeline { list-style: none; margin: 0; padding: 0; }
+  .timeline li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 12px 0; position: relative; }
+  .timeline li + li { border-top: 1px solid var(--border); }
+  .logo { width: 44px; height: 44px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); object-fit: contain; display: grid; place-items: center; color: var(--faint); font-family: var(--display); font-weight: 600; }
+  .timeline .t { font-weight: 600; font-size: 15px; margin: 0; }
+  .timeline .o { color: #cfd3d9; margin: 1px 0 0; font-size: 14px; }
+  .timeline .o a { color: inherit; text-decoration: none; }
+  .timeline .o a:hover { color: var(--accent); }
+  .timeline .d { color: var(--muted); font-size: 13px; margin: 3px 0 0; font-family: var(--mono); }
+  .timeline .desc { margin: 8px 0 0; color: #b9bec6; font-size: 14px; white-space: pre-wrap; }
+  .now { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border-radius: 4px; padding: 2px 6px; margin-left: 8px; vertical-align: middle; font-family: var(--body); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips span { border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; }
+
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+  .kv dt { color: var(--muted); font-size: 13.5px; }
+  .kv dd { margin: 0; font-size: 13.5px; }
+  .level { display: inline-block; height: 6px; width: 60px; border-radius: 3px; background: var(--border-strong); vertical-align: middle; margin-left: 10px; overflow: hidden; }
+  .level i { display: block; height: 100%; background: var(--accent); }
+
+  /* side panel */
+  .side { display: grid; gap: 14px; position: sticky; top: 16px; }
+  .side .card { padding: 16px; }
+  .side h4 { margin: 0 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 12.5px; border-radius: 999px; padding: 4px 10px 4px 8px; border: 1px solid var(--border-strong); }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .pill.ok::before { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .pill.err::before { background: var(--err); }
+  .pill.busy::before { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .meta { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; }
+  .meta dt { color: var(--muted); } .meta dd { margin: 0; font-family: var(--mono); font-size: 12.5px; }
+  .warn { margin: 10px 0 0; padding: 8px 10px; border-left: 2px solid var(--accent); background: var(--accent-dim); font-size: 12.5px; color: #e8d5a5; }
+
+  pre.snippet { margin: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; white-space: pre; line-height: 1.55; }
+  .snippet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .copy { background: none; border: 1px solid var(--border-strong); color: var(--muted); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; }
+  .copy:hover { color: var(--text); border-color: var(--faint); }
+  .copy[data-done="true"] { color: var(--ok); border-color: var(--ok); }
+
+  .tabs { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+  .tabs button { background: none; border: 0; border-radius: 6px; padding: 5px 12px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; }
+  .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
+
+  /* json view */
+  .json { padding: 16px 20px; margin: 0; background: var(--surface); overflow: auto; max-height: 78vh; line-height: 1.55; font-size: 12.5px; }
+  .j-k { color: #9fb7ff; } .j-s { color: #cde5b3; } .j-n { color: var(--accent); } .j-b { color: #f2a2ff; } .j-null { color: var(--faint); }
+  .json-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+
+  /* states */
+  .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
+  .empty .glyph { font-family: var(--mono); color: var(--faint); font-size: 13px; margin-bottom: 8px; }
+  .error { padding: 24px; }
+  .error code { color: var(--err); }
+  .error p { margin: 6px 0 0; color: #cfd3d9; }
+  .skel { background: linear-gradient(90deg, var(--surface-2) 25%, #1d222a 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+  @keyframes shimmer { 0% { background-position: 100% 0 } 100% { background-position: 0 0 } }
+  .skel-wrap { padding: 24px; display: grid; gap: 12px; }
+  .cold { padding: 0 24px 20px; color: var(--muted); font-size: 13px; }
+  .hidden { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) { .skel, .pill.busy::before { animation: none; } }
+  @media (max-width: 640px) {
+    .hero { padding-top: 36px; }
+    form.lookup { flex-direction: column; }
+    form.lookup .prefix { display: none; }
+    .identity, section.block { padding-left: 18px; padding-right: 18px; }
+    .prov { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/"><span class="dot" aria-hidden="true"></span>LinkedIn Profile API</a>
+    <nav class="links" aria-label="Resources">
+      <a href="/docs">Docs</a>
+      <a href="/openapi.json">OpenAPI</a>
+      <a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>A LinkedIn profile URL in, <em>structured JSON</em> out.</h1>
+    <p>Decoded from Voyager, the private API LinkedIn's own web app uses — not scraped from HTML. Try it on any public profile.</p>
+
+    <form class="lookup" id="form" autocomplete="off">
+      <label class="sr" for="url">LinkedIn profile URL</label>
+      <span class="prefix" aria-hidden="true">GET /v1/profile?url=</span>
+      <input id="url" name="url" type="text" placeholder="https://www.linkedin.com/in/…" spellcheck="false" inputmode="url" />
+      <button class="btn" id="go" type="submit">Fetch profile</button>
+    </form>
+    <div class="examples">
+      Try:
+      <button type="button" class="chip" data-url="https://www.linkedin.com/in/sharmanityam/">sharmanityam</button>
+      <button type="button" class="chip" data-url="https://www.linkedin.com/in/williamhgates/">williamhgates</button>
+      <button type="button" class="chip" data-url="https://www.linkedin.com/in/satyanadella/">satyanadella</button>
+    </div>
+  </section>
+
+  <div class="result">
+    <main id="main">
+      <div class="card" id="view">
+        <div class="empty">
+          <div class="glyph">{ … }</div>
+          Paste a profile URL above, or pick an example.
+        </div>
+      </div>
+    </main>
+
+    <aside class="side">
+      <div class="card">
+        <h4>Request</h4>
+        <span class="pill" id="status">idle</span>
+        <dl class="meta" id="meta" hidden></dl>
+        <div id="warnings"></div>
+      </div>
+      <div class="card">
+        <div class="snippet-head">
+          <h4 style="margin:0">curl</h4>
+          <button class="copy" type="button" data-copy="#curl">Copy</button>
+        </div>
+        <pre class="snippet" id="curl">curl "<span id="curl-origin"></span>/v1/profile?url=…"</pre>
+      </div>
+      <div class="card">
+        <h4>View</h4>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="profile">Profile</button>
+          <button role="tab" aria-selected="false" data-tab="json">JSON</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
+  const statusEl = $('#status'), metaEl = $('#meta'), warnEl = $('#warnings'), curlEl = $('#curl');
+  $('#curl-origin').textContent = location.origin;
+
+  let profile = null, tab = 'profile';
+
+  // ---- provenance labels: which Voyager entity each section was decoded from
+  const PROV = {
+    experience: 'identity.profile.PositionGroup → Position',
+    education: 'identity.profile.Education',
+    skills: 'identity.profile.Skill (paged)',
+    certifications: 'identity.profile.Certification',
+    languages: 'identity.profile.Language',
+    volunteering: 'identity.profile.VolunteerExperience',
+    projects: 'identity.profile.Project',
+    honors: 'identity.profile.Honor',
+    publications: 'identity.profile.Publication',
+    courses: 'identity.profile.Course',
+  };
+  const prov = (k) => `<span class="prov"><b>from</b> ${esc(PROV[k])}</span>`;
+
+  // ---- dates
+  const fmt = (d) => d ? (d.month ? `${MONTHS[d.month - 1]} ${d.year}` : String(d.year)) : null;
+  function range(a, b) {
+    const s = fmt(a), e = b ? fmt(b) : (a ? 'Present' : null);
+    if (!s) return '';
+    return `${s} – ${e}${duration(a, b)}`;
+  }
+  function duration(a, b) {
+    if (!a) return '';
+    const now = new Date();
+    const sm = a.year * 12 + ((a.month ?? 1) - 1);
+    const em = b ? b.year * 12 + ((b.month ?? 12) - 1) : now.getFullYear() * 12 + now.getMonth();
+    const m = Math.max(0, em - sm + 1);
+    const y = Math.floor(m / 12), r = m % 12;
+    const parts = [y ? `${y} yr${y > 1 ? 's' : ''}` : '', r ? `${r} mo${r > 1 ? 's' : ''}` : ''].filter(Boolean);
+    return parts.length ? ` · ${parts.join(' ')}` : '';
+  }
+  const PROF = { ELEMENTARY: [1, 'Elementary'], LIMITED_WORKING: [2, 'Limited working'], PROFESSIONAL_WORKING: [3, 'Professional working'], FULL_PROFESSIONAL: [4, 'Full professional'], NATIVE_OR_BILINGUAL: [5, 'Native / bilingual'] };
+
+  // ---- renderers
+  const initial = (name) => esc((name || '?').trim()[0] || '?');
+  const logo = (org, name) => org?.logoUrl
+    ? `<img class="logo" src="${esc(org.logoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'logo',textContent:this.dataset.i}))" data-i="${initial(name)}" />`
+    : `<div class="logo" aria-hidden="true">${initial(name)}</div>`;
+  const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
+
+  function block(key, title, items, body) {
+    if (!items?.length) return '';
+    return `<section class="block"><h3><span>${title}<span class="count">${items.length}</span></span>${prov(key)}</h3>${body}</section>`;
+  }
+
+  function renderProfile(p) {
+    const name = esc(p.fullName);
+    const facts = [p.location?.name, p.industry, p.isPremium ? 'Premium' : null].filter(Boolean);
+    const about = p.about ? `<p class="about" id="about" data-clamped="${p.about.length > 320}">${esc(p.about)}</p>${p.about.length > 320 ? '<button class="more" type="button" id="more">Show more</button>' : ''}` : '';
+
+    const experience = block('experience', 'Experience', p.experience, `<ul class="timeline">${p.experience.map((e) => `
+      <li>${logo(e.company, e.companyName)}<div>
+        <p class="t">${esc(e.title)}${e.isCurrent ? '<span class="now">Now</span>' : ''}</p>
+        <p class="o">${orgLink(e.company, e.companyName ?? '')}${e.employmentType ? ` · ${esc(e.employmentType)}` : ''}</p>
+        <p class="d">${esc(range(e.startDate, e.endDate))}${e.location ? ` · ${esc(e.location)}` : ''}</p>
+        ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
+      </div></li>`).join('')}</ul>`);
+
+    const education = block('education', 'Education', p.education, `<ul class="timeline">${p.education.map((e) => `
+      <li>${logo(e.school, e.schoolName)}<div>
+        <p class="t">${orgLink(e.school, e.schoolName ?? '')}</p>
+        <p class="o">${esc([e.degree, e.fieldOfStudy].filter(Boolean).join(', '))}</p>
+        <p class="d">${esc(range(e.startDate, e.endDate).replace(/ · .*$/, ''))}${e.grade ? ` · Grade ${esc(e.grade)}` : ''}</p>
+        ${e.activities ? `<p class="desc">${esc(e.activities)}</p>` : ''}
+        ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
+      </div></li>`).join('')}</ul>`);
+
+    const skills = block('skills', 'Skills', p.skills, `<div class="chips">${p.skills.map((s) => `<span>${esc(s.name)}</span>`).join('')}</div>`);
+
+    const certs = block('certifications', 'Licenses & certifications', p.certifications, `<ul class="timeline">${p.certifications.map((c) => `
+      <li>${logo(c.organization, c.authority)}<div>
+        <p class="t">${c.url ? `<a href="${esc(c.url)}" rel="noopener" target="_blank" style="text-decoration:none">${esc(c.name)} ↗</a>` : esc(c.name)}</p>
+        <p class="o">${esc(c.authority ?? '')}</p>
+        <p class="d">${[c.issuedAt ? `Issued ${fmt(c.issuedAt)}` : '', c.expiresAt ? `Expires ${fmt(c.expiresAt)}` : '', c.licenseNumber ? `No. ${c.licenseNumber}` : ''].filter(Boolean).map(esc).join(' · ')}</p>
+      </div></li>`).join('')}</ul>`);
+
+    const languages = block('languages', 'Languages', p.languages, `<dl class="kv">${p.languages.map((l) => {
+      const [n, label] = PROF[l.proficiency] ?? [0, l.proficiency ?? '—'];
+      return `<dt>${esc(l.name)}</dt><dd>${esc(label)}<span class="level" aria-hidden="true"><i style="width:${n * 20}%"></i></span></dd>`;
+    }).join('')}</dl>`);
+
+    const vol = block('volunteering', 'Volunteering', p.volunteering, `<ul class="timeline">${p.volunteering.map((v) => `
+      <li>${logo(v.organization, v.organizationName)}<div>
+        <p class="t">${esc(v.role)}</p>
+        <p class="o">${orgLink(v.organization, v.organizationName ?? '')}${v.cause ? ` · ${esc(v.cause.toLowerCase().replace(/_/g, ' '))}` : ''}</p>
+        <p class="d">${esc(range(v.startDate, v.endDate))}</p>
+        ${v.description ? `<p class="desc">${esc(v.description)}</p>` : ''}
+      </div></li>`).join('')}</ul>`);
+
+    const simple = (key, title, rows) => block(key, title, rows, `<ul class="timeline">${rows.map((r) => `<li><div class="logo" aria-hidden="true">·</div><div><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${r.description ? `<p class="desc">${esc(r.description)}</p>` : ''}</div></li>`).join('')}</ul>`);
+
+    view.innerHTML = `
+      <div class="banner" style="${p.backgroundImage ? `background-image:url('${esc(p.backgroundImage.url)}')` : ''}"></div>
+      <div class="identity">
+        ${p.profileImage ? `<img class="avatar" src="${esc(p.profileImage.url)}" alt="${name}" referrerpolicy="no-referrer" />` : `<div class="avatar"></div>`}
+        <h2>${name}${p.pronouns ? `<small>${esc(p.pronouns)}</small>` : ''}</h2>
+        ${p.headline ? `<p class="headline">${esc(p.headline)}</p>` : ''}
+        ${facts.length ? `<p class="facts">${facts.map((f) => `<span>${esc(f)}</span>`).join('')}<span><a href="${esc(p.url)}" rel="noopener" target="_blank" style="color:var(--muted)">linkedin.com/in/${esc(p.publicIdentifier)} ↗</a></span></p>` : ''}
+        ${about}
+      </div>
+      ${experience}${education}${skills}${certs}${languages}${vol}
+      ${simple('projects', 'Projects', p.projects)}${simple('honors', 'Honors & awards', p.honors)}${simple('publications', 'Publications', p.publications)}${simple('courses', 'Courses', p.courses)}
+    `;
+    $('#more')?.addEventListener('click', (e) => { $('#about').dataset.clamped = 'false'; e.target.remove(); });
+  }
+
+  // Tokenise the raw JSON first, then escape each token — escaping first would turn quotes into &quot; and break string detection.
+  function highlight(json) {
+    const re = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
+    let out = '', last = 0, m;
+    while ((m = re.exec(json))) {
+      out += esc(json.slice(last, m.index));
+      const t = m[0];
+      if (t.startsWith('"')) out += t.endsWith(':') ? `<span class="j-k">${esc(t.slice(0, -1))}</span>:` : `<span class="j-s">${esc(t)}</span>`;
+      else if (t === 'null') out += `<span class="j-null">${t}</span>`;
+      else if (t === 'true' || t === 'false') out += `<span class="j-b">${t}</span>`;
+      else out += `<span class="j-n">${t}</span>`;
+      last = m.index + t.length;
+    }
+    return out + esc(json.slice(last));
+  }
+  function renderJson(data) {
+    const text = JSON.stringify(data, null, 2);
+    view.innerHTML = `<div class="json-head"><span>${esc(text.length.toLocaleString())} bytes · application/json</span><button class="copy" type="button" data-copy="#json-src">Copy JSON</button></div><pre class="json" id="json-src">${highlight(text)}</pre>`;
+  }
+
+  function renderView() {
+    if (!profile) return;
+    tab === 'json' ? renderJson(profile) : renderProfile(profile);
+  }
+
+  function setStatus(kind, text) { statusEl.className = `pill ${kind}`; statusEl.textContent = text; }
+  function renderMeta(m) {
+    if (!m) { metaEl.hidden = true; metaEl.innerHTML = ''; warnEl.innerHTML = ''; return; }
+    metaEl.hidden = false;
+    metaEl.innerHTML = [['source', m.source], ['duration', `${m.durationMs} ms`], ['cached', String(m.cached)], ['partial', String(m.partial)], ['fetched', new Date(m.fetchedAt).toLocaleTimeString()]]
+      .map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
+    warnEl.innerHTML = (m.warnings ?? []).map((w) => `<p class="warn">${esc(w)}</p>`).join('');
+  }
+
+  function showLoading() {
+    view.innerHTML = `<div class="skel-wrap"><div class="skel" style="height:150px;margin:-24px -24px 0"></div><div class="skel" style="width:112px;height:112px;border-radius:50%;margin-top:-56px;border:4px solid var(--surface)"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working — this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
+    setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
+  }
+  function showError(status, body) {
+    const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
+    view.innerHTML = `<div class="error"><code>${esc(status)} ${esc(e.code)}</code><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet" style="margin-top:12px">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
+  }
+
+  async function lookup(url) {
+    url = url.trim();
+    if (!url) { input.focus(); return; }
+    input.value = url;
+    const q = `/v1/profile?url=${encodeURIComponent(url)}`;
+    curlEl.innerHTML = `curl "${esc(location.origin + q)}"`;
+    history.replaceState(null, '', `?url=${encodeURIComponent(url)}`);
+
+    profile = null; go.disabled = true; setStatus('busy', 'fetching'); renderMeta(null); showLoading();
+    const t0 = performance.now();
+    try {
+      const res = await fetch(q, { headers: { accept: 'application/json' } });
+      const text = await res.text();
+      let body; try { body = JSON.parse(text); } catch { body = text; }
+      const ms = Math.round(performance.now() - t0);
+      if (!res.ok) { setStatus('err', `${res.status} · ${ms} ms`); showError(res.status, body); return; }
+      profile = body; setStatus('ok', `200 · ${ms} ms`); renderMeta(body.meta); renderView();
+    } catch (err) {
+      setStatus('err', 'network error'); showError('—', { error: { code: 'NETWORK', message: String(err.message || err) } });
+    } finally { go.disabled = false; }
+  }
+
+  // ---- wiring
+  form.addEventListener('submit', (e) => { e.preventDefault(); lookup(input.value); });
+  document.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => lookup(c.dataset.url)));
+  document.querySelectorAll('[role=tab]').forEach((b) => b.addEventListener('click', () => {
+    tab = b.dataset.tab;
+    document.querySelectorAll('[role=tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    renderView();
+  }));
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-copy]'); if (!btn) return;
+    const src = $(btn.dataset.copy); if (!src) return;
+    try { await navigator.clipboard.writeText(src.innerText); btn.dataset.done = 'true'; btn.textContent = 'Copied'; setTimeout(() => { btn.dataset.done = 'false'; btn.textContent = btn.dataset.copy === '#json-src' ? 'Copy JSON' : 'Copy'; }, 1500); } catch {}
+  });
+
+  const initial = new URLSearchParams(location.search).get('url');
+  if (initial) lookup(initial); else input.focus();
+})();
+</script>
+</body>
+</html>
