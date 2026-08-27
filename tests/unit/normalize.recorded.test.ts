@@ -44,6 +44,23 @@ describe.each(RECORDED)('recorded fixture: %s', (slug) => {
     if (topCard) expect(profile.location?.name).toBeTruthy();
   });
 
+  it('never emits cookie-gated /dms/prv/ image URLs', () => {
+    const orgs = [
+      ...profile.experience.map((e) => e.company),
+      ...profile.education.map((e) => e.school),
+      ...profile.certifications.map((c) => c.organization),
+      ...profile.volunteering.map((v) => v.organization),
+    ];
+    const urls = [
+      ...[profile.profileImage, profile.backgroundImage].flatMap((i) =>
+        i ? [i.url, ...i.variants.map((v) => v.url)] : [],
+      ),
+      ...orgs.map((o) => o?.logoUrl),
+    ].filter((u): u is string => typeof u === 'string');
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) expect(u).not.toMatch(/^https:\/\/www\.linkedin\.com\/dms\/prv\//);
+  });
+
   it('resolves every position to a title and a start date', () => {
     for (const p of profile.experience) {
       expect(p.title).toBeTruthy();
