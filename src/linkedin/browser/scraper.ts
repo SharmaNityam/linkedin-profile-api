@@ -17,7 +17,7 @@ const PAGE_TIMEOUT_MS = 25_000;
 
 /**
  * Voyager, but every request is issued from inside a real browser tab that is
- * logged in to LinkedIn. Same endpoints, same normaliser — what changes is that
+ * logged in to LinkedIn. Same endpoints, same normaliser, what changes is that
  * LinkedIn sees a genuine browser (TLS fingerprint, headers, its own CSRF
  * cookie), which is what gets past bot-detection when raw HTTP is blocked.
  */
@@ -66,7 +66,7 @@ export interface TopCardResult {
 
 /**
  * Last resort: render the profile page and read the top card and About
- * section from the DOM. Only identity fields — the list sections are
+ * section from the DOM. Only identity fields, the list sections are
  * lazy-loaded server-driven UI with unstable structure, so we don't pretend.
  */
 export async function scrapeTopCard(

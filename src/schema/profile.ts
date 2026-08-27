@@ -6,7 +6,7 @@ import { z } from 'zod';
  *
  * Conventions: a field that LinkedIn does not expose for a profile is `null`;
  * a list section the profile does not have is `[]`. Dates are `{year, month?}`
- * because LinkedIn stores month precision — we never invent a day.
+ * because LinkedIn stores month precision, we never invent a day.
  */
 
 export const PartialDate = z

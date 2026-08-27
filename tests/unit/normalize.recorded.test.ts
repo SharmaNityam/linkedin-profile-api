@@ -62,5 +62,5 @@ describe.each(RECORDED)('recorded fixture: %s', (slug) => {
 });
 
 if (RECORDED.length === 0) {
-  it.skip('no recorded fixtures yet — run `pnpm record-fixture <slug>`', () => undefined);
+  it.skip('no recorded fixtures yet, run `pnpm record-fixture <slug>`', () => undefined);
 }

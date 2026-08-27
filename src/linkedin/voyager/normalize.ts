@@ -12,9 +12,9 @@ import {
 
 /** The raw responses that together describe one profile. */
 export interface ProfileBundle {
-  /** FullProfileWithEntities decoration — the main entity graph. */
+  /** FullProfileWithEntities decoration, the main entity graph. */
   full: VoyagerResponse;
-  /** WebTopCardCore decoration — resolves the location name. Optional. */
+  /** WebTopCardCore decoration, resolves the location name. Optional. */
   topCard?: VoyagerResponse;
   /** Extra pages from /profileSkills when the profile has > 20 skills. */
   skillPages?: VoyagerResponse[];

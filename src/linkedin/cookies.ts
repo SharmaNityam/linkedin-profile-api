@@ -4,7 +4,7 @@
  * `li_at` alone authenticates, but LinkedIn also fingerprints a session by
  * its companion cookies (`JSESSIONID`, `bcookie`, `bscookie`, `lidc`, …). A
  * request that carries `li_at` with a *different* set of companions looks
- * like a stolen cookie and can get the whole session revoked — we observed
+ * like a stolen cookie and can get the whole session revoked, we observed
  * exactly that during development. So the operator can paste the browser's
  * `document.cookie` string and we send the same companions the browser does.
  */
@@ -12,7 +12,7 @@
 export interface SessionCookies {
   /** name → value, including li_at. */
   jar: Map<string, string>;
-  /** The CSRF token to echo in `csrf-token` — LinkedIn's JSESSIONID, unquoted. */
+  /** The CSRF token to echo in `csrf-token`, LinkedIn's JSESSIONID, unquoted. */
   csrfToken: string;
 }
 
@@ -36,7 +36,7 @@ export function serializeCookies(jar: Map<string, string>): string {
 /**
  * Builds the cookie jar for Voyager calls. If the companion cookies include a
  * JSESSIONID we use it (and its value as the CSRF token); otherwise we mint
- * one — LinkedIn uses the double-submit pattern, so any value works as long
+ * one, LinkedIn uses the double-submit pattern, so any value works as long
  * as the cookie and header agree.
  */
 export function buildSessionCookies(

@@ -217,7 +217,7 @@
 
   <section class="hero">
     <h1>A LinkedIn profile URL in, <em>structured JSON</em> out.</h1>
-    <p>Decoded from Voyager, the private API LinkedIn's own web app uses — not scraped from HTML. Try it on any public profile.</p>
+    <p>Decoded from Voyager, the private API LinkedIn's own web app uses, not scraped from HTML. Try it on any public profile.</p>
 
     <form class="lookup" id="form" autocomplete="off">
       <label class="sr" for="url">LinkedIn profile URL</label>
@@ -358,7 +358,7 @@
       </div></li>`).join('')}</ul>`);
 
     const languages = block('languages', 'Languages', p.languages, `<dl class="kv">${p.languages.map((l) => {
-      const [n, label] = PROF[l.proficiency] ?? [0, l.proficiency ?? '—'];
+      const [n, label] = PROF[l.proficiency] ?? [0, l.proficiency ?? '-'];
       return `<dt>${esc(l.name)}</dt><dd>${esc(label)}<span class="level" aria-hidden="true"><i style="width:${n * 20}%"></i></span></dd>`;
     }).join('')}</dl>`);
 
@@ -387,7 +387,7 @@
     $('#more')?.addEventListener('click', (e) => { $('#about').dataset.clamped = 'false'; e.target.remove(); });
   }
 
-  // Tokenise the raw JSON first, then escape each token — escaping first would turn quotes into &quot; and break string detection.
+  // Tokenise the raw JSON first, then escape each token, escaping first would turn quotes into &quot; and break string detection.
   function highlight(json) {
     const re = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
     let out = '', last = 0, m;
@@ -422,7 +422,7 @@
   }
 
   function showLoading() {
-    view.innerHTML = `<div class="skel-wrap"><div class="skel" style="height:150px;margin:-24px -24px 0"></div><div class="skel" style="width:112px;height:112px;border-radius:50%;margin-top:-56px;border:4px solid var(--surface)"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working — this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
+    view.innerHTML = `<div class="skel-wrap"><div class="skel" style="height:150px;margin:-24px -24px 0"></div><div class="skel" style="width:112px;height:112px;border-radius:50%;margin-top:-56px;border:4px solid var(--surface)"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
     setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
   }
   function showError(status, body) {
@@ -448,7 +448,7 @@
       if (!res.ok) { setStatus('err', `${res.status} · ${ms} ms`); showError(res.status, body); return; }
       profile = body; setStatus('ok', `200 · ${ms} ms`); renderMeta(body.meta); renderView();
     } catch (err) {
-      setStatus('err', 'network error'); showError('—', { error: { code: 'NETWORK', message: String(err.message || err) } });
+      setStatus('err', 'network error'); showError('-', { error: { code: 'NETWORK', message: String(err.message || err) } });
     } finally { go.disabled = false; }
   }
 

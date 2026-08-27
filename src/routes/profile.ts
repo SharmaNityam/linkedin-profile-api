@@ -13,7 +13,7 @@ const errorResponses = {
   404: ErrorResponse.describe(
     "LinkedIn reports the profile can't be accessed (missing or restricted)",
   ),
-  429: ErrorResponse.describe('Rate limited — by this API or by LinkedIn'),
+  429: ErrorResponse.describe('Rate limited, by this API or by LinkedIn'),
   502: ErrorResponse.describe('LinkedIn returned something we could not use'),
   503: ErrorResponse.describe('The backend LinkedIn session has expired'),
 };

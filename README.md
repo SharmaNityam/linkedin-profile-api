@@ -1,6 +1,6 @@
 # LinkedIn Profile API
 
-A small HTTPS service that takes a LinkedIn profile URL and returns the profile as structured JSON — name, headline, location, about, experience, education, skills, certifications, languages, volunteering and images.
+A small HTTPS service that takes a LinkedIn profile URL and returns the profile as structured JSON: name, headline, location, about, experience, education, skills, certifications, languages, volunteering and images.
 
 It works by talking to **Voyager**, the private JSON API LinkedIn's own web app uses, rather than parsing HTML. A headless-browser path is kept in reserve for the cases where raw HTTP stops working.
 
@@ -45,13 +45,13 @@ The service authenticates to LinkedIn with the `li_at` session cookie of a real 
 2. Open DevTools → **Application** → **Cookies** → `https://www.linkedin.com`.
 3. Copy the value of `li_at` into `.env` as `LI_AT=…`.
 
-That's all that is required. On its first request the backend **bootstraps the rest of the session itself**: it loads `linkedin.com/feed/` with `li_at` alone — exactly what a browser does on a first visit — and keeps the `JSESSIONID`, `bcookie`, `bscookie` and `lidc` cookies LinkedIn issues in response, then uses them for every Voyager call.
+That's all that is required. On its first request the backend **bootstraps the rest of the session itself**: it loads `linkedin.com/feed/` with `li_at` alone, exactly what a browser does on a first visit, and keeps the `JSESSIONID`, `bcookie`, `bscookie` and `lidc` cookies LinkedIn issues in response, then uses them for every Voyager call.
 
 Optionally, `LI_COOKIES` can be set to the browser's own `document.cookie` string (DevTools console → `copy(document.cookie)`) to reuse the browser's companion cookies instead of bootstrapping new ones.
 
-The cookie normally lives for about a year. When it expires — or LinkedIn revokes it — the API starts returning `503 LINKEDIN_SESSION_EXPIRED`; paste a fresh value and restart.
+The cookie normally lives for about a year. When it expires, or LinkedIn revokes it, the API starts returning `503 LINKEDIN_SESSION_EXPIRED`; paste a fresh value and restart.
 
-> **Why the bootstrap exists.** During development, the first version sent `li_at` with a *fabricated* `JSESSIONID` and no other cookies. LinkedIn revoked the entire session within minutes — the browser it was copied from was logged out too. LinkedIn evidently checks that `li_at` travels with the companion cookies it was issued alongside. Acquiring those companions the way a browser does removed the problem; the same account has been stable since.
+> **Why the bootstrap exists.** During development, the first version sent `li_at` with a *fabricated* `JSESSIONID` and no other cookies. LinkedIn revoked the entire session within minutes, the browser it was copied from was logged out too. LinkedIn evidently checks that `li_at` travels with the companion cookies it was issued alongside. Acquiring those companions the way a browser does removed the problem; the same account has been stable since.
 
 `.env` is git-ignored. Never commit it.
 
@@ -59,14 +59,14 @@ The cookie normally lives for about a year. When it expires — or LinkedIn revo
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LI_AT` | — | LinkedIn session cookie (required) |
-| `LI_COOKIES` | — | Optional: the browser's `document.cookie` for linkedin.com, used instead of bootstrapping companion cookies |
+| `LI_AT` | - | LinkedIn session cookie (required) |
+| `LI_COOKIES` | - | Optional: the browser's `document.cookie` for linkedin.com, used instead of bootstrapping companion cookies |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Listen address |
 | `RATE_LIMIT_PER_MINUTE` | `10` | Per-IP limit; protects the LinkedIn account behind the API |
 | `CACHE_TTL_SECONDS` | `900` | In-memory cache for repeated lookups of the same profile |
 | `MAX_CONCURRENT_UPSTREAM` | `2` | Concurrent requests to LinkedIn |
 | `BROWSER_FALLBACK` | `false` | Enable the headless-Chromium fallback (needs ~1 GB RAM) |
-| `BROWSER_CHANNEL` | — | e.g. `chrome` to use a locally installed Chrome for the fallback |
+| `BROWSER_CHANNEL` | - | e.g. `chrome` to use a locally installed Chrome for the fallback |
 | `LOG_LEVEL` | `info` | pino log level |
 
 ---
@@ -166,7 +166,7 @@ Accepted URL forms: `https://www.linkedin.com/in/<slug>/`, `linkedin.com/in/<slu
 Schema conventions:
 
 - A field LinkedIn does not expose for that profile is `null`; a section the profile does not have is `[]`.
-- Dates are `{ "year", "month"? }` — LinkedIn stores month precision, so no day is ever invented.
+- Dates are `{ "year", "month"? }`: LinkedIn stores month precision, so no day is ever invented.
 - `experience[].isCurrent` is `true` when a position has a start date and no end date.
 - `meta.source` tells you which path produced the response (`voyager` = raw HTTP, `browser` = headless browser). `meta.partial` is `true` only for the last-resort DOM path, which returns top-card fields only.
 - The full schema is in [`src/schema/profile.ts`](src/schema/profile.ts) and served at `/openapi.json`.
@@ -179,14 +179,14 @@ All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 |---|---|---|
 | 400 | `INVALID_URL` | Not a LinkedIn member-profile URL |
 | 400 | `INVALID_REQUEST` | Missing/invalid `url` parameter |
-| 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed" — it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two) |
+| 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two) |
 | 429 | `RATE_LIMITED` | This API's per-IP limit, or LinkedIn's own limit (with `Retry-After`) |
 | 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (and the fallbacks, if enabled, couldn't either) |
 | 503 | `LINKEDIN_SESSION_EXPIRED` | The `LI_AT` cookie needs rotating |
 
 ### `GET /health`
 
-`{ "status": "ok", "uptimeSeconds": 123 }` — used by the container health check and Render.
+`{ "status": "ok", "uptimeSeconds": 123 }`: used by the container health check and Render.
 
 ---
 
@@ -196,7 +196,7 @@ LinkedIn's web app is a client of an internal REST API at `https://www.linkedin.
 
 ### What the page does
 
-Loading a profile with DevTools open shows the app calling `/voyager/api/identity/dash/profiles` and `/voyager/api/graphql?queryId=voyagerIdentityDashProfiles.…`. The `dash/profiles` endpoint takes a **decoration ID** — Voyager's term for a projection that says which fields and nested entities to include — and the LinkedIn client ships with a catalogue of them. Probing the endpoint from the page's own context (so the request carried real cookies) established which ones return what:
+Loading a profile with DevTools open shows the app calling `/voyager/api/identity/dash/profiles` and `/voyager/api/graphql?queryId=voyagerIdentityDashProfiles.…`. The `dash/profiles` endpoint takes a **decoration ID**, Voyager's term for a projection that says which fields and nested entities to include, and the LinkedIn client ships with a catalogue of them. Probing the endpoint from the page's own context (so the request carried real cookies) established which ones return what:
 
 | Decoration | Returns |
 |---|---|
@@ -210,10 +210,10 @@ The older, widely-documented endpoints (`/identity/profiles/{slug}/profileView`,
 
 Two cookies and one header are all Voyager needs:
 
-- `li_at` — the real session cookie, issued at login. Supplied via env.
-- `JSESSIONID` + `csrf-token` — LinkedIn uses the *double-submit* CSRF pattern: the header must equal the cookie. The client uses the `JSESSIONID` LinkedIn issues during the session bootstrap (see [Getting `LI_AT`](#getting-li_at)); if the operator supplied `LI_COOKIES`, the browser's own value is used instead.
-- `bcookie`, `bscookie`, `lidc` — companion cookies from the same bootstrap. Not needed for authorization, but their absence is the signal that gets a session revoked.
-- `x-restli-protocol-version: 2.0.0` and `accept: application/vnd.linkedin.normalized+json+2.1` — these switch the response into Rest.li's *normalized* format, described next.
+- `li_at`: the real session cookie, issued at login. Supplied via env.
+- `JSESSIONID` + `csrf-token`: LinkedIn uses the *double-submit* CSRF pattern: the header must equal the cookie. The client uses the `JSESSIONID` LinkedIn issues during the session bootstrap (see [Getting `LI_AT`](#getting-li_at)); if the operator supplied `LI_COOKIES`, the browser's own value is used instead.
+- `bcookie`, `bscookie`, `lidc`: companion cookies from the same bootstrap. Not needed for authorization, but their absence is the signal that gets a session revoked.
+- `x-restli-protocol-version: 2.0.0` and `accept: application/vnd.linkedin.normalized+json+2.1`: these switch the response into Rest.li's *normalized* format, described next.
 
 ### The normalized entity graph
 
@@ -238,11 +238,11 @@ Images are assembled from `vectorImage.rootUrl + artifacts[].fileIdentifyingUrlP
 
 ### Why a browser fallback, and why it's shaped this way
 
-The raw-HTTP path is fast (≈1–2 s per profile, three requests) and cheap to host, but it presents a non-browser TLS fingerprint and hand-built headers, so it is the path LinkedIn is most likely to block (HTTP 999) or break by tweaking CSRF handling. The fallback therefore doesn't try to *parse the page* first — it re-issues **the same Voyager requests from inside a real, logged-in Chromium tab**, where LinkedIn sees its own cookies, its own headers and a genuine browser. Same endpoints, same normaliser, same output.
+The raw-HTTP path is fast (≈1–2 s per profile, three requests) and cheap to host, but it presents a non-browser TLS fingerprint and hand-built headers, so it is the path LinkedIn is most likely to block (HTTP 999) or break by tweaking CSRF handling. The fallback therefore doesn't try to *parse the page* first, it re-issues **the same Voyager requests from inside a real, logged-in Chromium tab**, where LinkedIn sees its own cookies, its own headers and a genuine browser. Same endpoints, same normaliser, same output.
 
 Only if that also fails does the service read the rendered DOM, and it deliberately limits itself to the **top card and About** (name, headline, location, about, photo). LinkedIn's profile page is now server-driven UI with build-hashed class names and lazily-loaded sections, so a class-selector scraper of experience/education would be brittle and dishonest; the DOM path instead keys off semantics (the section containing the name heading, the section titled "About") and returns `meta.partial: true` so callers know what they're getting.
 
-Escalation is decided in [`ProfileService`](src/linkedin/service.ts) and is deliberately narrow: only *infrastructure* failures (`UPSTREAM_ERROR`, `SCHEMA_DRIFT`) escalate. A profile that doesn't exist, an expired cookie or a rate limit are terminal — the browser would get the same answer, so the service doesn't spend ten seconds finding out.
+Escalation is decided in [`ProfileService`](src/linkedin/service.ts) and is deliberately narrow: only *infrastructure* failures (`UPSTREAM_ERROR`, `SCHEMA_DRIFT`) escalate. A profile that doesn't exist, an expired cookie or a rate limit are terminal, the browser would get the same answer, so the service doesn't spend ten seconds finding out.
 
 ---
 
@@ -286,8 +286,8 @@ pnpm typecheck && pnpm lint
 ```
 
 - **Unit:** URL parsing matrix, entity-graph resolution, the normaliser against a hand-written fixture that covers every branch (missing entities, capped skills, year-only dates, unknown enum values…), the HTTP client's error mapping with a mocked `fetch`, cache/semaphore, the DOM top-card parser, and the service's escalation table.
-- **Recorded fixtures:** `pnpm record-fixture <slug>` saves real Voyager responses (tracking noise stripped) under `tests/fixtures/voyager/<slug>/`. `normalize.recorded.test.ts` runs the normaliser over every recorded profile and checks the output against the schema — this is the schema-drift alarm.
-- **Integration:** the Fastify app via `app.inject` — routes, validation, error envelope, `Retry-After`, rate limiting, OpenAPI.
+- **Recorded fixtures:** `pnpm record-fixture <slug>` saves real Voyager responses (tracking noise stripped) under `tests/fixtures/voyager/<slug>/`. `normalize.recorded.test.ts` runs the normaliser over every recorded profile and checks the output against the schema, this is the schema-drift alarm.
+- **Integration:** the Fastify app via `app.inject`: routes, validation, error envelope, `Retry-After`, rate limiting, OpenAPI.
 - **Live:** an env-gated smoke test for a real profile (all sections present, skills paged past 20, unknown slug → 404).
 
 ---
@@ -305,7 +305,7 @@ docker run --rm -p 3000:3000 -e LI_AT="$LI_AT" -e BROWSER_FALLBACK=true linkedin
 
 `render.yaml` describes the service. Connect the repo in the Render dashboard, create a Blueprint, and set `LI_AT` as a secret environment variable (it is marked `sync: false`, so it is never read from the repo). Render provisions HTTPS automatically.
 
-The blueprint targets the **free** plan, which is fine for the Voyager HTTP path. Two consequences: free instances (512 MB) cannot run Chromium, so `BROWSER_FALLBACK` is `false` there — switch to the starter plan and set it to `true` to enable the fallback; and free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes.
+The blueprint targets the **free** plan, which is fine for the Voyager HTTP path. Two consequences: free instances (512 MB) cannot run Chromium, so `BROWSER_FALLBACK` is `false` there, switch to the starter plan and set it to `true` to enable the fallback; and free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes.
 
 ---
 
@@ -313,7 +313,7 @@ The blueprint targets the **free** plan, which is fine for the Voyager HTTP path
 
 **Terms of service and account risk.** Accessing LinkedIn through its private API with a personal session violates LinkedIn's User Agreement. The account behind `LI_AT` can be rate-limited, challenged or restricted. This project exists as a technical exercise; the rate limit, cache and concurrency cap are there to keep volume low, but they don't make it sanctioned.
 
-**Session lifetime and revocation.** `li_at` expires (roughly yearly) and LinkedIn revokes it outright if it decides the session is being replayed from another client — see the note in [Getting `LI_AT`](#getting-li_at). The cookie bootstrap mitigates this; it doesn't eliminate it. Rotation is manual; the API reports `503 LINKEDIN_SESSION_EXPIRED` until it's done.
+**Session lifetime and revocation.** `li_at` expires (roughly yearly) and LinkedIn revokes it outright if it decides the session is being replayed from another client, see the note in [Getting `LI_AT`](#getting-li_at). The cookie bootstrap mitigates this; it doesn't eliminate it. Rotation is manual; the API reports `503 LINKEDIN_SESSION_EXPIRED` until it's done.
 
 **404 conflates "missing" and "private".** LinkedIn returns the same 403 `"This profile can't be accessed"` for a non-existent slug and for a profile the account is not allowed to see. The API reports both as `PROFILE_NOT_FOUND`.
 

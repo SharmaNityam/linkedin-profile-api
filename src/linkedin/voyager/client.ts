@@ -86,13 +86,13 @@ export function interpretVoyagerResponse(
     throw new ProfileNotFoundError(context.publicIdentifier);
   }
   if (res.status === 403) {
-    // e.g. "CSRF check failed" — misconfiguration or LinkedIn blocking this client, not the user's fault.
+    // e.g. "CSRF check failed", misconfiguration or LinkedIn blocking this client, not the user's fault.
     throw new UpstreamError(`LinkedIn refused the request: ${message ?? 'forbidden'}`, {
       status: 403,
     });
   }
   if (res.status === 400) {
-    // Typically the decoration ID is no longer recognised — schema drift.
+    // Typically the decoration ID is no longer recognised, schema drift.
     throw new SchemaDriftError(`LinkedIn rejected the request: ${message ?? 'bad request'}`, {
       status: 400,
       url,
@@ -117,8 +117,8 @@ export function interpretVoyagerResponse(
  * Headers every Voyager call needs.
  *
  * Authentication is two cookies:
- *   - `li_at`      — the real session, issued at login (we get it from env)
- *   - `JSESSIONID` — a CSRF token. LinkedIn uses the double-submit pattern:
+ *   - `li_at`     , the real session, issued at login (we get it from env)
+ *   - `JSESSIONID`, a CSRF token. LinkedIn uses the double-submit pattern:
  *                    the `csrf-token` header must equal the `JSESSIONID`
  *                    cookie, but the value itself is client-chosen. LinkedIn's
  *                    own web app uses the form `ajax:<19 digits>`.
