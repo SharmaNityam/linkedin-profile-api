@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseProfileUrl } from '../../src/linkedin/url.js';
+import { parseCompanyUrl, parseProfileUrl } from '../../src/linkedin/url.js';
 import { InvalidUrlError } from '../../src/errors.js';
 
 describe('parseProfileUrl', () => {
@@ -36,5 +36,32 @@ describe('parseProfileUrl', () => {
   ])('rejects %s', (input, message) => {
     expect(() => parseProfileUrl(input)).toThrow(InvalidUrlError);
     expect(() => parseProfileUrl(input)).toThrow(message);
+  });
+});
+
+describe('parseCompanyUrl', () => {
+  it.each([
+    ['https://www.linkedin.com/company/anthropicresearch/', 'anthropicresearch', 'company'],
+    ['linkedin.com/company/anthropicresearch/about/?x=1', 'anthropicresearch', 'company'],
+    ['https://in.linkedin.com/school/iithyderabad/', 'iithyderabad', 'school'],
+    ['https://www.linkedin.com/school/s.r.m.-institute-of-science-&-technology-chennai/', 's.r.m.-institute-of-science-&-technology-chennai', 'school'],
+    ['anthropicresearch', 'anthropicresearch', 'company'],
+  ])('%s → %s (%s)', (input, universalName, kind) => {
+    const r = parseCompanyUrl(input);
+    expect(r.universalName).toBe(universalName);
+    expect(r.kind).toBe(kind);
+    expect(r.canonicalUrl).toBe(`https://www.linkedin.com/${kind}/${encodeURIComponent(universalName)}/`);
+  });
+  it.each([
+    ['', /empty/],
+    ['https://www.linkedin.com/in/jane-doe/', /\/v1\/profile/],
+    ['https://example.com/company/x', /not linkedin\.com/],
+    ['https://www.linkedin.com/jobs/view/1', /company/],
+    ['https://www.linkedin.com/company/', /company/],
+  ])('rejects %s', (input, msg) => {
+    expect(() => parseCompanyUrl(input)).toThrow(msg);
+  });
+  it('profile parser points company URLs at /v1/company', () => {
+    expect(() => parseProfileUrl('https://www.linkedin.com/company/acme')).toThrow(/\/v1\/company/);
   });
 });
