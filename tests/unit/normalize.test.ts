@@ -51,7 +51,10 @@ describe('normalizeProfile (minimal fixture)', () => {
       'https://media.licdn.com/dms/image/v2/X/profile-displayphoto-crop_800_800/c',
     );
     expect(profile.profileImage?.variants.map((v) => v.width)).toEqual([100, 400, 800]);
-    expect(profile.backgroundImage).toBeNull();
+    expect(profile.backgroundImage?.url).toBe(
+      'https://media.licdn.com/dms/image/v2/T/profile-displaybackgroundimage-shrink_1584_396/d',
+    );
+    expect(profile.backgroundImage?.variants.map((v) => v.width)).toEqual([350, 1584]);
   });
 
   it('flattens position groups into experience, preserving order', () => {
@@ -184,5 +187,28 @@ describe('normalizeProfile (minimal fixture)', () => {
     expect(bare.experience).toEqual([]);
     expect(bare.profileImage).toBeNull();
     expect(bare.pronouns).toBeNull();
+  });
+});
+
+describe('image URLs are safe for a browser', () => {
+  const p = normalizeProfile({ full, topCard });
+  const urls = [
+    ...(p.profileImage ? [p.profileImage.url, ...p.profileImage.variants.map((v) => v.url)] : []),
+    ...(p.backgroundImage ? [p.backgroundImage.url, ...p.backgroundImage.variants.map((v) => v.url)] : []),
+    ...p.experience.map((e) => e.company?.logoUrl),
+    ...p.education.map((e) => e.school?.logoUrl),
+    ...p.certifications.map((c) => c.organization?.logoUrl),
+    ...p.volunteering.map((v) => v.organization?.logoUrl),
+  ].filter((u): u is string => typeof u === 'string');
+
+  it('never emits cookie-gated /dms/prv/ URLs', () => {
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) expect(u).not.toMatch(/^https:\/\/www\.linkedin\.com\/dms\/prv\//);
+  });
+
+  it('orders background variants ascending by width', () => {
+    const widths = p.backgroundImage!.variants.map((v) => v.width);
+    expect(widths).toEqual([...widths].sort((a, b) => a - b));
+    expect(new Set(widths).size).toBe(widths.length);
   });
 });

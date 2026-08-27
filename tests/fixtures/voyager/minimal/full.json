@@ -31,7 +31,17 @@
           }
         }
       },
-      "backgroundPicture": null,
+      "backgroundPicture": {
+        "displayImageReference": {
+          "vectorImage": {
+            "rootUrl": "https://media.licdn.com/dms/image/v2/T/profile-displaybackgroundimage-shrink_",
+            "artifacts": [
+              { "width": 1584, "height": 396, "fileIdentifyingUrlPathSegment": "1584_396/d" },
+              { "width": 350, "height": 87, "fileIdentifyingUrlPathSegment": "350_87/e" }
+            ]
+          }
+        }
+      },
       "*profilePositionGroups": "urn:li:col:positionGroups",
       "*profileEducations": "urn:li:col:educations",
       "*profileSkills": "urn:li:col:skills",
