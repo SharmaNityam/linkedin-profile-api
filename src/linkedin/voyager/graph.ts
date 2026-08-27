@@ -10,9 +10,14 @@ export class EntityGraph {
   readonly root: VoyagerEntity | undefined;
 
   constructor(...responses: VoyagerResponse[]) {
+    // The same entity (e.g. the Profile) can appear in several responses with
+    // different field subsets, depending on each request's decoration. Merge
+    // them so no field is lost; on conflict the earlier response wins.
     for (const res of responses) {
       for (const entity of res.included ?? []) {
-        if (entity.entityUrn) this.byUrn.set(entity.entityUrn, entity);
+        if (!entity.entityUrn) continue;
+        const existing = this.byUrn.get(entity.entityUrn);
+        this.byUrn.set(entity.entityUrn, existing ? { ...entity, ...existing } : entity);
       }
     }
     this.root = responses[0]?.data;

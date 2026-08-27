@@ -35,7 +35,11 @@ async function main(): Promise<void> {
   if (!slug) throw new Error('usage: pnpm record-fixture <publicIdentifier>');
 
   const config = loadConfig();
-  const client = new HttpVoyagerClient({ liAt: config.LI_AT, userAgent: config.USER_AGENT });
+  const client = new HttpVoyagerClient({
+    liAt: config.LI_AT,
+    companionCookies: config.LI_COOKIES,
+    userAgent: config.USER_AGENT,
+  });
   const { bundle, warnings } = await fetchProfileBundle(client, slug);
 
   const dir = join(import.meta.dirname, '..', 'tests', 'fixtures', 'voyager', slug);

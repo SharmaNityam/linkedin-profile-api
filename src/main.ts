@@ -20,13 +20,19 @@ async function main(): Promise<void> {
   const log: LogFn = (level, msg, extra) => logger[level](extra ?? {}, msg);
   logger.info(redactConfig(config), 'starting');
 
-  const http = new HttpVoyagerClient({ liAt: config.LI_AT, userAgent: config.USER_AGENT, log });
+  const http = new HttpVoyagerClient({
+    liAt: config.LI_AT,
+    companionCookies: config.LI_COOKIES,
+    userAgent: config.USER_AGENT,
+    log,
+  });
 
   let session: BrowserSession | undefined;
   let browser: BrowserFallback | undefined;
   if (config.BROWSER_FALLBACK) {
     session = new BrowserSession({
       liAt: config.LI_AT,
+      companionCookies: config.LI_COOKIES,
       userAgent: config.USER_AGENT,
       ...(config.BROWSER_CHANNEL ? { channel: config.BROWSER_CHANNEL } : {}),
       log,

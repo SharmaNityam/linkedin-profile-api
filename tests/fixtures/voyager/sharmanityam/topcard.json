@@ -1,0 +1,307 @@
+{
+  "data": {
+    "entityUrn": "urn:li:collectionResponse:CrEjdW9L0O3V1s2Kv0kV01CpFPboq0iZ6B2bih/RyIU=",
+    "paging": {
+      "count": 10,
+      "start": 0,
+      "links": []
+    },
+    "*elements": ["urn:li:fsd_profile:ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM"],
+    "$type": "com.linkedin.restli.common.CollectionResponse"
+  },
+  "included": [
+    {
+      "paging": {
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:d1edrWrqiMNu6frwFqcklr5UPSuwNwemVbbBBNgUshs=",
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "countryUrn": null,
+      "defaultLocalizedNameWithoutCountryName": "India",
+      "entityUrn": "urn:li:fsd_geo:102713980",
+      "defaultLocalizedName": "India",
+      "$type": "com.linkedin.voyager.dash.common.Geo"
+    },
+    {
+      "entityUrn": "urn:li:fsd_hashtag:(flutter,urn:li:activity:-)",
+      "displayName": "#flutter",
+      "actionTarget": "https://www.linkedin.com/search/results/all/?keywords=%23flutter&origin=HASH_TAG_FROM_FEED",
+      "$type": "com.linkedin.voyager.dash.feed.Hashtag"
+    },
+    {
+      "entityUrn": "urn:li:fsd_hashtag:(coding,urn:li:activity:-)",
+      "displayName": "#coding",
+      "actionTarget": "https://www.linkedin.com/search/results/all/?keywords=%23coding&origin=HASH_TAG_FROM_FEED",
+      "$type": "com.linkedin.voyager.dash.feed.Hashtag"
+    },
+    {
+      "entityUrn": "urn:li:fsd_hashtag:(appdevelopment,urn:li:activity:-)",
+      "displayName": "#appdevelopment",
+      "actionTarget": "https://www.linkedin.com/search/results/all/?keywords=%23appdevelopment&origin=HASH_TAG_FROM_FEED",
+      "$type": "com.linkedin.voyager.dash.feed.Hashtag"
+    },
+    {
+      "entityUrn": "urn:li:fsd_hashtag:(softwaredevelopment,urn:li:activity:-)",
+      "displayName": "#softwaredevelopment",
+      "actionTarget": "https://www.linkedin.com/search/results/all/?keywords=%23softwaredevelopment&origin=HASH_TAG_FROM_FEED",
+      "$type": "com.linkedin.voyager.dash.feed.Hashtag"
+    },
+    {
+      "followPrimarySettingEnabled": true,
+      "fullLastNameShown": true,
+      "showPremiumSubscriberBadge": null,
+      "formerNameVisibilitySetting": "HIDDEN",
+      "discloseAsProfileViewer": "DISCLOSE_FULL",
+      "messagingSeenReceipts": null,
+      "allowProfileEditBroadcasts": false,
+      "messagingTypingIndicators": null,
+      "eligibleForOneClickFollow": true,
+      "entityUrn": "urn:li:fsd_privacySettings:singleton",
+      "publicProfilePictureVisibilitySetting": "MEMBERS",
+      "pronounVisibilitySetting": "MEMBERS",
+      "requireReferral": null,
+      "showPublicProfile": false,
+      "$type": "com.linkedin.voyager.dash.identity.profile.PrivacySettings",
+      "allowOpenProfile": true,
+      "profilePictureVisibilitySetting": "MEMBERS",
+      "namePronunciationVisibilitySetting": "MEMBERS"
+    },
+    {
+      "birthDateOn": {
+        "month": 6,
+        "day": 24,
+        "$type": "com.linkedin.common.Date"
+      },
+      "objectUrn": "urn:li:member:900112305",
+      "pronounUnion": {
+        "standardizedPronoun": "HE_HIM"
+      },
+      "*educationCard": "urn:li:fsd_profileCard:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,EDUCATION,en_US)",
+      "tempStatusExpiredAtUnion": null,
+      "experienceCardUrn": "urn:li:fsd_profileCard:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,EXPERIENCE,en_US)",
+      "headlineGeneratedSuggestionDelegateUrn": "urn:li:fsu_profileActionDelegate:1469388987",
+      "publicIdentifier": "sharmanityam",
+      "topVoiceBadge": null,
+      "*memberRelationship": "urn:li:fsd_memberRelationship:ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM",
+      "versionTag": "2443469086",
+      "showFollowerCount": true,
+      "profilePicture": {
+        "photoFilterEditInfo": {
+          "bottomLeft": {
+            "x": 0.30061999240570003,
+            "y": 0.5450899862298684,
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "vignette": 0,
+          "bottomRight": {
+            "x": 0.7724499804862717,
+            "y": 0.5450899862298684,
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "topRight": {
+            "x": 0.7724499804862717,
+            "y": 0.2796799929346889,
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "$type": "com.linkedin.voyager.dash.identity.profile.PhotoFilterEditInfo",
+          "saturation": 0,
+          "brightness": 0,
+          "photoFilterType": "ORIGINAL",
+          "contrast": 0,
+          "topLeft": {
+            "x": 0.30061999240570003,
+            "y": 0.2796799929346889,
+            "$type": "com.linkedin.common.Coordinate2D"
+          }
+        },
+        "$type": "com.linkedin.voyager.dash.identity.profile.PhotoFilterPicture",
+        "originalImageReference": {
+          "vectorImage": {
+            "rootUrl": "https://www.linkedin.com/dms/prv/image/v2/D5604AQEDUFchoVuhlg/profile-originalphoto-shrink_",
+            "artifacts": [
+              {
+                "width": 506,
+                "fileIdentifyingUrlPathSegment": "900_1200/B56Z0R4rMRJwAI-/0/1774121570579?m=AQLhw20QpBb_hgAAAaBCJ88HREmRM8CJdatfivEtZ9S4U1F2rOuM1ml5fA&e=1787902700&v=beta&t=HxChyiWHQxOdZzL8JG33dk_Hsd22ODMTWGaYxupu_Ys",
+                "expiresAt": 1787902700000,
+                "height": 900,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 253,
+                "fileIdentifyingUrlPathSegment": "450_600/B56Z0R4rMRJwAQ-/0/1774121570579?m=AQLjdLvWQBJ-mwAAAaBCJ88IF6Q2xuGjkjGzasRIpXeayxXGO25SX4bl5A&e=1787902700&v=beta&t=nzmrCEQgBgyvKVPjE_EWHp8OFMO1oKnTYCky7WgxTvs",
+                "expiresAt": 1787902700000,
+                "height": 450,
+                "$type": "com.linkedin.common.VectorArtifact"
+              }
+            ],
+            "$type": "com.linkedin.common.VectorImage"
+          }
+        },
+        "originalImageUrn": "urn:li:digitalmediaAsset:D5604AQEDUFchoVuhlg",
+        "a11yText": "Nityam Sharma",
+        "displayImageReference": {
+          "vectorImage": {
+            "rootUrl": "https://media.licdn.com/dms/image/v2/D5603AQFYkaPg2IxGtg/profile-displayphoto-",
+            "artifacts": [
+              {
+                "width": 100,
+                "fileIdentifyingUrlPathSegment": "scale_100_100/B56Z0R4rMWJIAc-/0/1774121565087?e=1789603200&v=beta&t=chpIIQhmt3tgKFBFJ2GyKVmHXeb09peqNdnYFWCmtkk",
+                "expiresAt": 1789603200000,
+                "height": 100,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 400,
+                "fileIdentifyingUrlPathSegment": "scale_400_400/B56Z0R4rMWJIAg-/0/1774121565087?e=1789603200&v=beta&t=IJ-uOrutuWSfx4R6ZiS2S4YcHup7vQl9kesQR6PczOI",
+                "expiresAt": 1789603200000,
+                "height": 400,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 200,
+                "fileIdentifyingUrlPathSegment": "scale_200_200/B56Z0R4rMWJIAY-/0/1774121565087?e=1789603200&v=beta&t=9Is-xfmyricPFnUrjM1pBIPIHxkktvWFk-k69Be3gao",
+                "expiresAt": 1789603200000,
+                "height": 200,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 800,
+                "fileIdentifyingUrlPathSegment": "crop_800_800/B56Z0R4rMWJIAI-/0/1774121564998?e=1789603200&v=beta&t=CqIt0m_D6mm_ybuvpnBQAs4b0ob-AeOMjMJTQSZKAx0",
+                "expiresAt": 1789603200000,
+                "height": 800,
+                "$type": "com.linkedin.common.VectorArtifact"
+              }
+            ],
+            "$type": "com.linkedin.common.VectorImage"
+          }
+        },
+        "displayImageUrn": "urn:li:digitalmediaAsset:D5603AQFYkaPg2IxGtg"
+      },
+      "firstName": "Nityam",
+      "idvAdditionalNameConsent": false,
+      "showVerificationBadge": true,
+      "*profileGeneratedSuggestionPromo": "urn:li:collectionResponse:d1edrWrqiMNu6frwFqcklr5UPSuwNwemVbbBBNgUshs=",
+      "lastName": "Sharma",
+      "memorialized": false,
+      "*experienceCard": "urn:li:fsd_profileCard:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,EXPERIENCE,en_US)",
+      "showPremiumSubscriberBadge": false,
+      "tempStatusEmoji": null,
+      "memberPostAnalytics": null,
+      "premium": false,
+      "influencer": false,
+      "entityUrn": "urn:li:fsd_profile:ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM",
+      "headline": "Software Engineer Intern @Brackets | Ex-Intern @IIT Hyderabad | Exploring AI, Mobile & Systems Design",
+      "creator": true,
+      "supportedLocales": [
+        {
+          "country": "US",
+          "language": "en",
+          "$type": "com.linkedin.common.Locale"
+        }
+      ],
+      "creatorInfo": {
+        "associatedHashtag": {
+          "*urn:li:fsd_hashtag:(flutter,urn:li:activity:-)": "urn:li:fsd_hashtag:(flutter,urn:li:activity:-)",
+          "*urn:li:fsd_hashtag:(coding,urn:li:activity:-)": "urn:li:fsd_hashtag:(coding,urn:li:activity:-)",
+          "*urn:li:fsd_hashtag:(softwaredevelopment,urn:li:activity:-)": "urn:li:fsd_hashtag:(softwaredevelopment,urn:li:activity:-)",
+          "*urn:li:fsd_hashtag:(appdevelopment,urn:li:activity:-)": "urn:li:fsd_hashtag:(appdevelopment,urn:li:activity:-)"
+        },
+        "associatedHashtagUrns": [
+          "urn:li:fsd_hashtag:(appdevelopment,urn:li:activity:-)",
+          "urn:li:fsd_hashtag:(coding,urn:li:activity:-)",
+          "urn:li:fsd_hashtag:(flutter,urn:li:activity:-)",
+          "urn:li:fsd_hashtag:(softwaredevelopment,urn:li:activity:-)"
+        ],
+        "$type": "com.linkedin.voyager.dash.identity.profile.CreatorInfo"
+      },
+      "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+      "coverPhotoItems": [],
+      "geoLocation": {
+        "*geo": "urn:li:fsd_geo:102713980",
+        "geoUrn": "urn:li:fsd_geo:102713980",
+        "$type": "com.linkedin.voyager.dash.identity.profile.ProfileGeoLocation"
+      },
+      "*privacySettings": "urn:li:fsd_privacySettings:singleton",
+      "tempStatus": null,
+      "primaryLocale": {
+        "country": "US",
+        "language": "en",
+        "$type": "com.linkedin.common.Locale"
+      },
+      "educationCardUrn": "urn:li:fsd_profileCard:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,EDUCATION,en_US)",
+      "backgroundPicture": {
+        "originalImageReference": {
+          "vectorImage": {
+            "rootUrl": "https://www.linkedin.com/dms/prv/image/v2/D5604AQFXgn1Am39W1g/profile-originalbackgroundimage-shrink_",
+            "artifacts": [
+              {
+                "width": 800,
+                "fileIdentifyingUrlPathSegment": "200_800/B56ZVHP2YZGoAY-/0/1740657092733?m=AQLV3fOmHMdnbAAAAaBCJ88K5s_2O2izhhGQvnYKsrOvgA9hW6w4lT1WQA&e=1787902700&v=beta&t=1wpWyJHu81a1ZTLsjX5LhOZzKwo8SkxF7cwm_5o3a8o",
+                "expiresAt": 1787902700000,
+                "height": 200,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 1584,
+                "fileIdentifyingUrlPathSegment": "396_1584/B56ZVHP2YZGoAQ-/0/1740657092733?m=AQIXU1yWZI4P3QAAAaBCJ88LdBQoWAO9qUbO0g8GlL-DHiBWevuA6tZqZA&e=1787902700&v=beta&t=xAwyYuZRU3IOpzStu4Zdpaz2c0_bR-58Tui8TNWE_Ak",
+                "expiresAt": 1787902700000,
+                "height": 396,
+                "$type": "com.linkedin.common.VectorArtifact"
+              }
+            ],
+            "$type": "com.linkedin.common.VectorImage"
+          }
+        },
+        "originalImageUrn": "urn:li:digitalmediaAsset:D5604AQFXgn1Am39W1g",
+        "displayImageReference": {
+          "vectorImage": {
+            "rootUrl": "https://media.licdn.com/dms/image/v2/D5616AQHmmV7GlGIlZA/profile-displaybackgroundimage-shrink_",
+            "artifacts": [
+              {
+                "width": 800,
+                "fileIdentifyingUrlPathSegment": "200_800/B56ZVHP2Y4HQAY-/0/1740657092753?e=1789603200&v=beta&t=8QbZf0VBgRC05wDkavyhhnhmE2KimuUfbiuiZ2Ik_o0",
+                "expiresAt": 1789603200000,
+                "height": 200,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 1400,
+                "fileIdentifyingUrlPathSegment": "350_1400/B56ZVHP2Y4HQAc-/0/1740657092753?e=1789603200&v=beta&t=jtsJQyFP6Sk6CimfXa6QUfkG2VEGU6sGCnvVB2LD924",
+                "expiresAt": 1789603200000,
+                "height": 350,
+                "$type": "com.linkedin.common.VectorArtifact"
+              }
+            ],
+            "$type": "com.linkedin.common.VectorImage"
+          }
+        },
+        "displayImageUrn": "urn:li:digitalmediaAsset:D5616AQHmmV7GlGIlZA",
+        "$type": "com.linkedin.voyager.dash.identity.profile.PhotoFilterPicture"
+      }
+    },
+    {
+      "entityUrn": "urn:li:fsd_profileCard:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,EDUCATION,en_US)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.tetris.Card"
+    },
+    {
+      "entityUrn": "urn:li:fsd_profileCard:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,EXPERIENCE,en_US)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.tetris.Card"
+    },
+    {
+      "memberRelationshipUnion": {
+        "self": {
+          "$type": "com.linkedin.restli.common.EmptyRecord"
+        }
+      },
+      "entityUrn": "urn:li:fsd_memberRelationship:ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM",
+      "memberRelationshipData": null,
+      "$type": "com.linkedin.voyager.dash.relationships.MemberRelationship"
+    }
+  ]
+}

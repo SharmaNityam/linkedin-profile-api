@@ -7,6 +7,7 @@ import {
   UpstreamError,
 } from '../../errors.js';
 import type { VoyagerResponse } from './types.js';
+import { buildSessionCookies, serializeCookies, type SessionCookies } from '../cookies.js';
 
 export const LINKEDIN_ORIGIN = 'https://www.linkedin.com';
 export const VOYAGER_BASE = `${LINKEDIN_ORIGIN}/voyager/api`;
@@ -138,6 +139,8 @@ export function newCsrfToken(): string {
 export interface HttpVoyagerClientOptions {
   /** The `li_at` session cookie of the LinkedIn account used for scraping. */
   liAt: string;
+  /** Optional companion cookies (the browser's `document.cookie`). See cookies.ts. */
+  companionCookies?: string | undefined;
   userAgent: string;
   /** Injectable for tests. Defaults to global fetch. */
   fetch?: typeof fetch;
@@ -151,12 +154,13 @@ export class HttpVoyagerClient implements VoyagerTransport {
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
   private readonly log: LogFn;
-  private readonly csrfToken = newCsrfToken();
+  private readonly session: SessionCookies;
 
   constructor(private readonly options: HttpVoyagerClientOptions) {
     this.fetchImpl = options.fetch ?? fetch;
     this.timeoutMs = options.timeoutMs ?? 15_000;
     this.log = options.log ?? (() => undefined);
+    this.session = buildSessionCookies(options.liAt, options.companionCookies, newCsrfToken);
   }
 
   /** Retries once on network errors and 5xx; everything else is terminal. */
@@ -181,8 +185,8 @@ export class HttpVoyagerClient implements VoyagerTransport {
       res = await this.fetchImpl(url, {
         method: 'GET',
         headers: {
-          ...voyagerHeaders(this.csrfToken),
-          cookie: `li_at=${this.options.liAt}; JSESSIONID="${this.csrfToken}"`,
+          ...voyagerHeaders(this.session.csrfToken),
+          cookie: serializeCookies(this.session.jar),
           'user-agent': this.options.userAgent,
           referer: `${LINKEDIN_ORIGIN}/`,
         },

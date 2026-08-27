@@ -44,6 +44,19 @@ describe('HttpVoyagerClient', () => {
     expect(init!.redirect).toBe('manual');
   });
 
+  it('sends companion cookies and echoes their JSESSIONID as csrf-token', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}));
+    await new HttpVoyagerClient({
+      liAt: 'COOKIE',
+      companionCookies: 'bcookie=b; JSESSIONID="ajax:42"',
+      userAgent: 'UA',
+      fetch: fetchMock,
+    }).get('/p', ctx);
+    const headers = fetchMock.mock.calls[0]![1]!.headers as Record<string, string>;
+    expect(headers.cookie).toBe('bcookie=b; JSESSIONID="ajax:42"; li_at=COOKIE');
+    expect(headers['csrf-token']).toBe('ajax:42');
+  });
+
   it('returns the parsed body on success', async () => {
     const body = { data: { a: 1 }, included: [{ entityUrn: 'x' }] };
     await expect(

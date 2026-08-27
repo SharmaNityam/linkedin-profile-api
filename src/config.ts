@@ -4,6 +4,12 @@ const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' |
 
 const envSchema = z.object({
   LI_AT: z.string().min(1, 'LI_AT (LinkedIn session cookie) is required'),
+  /**
+   * Optional: the browser's `document.cookie` for linkedin.com. Sends the same
+   * companion cookies (JSESSIONID, bcookie, lidc…) the browser does, which
+   * makes the session far less likely to be flagged and revoked.
+   */
+  LI_COOKIES: z.string().optional(),
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
@@ -16,7 +22,7 @@ const envSchema = z.object({
   USER_AGENT: z
     .string()
     .default(
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
     ),
 });
 
@@ -33,5 +39,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
 /** Config with secrets masked, safe to log at startup. */
 export function redactConfig(config: Config): Record<string, unknown> {
-  return { ...config, LI_AT: `${config.LI_AT.slice(0, 6)}…(${config.LI_AT.length} chars)` };
+  return {
+    ...config,
+    LI_AT: `${config.LI_AT.slice(0, 6)}…(${config.LI_AT.length} chars)`,
+    LI_COOKIES: config.LI_COOKIES ? `(${config.LI_COOKIES.length} chars)` : undefined,
+  };
 }

@@ -1,0 +1,130 @@
+{
+  "data": {
+    "entityUrn": "urn:li:collectionResponse:XUb9+9mEXGApHPidIC0BFJw2MV9Zl7+h+edxRzbQZ+c=",
+    "paging": {
+      "count": 50,
+      "start": 20,
+      "total": 39,
+      "links": []
+    },
+    "*elements": [
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1843544977)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1843544976)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1843544975)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,7)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,4)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,5)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,6)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1182390288)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1182381244)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1182372384)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,2)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,3)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957846072)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957865148)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957734365)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957885759)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957745429)",
+      "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957724302)"
+    ],
+    "$type": "com.linkedin.restli.common.CollectionResponse"
+  },
+  "included": [
+    {
+      "name": "Object-Oriented Programming (OOP)",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,6)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Object Oriented Design",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,5)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Python (Programming Language)",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,7)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Figma (Software)",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957846072)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Communication",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957745429)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Analytical Skills",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957724302)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "iOS Development",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1182390288)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Problem Solving",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1182372384)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Dart",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957734365)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Android Development",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1182381244)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "C (Programming Language)",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957865148)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "TypeScript",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1843544975)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Flutter",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,2)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Programming",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Voice User Interface (VUI)",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1843544977)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "C++",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,4)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Client Requirements",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1957885759)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "AWS Lambda",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,1843544976)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "name": "Mobile Application Development",
+      "entityUrn": "urn:li:fsd_skill:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,3)",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    }
+  ]
+}

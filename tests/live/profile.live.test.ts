@@ -16,7 +16,11 @@ const liAt = process.env.LI_AT;
 describe.skipIf(!liAt)('live: LinkedIn Voyager', () => {
   const config = loadConfig({ ...process.env, LI_AT: liAt ?? 'x' });
   const service = new ProfileService({
-    http: new HttpVoyagerClient({ liAt: config.LI_AT, userAgent: config.USER_AGENT }),
+    http: new HttpVoyagerClient({
+      liAt: config.LI_AT,
+      companionCookies: config.LI_COOKIES,
+      userAgent: config.USER_AGENT,
+    }),
     cache: new TtlCache<ProfileResponse>(0),
     semaphore: new Semaphore(2),
   });

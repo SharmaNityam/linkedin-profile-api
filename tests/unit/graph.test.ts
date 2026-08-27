@@ -59,6 +59,20 @@ describe('EntityGraph', () => {
     ).toEqual(['A', 'C', 'B']);
   });
 
+  it('merges the same entity from several responses, earlier response winning on conflict', () => {
+    const merged = new EntityGraph(
+      { included: [{ entityUrn: 'urn:li:x', $type: 'T', a: 1, shared: 'first' }] },
+      { included: [{ entityUrn: 'urn:li:x', $type: 'T', b: 2, shared: 'second' }] },
+    );
+    expect(merged.get('urn:li:x')).toEqual({
+      entityUrn: 'urn:li:x',
+      $type: 'T',
+      a: 1,
+      b: 2,
+      shared: 'first',
+    });
+  });
+
   it('filters by type', () => {
     expect(graph.ofType('Skill')).toHaveLength(2);
   });

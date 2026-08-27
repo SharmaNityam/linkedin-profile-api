@@ -1,9 +1,12 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core';
 import type { LogFn } from '../voyager/client.js';
 import { LINKEDIN_ORIGIN } from '../voyager/client.js';
+import { parseCookieString } from '../cookies.js';
 
 export interface BrowserSessionOptions {
   liAt: string;
+  /** Optional companion cookies (the browser's `document.cookie`). See cookies.ts. */
+  companionCookies?: string | undefined;
   userAgent: string;
   /** e.g. "chrome" to use an installed Chrome locally instead of a bundled Chromium. */
   channel?: string;
@@ -58,6 +61,16 @@ export class BrowserSession {
       locale: 'en-US',
       viewport: { width: 1280, height: 900 },
     });
+    const companions = [...parseCookieString(this.options.companionCookies)]
+      .filter(([name]) => name !== 'li_at')
+      .map(([name, value]) => ({
+        name,
+        value,
+        domain: '.linkedin.com',
+        path: '/',
+        secure: true,
+        sameSite: 'None' as const,
+      }));
     await this.context.addCookies([
       {
         name: 'li_at',
@@ -68,6 +81,7 @@ export class BrowserSession {
         secure: true,
         sameSite: 'None',
       },
+      ...companions,
     ]);
     return this.context;
   }
