@@ -2,7 +2,7 @@ services:
   - type: web
     name: linkedin-profile-api
     runtime: docker
-    plan: starter
+    plan: free
     region: singapore
     healthCheckPath: /health
     envVars:
@@ -14,5 +14,6 @@ services:
         value: "10"
       - key: CACHE_TTL_SECONDS
         value: "900"
+      # Free instances have 512 MB; Chromium needs ~1 GB. Set to "true" on a starter plan.
       - key: BROWSER_FALLBACK
-        value: "true"
+        value: "false"

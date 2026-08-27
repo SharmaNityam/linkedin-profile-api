@@ -305,7 +305,7 @@ docker run --rm -p 3000:3000 -e LI_AT="$LI_AT" -e BROWSER_FALLBACK=true linkedin
 
 `render.yaml` describes the service. Connect the repo in the Render dashboard, create a Blueprint, and set `LI_AT` as a secret environment variable (it is marked `sync: false`, so it is never read from the repo). Render provisions HTTPS automatically.
 
-The free tier (512 MB) is fine for the HTTP path; enable `BROWSER_FALLBACK=true` only on an instance with ≥1 GB, otherwise Chromium will be OOM-killed. Free instances also sleep after inactivity — the first request after a pause takes ~30 s.
+The blueprint targets the **free** plan, which is fine for the Voyager HTTP path. Two consequences: free instances (512 MB) cannot run Chromium, so `BROWSER_FALLBACK` is `false` there — switch to the starter plan and set it to `true` to enable the fallback; and free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes.
 
 ---
 
