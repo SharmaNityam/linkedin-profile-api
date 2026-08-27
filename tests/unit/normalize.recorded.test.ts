@@ -152,9 +152,9 @@ describe.each(POSTS)('recorded posts fixture: %s', (slug) => {
   });
 
   it('never emits cookie-gated /dms/prv/ image URLs', () => {
-    for (const u of all.flatMap((p) => p.images.flatMap(imageUrls))) {
-      expect(u).not.toMatch(PRIVATE_IMAGE);
-    }
+    const urls = all.flatMap((p) => p.images.flatMap(imageUrls));
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) expect(u).not.toMatch(PRIVATE_IMAGE);
   });
 });
 

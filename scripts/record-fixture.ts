@@ -34,12 +34,18 @@ const NOISE_KEYS = new Set(['$anti_abuse_metadata', 'trackingId', 'trackingUrn',
 /** The kinds share a shape: a fixture directory name plus what to fetch. */
 export type Target = { kind: 'profile' | 'company' | 'posts'; slug: string };
 
-/** One recorded entity: the files to write and the line to print about them. */
+/**
+ * One recorded entity: the files to write, plus a deferred `summarize()` that
+ * normalises the fetched bundle. Deferred so callers can write the raw files
+ * to disk *before* risking a `SchemaDriftError` — schema drift is exactly the
+ * case where the fixture is most worth keeping.
+ */
 export interface Recording {
   /** Absolute fixture directory, `<repo>/tests/fixtures/voyager[/<kind>]/<slug>`. */
   dir: string;
   files: { name: string; body: unknown }[];
-  summary: string;
+  /** Normalises the bundle and returns the one-line summary. May throw `SchemaDriftError`. */
+  summarize: () => string;
   warnings: string[];
 }
 
@@ -55,17 +61,21 @@ export function strip(value: unknown): unknown {
   return value;
 }
 
+const RESERVED_SLUGS = new Set(['profile', 'company', 'posts']);
+
 /**
  * `<slug>` records a profile (the original behaviour); `company`/`posts` take
  * the entity name as the next argument.
  */
 export function parseArgs(argv: readonly string[]): Target {
+  if (argv.length > 2) throw new Error(USAGE);
   const [first, second] = argv;
   if (first === 'company' || first === 'posts') {
     if (!second) throw new Error(USAGE);
     return { kind: first, slug: second };
   }
   if (!first) throw new Error(USAGE);
+  if (RESERVED_SLUGS.has(first)) throw new Error(USAGE);
   return { kind: 'profile', slug: first };
 }
 
@@ -89,11 +99,13 @@ export async function record(
 
   if (target.kind === 'company') {
     const { bundle, warnings } = await fetchCompanyBundle(client, target.slug);
-    const c = normalizeCompany(bundle);
     return {
       dir,
       files: [file('company.json', bundle.company)],
-      summary: `${c.name} · ${c.industries.join(', ') || 'no industries'} · ${c.followerCount ?? '?'} followers`,
+      summarize: () => {
+        const c = normalizeCompany(bundle);
+        return `${c.name} · ${c.industries.join(', ') || 'no industries'} · ${c.followerCount ?? '?'} followers`;
+      },
       warnings,
     };
   }
@@ -105,18 +117,19 @@ export async function record(
       POSTS_DEFAULT_COUNT,
       postsQueryId,
     );
-    const p = normalizePosts(bundle, target.slug);
-    const reshares = p.posts.filter((post) => post.isReshare).length;
     return {
       dir,
       files: [file('topcard.json', bundle.topCard), file('posts.json', bundle.posts)],
-      summary: `${p.posts.length} posts, ${reshares} reshares`,
+      summarize: () => {
+        const p = normalizePosts(bundle, target.slug);
+        const reshares = p.posts.filter((post) => post.isReshare).length;
+        return `${p.posts.length} posts, ${reshares} reshares`;
+      },
       warnings,
     };
   }
 
   const { bundle, warnings } = await fetchProfileBundle(client, target.slug);
-  const profile = normalizeProfile(bundle);
   return {
     dir,
     files: [
@@ -124,9 +137,53 @@ export async function record(
       ...(bundle.topCard ? [file('topcard.json', bundle.topCard)] : []),
       ...(bundle.skillPages ?? []).map((page, i) => file(`skills-${i + 1}.json`, page)),
     ],
-    summary: `${profile.fullName} · ${profile.experience.length} positions · ${profile.education.length} education · ${profile.skills.length} skills · ${profile.certifications.length} certs · ${profile.languages.length} languages`,
+    summarize: () => {
+      const profile = normalizeProfile(bundle);
+      return `${profile.fullName} · ${profile.experience.length} positions · ${profile.education.length} education · ${profile.skills.length} skills · ${profile.certifications.length} certs · ${profile.languages.length} languages`;
+    },
     warnings,
   };
+}
+
+/**
+ * Fetches one entity, writes its files to `dir` immediately, and only then
+ * attempts to normalise and summarise it. If normalisation throws (schema
+ * drift is exactly the case this guards against), the fixture is already on
+ * disk — the run is reported as a partial success instead of losing the
+ * sample and requiring a second live request.
+ */
+export async function recordToDir(
+  client: VoyagerTransport,
+  target: Target,
+  postsQueryId: string,
+  dir: string,
+): Promise<{
+  files: { name: string; body: unknown }[];
+  warnings: string[];
+  summary: string | null;
+  normalizeError: string | null;
+}> {
+  const { files, warnings, summarize } = await record(client, target, postsQueryId);
+
+  mkdirSync(dir, { recursive: true });
+  for (const { name, body } of files) {
+    writeFileSync(join(dir, name), JSON.stringify(body, null, 2) + '\n');
+  }
+
+  console.log(`Recorded ${target.kind} ${target.slug} → ${dir}`);
+
+  let summary: string | null = null;
+  let normalizeError: string | null = null;
+  try {
+    summary = summarize();
+    console.log(`  ${summary}`);
+  } catch (err) {
+    normalizeError = err instanceof Error ? err.message : String(err);
+    console.log(`  written, but did not normalize: ${normalizeError}`);
+  }
+  if (warnings.length) console.log('  warnings:', warnings);
+
+  return { files, warnings, summary, normalizeError };
 }
 
 async function main(): Promise<void> {
@@ -139,20 +196,7 @@ async function main(): Promise<void> {
     userAgent: config.USER_AGENT,
   });
 
-  const { dir, files, summary, warnings } = await record(
-    client,
-    target,
-    config.VOYAGER_POSTS_QUERY_ID,
-  );
-
-  mkdirSync(dir, { recursive: true });
-  for (const { name, body } of files) {
-    writeFileSync(join(dir, name), JSON.stringify(body, null, 2) + '\n');
-  }
-
-  console.log(`Recorded ${target.kind} ${target.slug} → ${dir}`);
-  console.log(`  ${summary}`);
-  if (warnings.length) console.log('  warnings:', warnings);
+  await recordToDir(client, target, config.VOYAGER_POSTS_QUERY_ID, fixtureDir(target));
 }
 
 // Only when run as a script: importing this module (from tests) must never

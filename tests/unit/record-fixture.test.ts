@@ -1,5 +1,8 @@
+import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseArgs, record, strip, USAGE } from '../../scripts/record-fixture.js';
+import { parseArgs, record, recordToDir, strip, USAGE } from '../../scripts/record-fixture.js';
 import type { VoyagerTransport } from '../../src/linkedin/voyager/client.js';
 import type { VoyagerResponse } from '../../src/linkedin/voyager/types.js';
 import { loadEntityFixture, loadFixture } from '../helpers/fixtures.js';
@@ -35,6 +38,17 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['company'])).toThrow(USAGE);
     expect(() => parseArgs(['posts'])).toThrow(USAGE);
   });
+
+  it('rejects a bare slug that shadows a sub-command name', () => {
+    expect(() => parseArgs(['profile'])).toThrow(USAGE);
+    expect(() => parseArgs(['company'])).toThrow(USAGE);
+    expect(() => parseArgs(['posts'])).toThrow(USAGE);
+  });
+
+  it('rejects the mistaken "profile <slug>" form and more than two args', () => {
+    expect(() => parseArgs(['profile', 'sharmanityam'])).toThrow(USAGE);
+    expect(() => parseArgs(['company', 'acme', 'extra'])).toThrow(USAGE);
+  });
 });
 
 describe('strip', () => {
@@ -68,7 +82,7 @@ describe('record', () => {
 
     expect(result.dir.endsWith('/tests/fixtures/voyager/company/acme')).toBe(true);
     expect(result.files.map((f) => f.name)).toEqual(['company.json']);
-    expect(result.summary).toBe('Acme · Software Development · 1234 followers');
+    expect(result.summarize()).toBe('Acme · Software Development · 1234 followers');
     expect(client.paths).toHaveLength(1);
   });
 
@@ -82,7 +96,7 @@ describe('record', () => {
 
     expect(result.dir.endsWith('/tests/fixtures/voyager/posts/jane-doe')).toBe(true);
     expect(result.files.map((f) => f.name)).toEqual(['topcard.json', 'posts.json']);
-    expect(result.summary).toMatch(/^\d+ posts, \d+ reshares$/);
+    expect(result.summarize()).toMatch(/^\d+ posts, \d+ reshares$/);
     // count 10 and the query id reach the GraphQL call.
     expect(client.paths[1]).toContain('count:10');
     expect(client.paths[1]).toContain('queryId=voyagerFeedDashProfileUpdates.queryid');
@@ -99,7 +113,7 @@ describe('record', () => {
 
     expect(result.dir.endsWith('/tests/fixtures/voyager/minimal')).toBe(true);
     expect(result.files.map((f) => f.name)).toEqual(['full.json', 'topcard.json', 'skills-1.json']);
-    expect(result.summary).toContain('positions');
+    expect(result.summarize()).toContain('positions');
   });
 
   it('strips noise from every recorded file', async () => {
@@ -125,5 +139,37 @@ describe('record', () => {
     expect(json).not.toContain('$recipeTypes');
     expect(json).not.toContain('multiLocale');
     expect(json).toContain('Acme');
+  });
+});
+
+describe('recordToDir', () => {
+  const tempDir = () => mkdtempSync(join(tmpdir(), 'record-fixture-'));
+
+  it('writes files to disk and reports a summary on success', async () => {
+    const client = new FakeVoyager([
+      [/^\/organization\/companies/, loadEntityFixture('company', 'minimal', 'company.json')],
+    ]);
+    const dir = tempDir();
+
+    const result = await recordToDir(client, { kind: 'company', slug: 'acme' }, 'queryid', dir);
+
+    expect(readdirSync(dir)).toEqual(['company.json']);
+    expect(result.summary).toBe('Acme · Software Development · 1234 followers');
+    expect(result.normalizeError).toBeNull();
+  });
+
+  it('writes the fixture to disk even when normalisation throws on schema drift', async () => {
+    // A response with no entity of the expected type: fetching succeeds, but
+    // normalizeCompany has nothing to find a root Company entity in.
+    const driftedBody = { data: {}, included: [] } as unknown as VoyagerResponse;
+    const client = new FakeVoyager([[/^\/organization\/companies/, driftedBody]]);
+    const dir = tempDir();
+
+    const result = await recordToDir(client, { kind: 'company', slug: 'acme' }, 'queryid', dir);
+
+    expect(readdirSync(dir)).toEqual(['company.json']);
+    expect(JSON.parse(readFileSync(join(dir, 'company.json'), 'utf8'))).toEqual(driftedBody);
+    expect(result.summary).toBeNull();
+    expect(result.normalizeError).toContain('root Company entity');
   });
 });
