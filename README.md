@@ -1,11 +1,13 @@
 # LinkedIn Profile API
 
-A small HTTPS service that takes a LinkedIn profile URL and returns the profile as structured JSON: name, headline, location, about, experience, education, skills, certifications, languages, volunteering and images.
+A small HTTPS service that takes a LinkedIn URL and returns structured JSON. Three entities: a **member profile** (name, headline, location, about, experience, education, skills, certifications, languages, volunteering and images), a **company or school page**, and a **member's newest posts**.
 
 It is a pure reverse-engineering of **Voyager**, the private JSON API that LinkedIn's own web app calls. Every request goes straight to LinkedIn's endpoints over HTTP; there is no browser, no HTML parsing and no third-party service involved.
 
 ```bash
 curl "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
+curl "https://linkedin-profile-api-c925.onrender.com/v1/company?url=https://www.linkedin.com/company/anthropicresearch/"
+curl "https://linkedin-profile-api-c925.onrender.com/v1/posts?url=https://www.linkedin.com/in/sharmanityam/&count=5"
 ```
 
 - **Live docs:** `https://linkedin-profile-api-c925.onrender.com/docs` (Swagger UI, generated from the response schema)
@@ -17,7 +19,14 @@ curl "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.
 
 - [Quick start](#quick-start)
 - [API](#api)
+  - [`GET|POST /v1/profile`](#getpost-v1profile)
+  - [`GET|POST /v1/company`](#getpost-v1company)
+  - [`GET|POST /v1/posts`](#getpost-v1posts)
+  - [Errors](#errors)
 - [Approach: reverse engineering Voyager](#approach-reverse-engineering-voyager)
+  - [Company pages](#company-pages)
+  - [Member posts](#member-posts)
+  - [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid)
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Deployment](#deployment)
@@ -63,18 +72,20 @@ The cookie normally lives for about a year. When it expires, or LinkedIn revokes
 | `LI_COOKIES` | - | Optional: the browser's `document.cookie` for linkedin.com, used instead of bootstrapping companion cookies |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Listen address |
 | `RATE_LIMIT_PER_MINUTE` | `10` | Per-IP limit; protects the LinkedIn account behind the API |
-| `CACHE_TTL_SECONDS` | `900` | In-memory cache for repeated lookups of the same profile |
+| `CACHE_TTL_SECONDS` | `900` | In-memory cache for repeated lookups of the same entity |
 | `MAX_CONCURRENT_UPSTREAM` | `2` | Concurrent requests to LinkedIn |
+| `VOYAGER_POSTS_QUERY_ID` | `20c70fe0314184158516a7ec004c0408` | The `voyagerFeedDashProfileUpdates` persisted-query hash used by `/v1/posts`. LinkedIn rotates these; see [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid) |
 | `LOG_LEVEL` | `info` | pino log level |
 
 ---
 
 ## API
 
-### `GET /v1/profile?url=<linkedin-url>`
-### `POST /v1/profile` with body `{"url": "<linkedin-url>"}`
+### `GET|POST /v1/profile`
 
-Accepted URL forms: `https://www.linkedin.com/in/<slug>/`, `linkedin.com/in/<slug>?…`, `in.linkedin.com/in/<slug>`, `linkedin.com/mwlite/in/<slug>`, or just the bare `<slug>`. Company, school and post URLs are rejected with `400`.
+`GET /v1/profile?url=<linkedin-url>`, or `POST /v1/profile` with body `{"url": "<linkedin-url>"}`.
+
+Accepted URL forms: `https://www.linkedin.com/in/<slug>/`, `linkedin.com/in/<slug>?…`, `in.linkedin.com/in/<slug>`, `linkedin.com/mwlite/in/<slug>`, or just the bare `<slug>`. Company and school URLs are rejected with `400 INVALID_URL` and a message pointing at `/v1/company`; other non-profile URLs are rejected with `400` too.
 
 #### Response `200`
 
@@ -168,17 +179,164 @@ Schema conventions:
 - `meta.warnings` lists non-fatal problems, e.g. a skills page that could not be fetched.
 - The full schema is in [`src/schema/profile.ts`](src/schema/profile.ts) and served at `/openapi.json`.
 
-#### Errors
+### `GET|POST /v1/company`
+
+`GET /v1/company?url=<company-or-school-url>`, or `POST /v1/company` with body `{"url": "<company-or-school-url>"}`.
+
+Accepted URL forms: `https://www.linkedin.com/company/<name>/`, `https://www.linkedin.com/school/<name>/`, the same without scheme or trailing slash, or just the bare `<name>` (assumed to be a company). A `/in/` URL is rejected with `400 INVALID_URL` and a message pointing at `/v1/profile`.
+
+Companies and schools are the same entity to LinkedIn and are served by the same endpoint; the response distinguishes them with `kind`.
+
+#### Response `200`
+
+Real output for `https://www.linkedin.com/company/anthropicresearch/`, with the long description and the signed image URLs trimmed:
+
+```jsonc
+{
+  "url": "https://www.linkedin.com/company/anthropicresearch/",
+  "universalName": "anthropicresearch",
+  "urn": "urn:li:fs_normalized_company:74126343",
+  "name": "Anthropic",
+  "kind": "company",
+  "tagline": "Anthropic is an AI safety and research company working to build reliable, interpretable, and steerable AI systems.",
+  "description": "We're an AI research company that builds reliable, interpretable, and steerable AI systems. …",
+  "websiteUrl": "https://www.anthropic.com/",
+  "industries": ["Research Services"],
+  "companyType": "Privately Held",
+  "staffCount": 5826,
+  "staffCountRange": { "start": 501, "end": 1000 },
+  "followerCount": 4646925,
+  "headquarters": null,
+  "foundedYear": null,
+  "specialities": [],
+  "phone": null,
+  "logo": {
+    "url": "https://media.licdn.com/dms/image/v2/…/company-logo_400_400/…",
+    "variants": [
+      { "width": 100, "height": 100, "url": "…" },
+      { "width": 200, "height": 200, "url": "…" },
+      { "width": 400, "height": 400, "url": "…" }
+    ]
+  },
+  "backgroundImage": {
+    "url": "https://media.licdn.com/dms/image/v2/…/image-scale_191_1128/…",
+    "variants": [
+      { "width": 108, "height": 18, "url": "…" },
+      { "width": 749, "height": 127, "url": "…" },
+      { "width": 1128, "height": 191, "url": "…" }
+    ]
+  },
+  "meta": { "source": "voyager", "fetchedAt": "…", "cached": false, "durationMs": 640, "warnings": [] }
+}
+```
+
+A school differs only in the values. For `https://www.linkedin.com/school/iithyderabad/`: `"kind": "school"`, `"companyType": "Educational Institution"`, `"foundedYear": 2008`, and a populated `headquarters` (`{ "city": "Sangareddy", "region": "Telangana", "country": "IN", "postalCode": "502285", "line1": "NH65, Kandi," }`).
+
+Schema conventions:
+
+- Absent scalars are `null`, absent lists are `[]`, exactly as for profiles. Anthropic's page above genuinely has no `headquarter`, `foundedOn` or `specialities` set.
+- `staffCount` is the number of members who list the company as their employer; `staffCountRange` is the self-declared band. They disagree, and LinkedIn reports both.
+- `websiteUrl` is the company's own site, not the LinkedIn page (that is `url`).
+- The full schema is in [`src/schema/company.ts`](src/schema/company.ts).
+
+### `GET|POST /v1/posts`
+
+`GET /v1/posts?url=<profile-url>&count=<n>`, or `POST /v1/posts` with body `{"url": "<profile-url>", "count": <n>}`.
+
+`url` takes the same forms `/v1/profile` accepts. `count` is an integer, **1 to 50, default 10**; out-of-range values are rejected with `400`. There is no pagination in v1: the response is the newest `count` posts, in the order LinkedIn returns them (newest first), and 50 is the ceiling. LinkedIn may return fewer than asked.
+
+The operator's own home feed (`linkedin.com/feed/`) is deliberately **not** exposed. This API answers questions about a named member, not about whatever LinkedIn decided to show the account behind `LI_AT`.
+
+#### Response `200`
+
+Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `count`, showing the newest post and the one repost in the sample; the other seven posts and the long bodies are elided:
+
+```jsonc
+{
+  "url": "https://www.linkedin.com/in/sharmanityam/recent-activity/all/",
+  "publicIdentifier": "sharmanityam",
+  "count": 10,
+  "posts": [
+    {
+      "urn": "urn:li:activity:7390255662376824832",
+      "url": "https://www.linkedin.com/posts/activity-7390255662376824832-jfKf",
+      "createdAt": "2025-11-01T05:17:34.221Z",
+      "text": "I’m happy to share that I’m starting a new position as Software Engineer Intern at Brackets!",
+      "author": {
+        "name": "Nityam Sharma",
+        "headline": "Software Engineer Intern @Brackets | Ex-Intern @IIT Hyderabad | …",
+        "linkedinUrl": "https://www.linkedin.com/in/sharmanityam"
+      },
+      "isReshare": false,
+      "reshared": null,
+      "images": [],
+      "article": null,
+      "video": false,
+      "stats": {
+        "likes": 66,
+        "comments": 31,
+        "shares": 2,
+        "reactions": { "LIKE": 53, "PRAISE": 8, "EMPATHY": 5 }
+      }
+    },
+    {
+      "urn": "urn:li:activity:7193517581419380736",
+      "url": "https://www.linkedin.com/posts/shinjanpatra_working-on-something-interesting-…",
+      "createdAt": "2024-05-07T07:50:40.504Z",
+      "text": "Working on something interesting, will share once done. …",
+      "author": {
+        "name": "Shinjan P",
+        "headline": "writing code",
+        "linkedinUrl": "https://www.linkedin.com/in/shinjanpatra"
+      },
+      "isReshare": true,
+      "reshared": null,
+      "images": [
+        {
+          "url": "https://media.licdn.com/dms/image/v2/…/feedshare-shrink_1280/…",
+          "variants": [
+            { "width": 20, "height": 8, "url": "…" },
+            { "width": 480, "height": 208, "url": "…" },
+            { "width": 1179, "height": 513, "url": "…" }
+          ]
+        }
+      ],
+      "article": null,
+      "video": false,
+      "stats": {
+        "likes": 69,
+        "comments": 5,
+        "shares": 3,
+        "reactions": { "LIKE": 65, "APPRECIATION": 3, "INTEREST": 1 }
+      }
+    }
+  ],
+  "meta": { "source": "voyager", "fetchedAt": "…", "cached": false, "durationMs": 1810, "warnings": [] }
+}
+```
+
+Note the second entry. It is a **plain repost**, and LinkedIn does not model it as a wrapper: the update it returns *is* the original post. So `author` is the **original** author (Shinjan P, not the member whose activity was requested), `isReshare` is `true`, and `reshared` is `null`. The reposting member is not surfaced as a separate field; the fact that they reposted it is what `isReshare` records. `reshared` is populated only for a repost that adds its own commentary, where LinkedIn nests the original, and that shape is **unverified** (see [Known limitations](#known-limitations)).
+
+Schema conventions:
+
+- `count` echoes what was asked for, not how many came back; `posts.length` is the real number.
+- `createdAt` is derived from the activity id, not from a field LinkedIn sends. See [Member posts](#member-posts).
+- `stats` is `null` when the counts entity is missing; `stats.reactions` maps LinkedIn's reaction types (`LIKE`, `PRAISE`, `EMPATHY`, `APPRECIATION`, `INTEREST`, …) to counts.
+- `reshared` never carries its own `reshared`: nesting stops at one level.
+- The full schema is in [`src/schema/post.ts`](src/schema/post.ts).
+
+### Errors
 
 All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 
 | Status | `code` | When |
 |---|---|---|
-| 400 | `INVALID_URL` | Not a LinkedIn member-profile URL |
-| 400 | `INVALID_REQUEST` | Missing/invalid `url` parameter |
-| 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two) |
+| 400 | `INVALID_URL` | Wrong kind of LinkedIn URL for the endpoint. A company URL on `/v1/profile` says "use /v1/company"; an `/in/` URL on `/v1/company` says "use /v1/profile" |
+| 400 | `INVALID_REQUEST` | Missing/invalid `url` parameter, or a `count` outside 1 to 50 |
+| 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two). Also returned by `/v1/posts` for a member it cannot resolve |
+| 404 | `COMPANY_NOT_FOUND` | Same, for a company or school page |
 | 429 | `RATE_LIMITED` | This API's per-IP limit, or LinkedIn's own limit (with `Retry-After`) |
-| 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape) |
+| 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape). On `/v1/posts` a stale persisted-query hash surfaces here, with a message naming `VOYAGER_POSTS_QUERY_ID` |
 | 503 | `LINKEDIN_SESSION_EXPIRED` | The `LI_AT` cookie needs rotating |
 
 ### `GET /health`
@@ -233,37 +391,93 @@ Responses are not nested documents. They come as a flat `included[]` list of typ
 
 Images are assembled from `vectorImage.rootUrl + artifacts[].fileIdentifyingUrlPathSegment`, one URL per rendition.
 
+### Company pages
+
+Company pages are the one place this project deliberately does *not* follow the web app. Loading `linkedin.com/company/anthropicresearch/` shows the app calling GraphQL `voyagerOrganizationDashCompanies.148b1aebfadd0a455f32806df656c3c1` with `variables=(universalName:anthropicresearch)`. This service uses the older REST decoration instead:
+
+```
+GET /voyager/api/organization/companies?decorationId=com.linkedin.voyager.deco.organization.web.WebFullCompanyMain-12&q=universalName&universalName=<name>
+```
+
+The trade is deliberate. A persisted-query hash is a build artifact of LinkedIn's front end and rotates with it; a decoration ID is a versioned server-side projection and this one has been stable for years. The GraphQL path is not implemented.
+
+Two consequences of using the older endpoint:
+
+- **The entity types are the legacy, non-`dash` family.** `com.linkedin.voyager.organization.Company` rather than a `…dash.organization.Company`, with `com.linkedin.voyager.common.Industry` (`localizedName`) reached through `*companyIndustries` and `com.linkedin.voyager.common.FollowingInfo` (`followerCount`) through `*followingInfo`. The rest of the codebase talks to `dash` types; `TYPES.legacyCompany` and friends in `types.ts` mark the boundary.
+- **Images are shaped slightly differently.** `logo.image` and `backgroundCoverImage.image` are vector images directly, not wrapped in a `vectorImage` key the way profile images are. The same `image()` helper builds the renditions once it is handed the right object.
+
+One trap: `included[]` carries the page's **showcase pages** as well, with the same `$type` and `showcase: true`. Taking the first entity of that type returns a showcase page rather than the company itself, so `normalizeCompany` resolves the target through `data['*elements']` and nothing else.
+
+Schools use the same endpoint and the same entity type. `kind` is reported as `school` when the entity carries a `school` URN. This was verified against one school (`iithyderabad`); other schools are assumed to behave the same way, and that assumption is **unverified**.
+
+### Member posts
+
+Loading `/in/<slug>/recent-activity/all/` shows a single GraphQL call:
+
+```
+GET /voyager/api/graphql?includeWebMetadata=true&variables=(count:20,start:0,profileUrn:urn%3Ali%3Afsd_profile%3A<id>)&queryId=voyagerFeedDashProfileUpdates.20c70fe0314184158516a7ec004c0408
+```
+
+`variables` uses Rest.li's unquoted tuple syntax, so it is assembled by hand rather than by `URLSearchParams`. It wants the member's internal `profileUrn`, not the public slug, so `/v1/posts` first fetches the same `WebTopCardCore` decoration the profile route uses and reads the URN off it: two upstream requests per uncached call.
+
+The response is a normalized graph like any other. `data.data.feedDashProfileUpdatesByMemberShareFeed['*elements']` lists `urn:li:fsd_update:(urn:li:activity:<id>,MEMBER_SHARES,…)`, and each `Update` carries `commentary.text.text` (the body), `actor.name.text` and `actor.description.text` (author name and headline), `actor.navigationContext.actionTarget` (the author's profile URL, with query noise this API strips), `socialContent.shareUrl`, `header.text.text`, and a `content` object in which every component key is present and all but one is `null`: `imageComponent`, `celebrationComponent`, `articleComponent`, `linkedInVideoComponent` and so on. `paging.total` on the collection is `0` and is ignored.
+
+Three details cost more time than the rest:
+
+- **The timestamp is inside the id.** No `Update` field carries a date. LinkedIn activity ids are Snowflake-style, so `activityId >> 22` is Unix milliseconds: `7390255662376824832` decodes to 2025-11-01, which matches the "9mo" label the page rendered next to it.
+- **The counts hang off a different URN.** Likes, comments and shares live at `Update.*socialDetail` → `SocialDetail.*totalSocialActivityCounts` → `SocialActivityCounts{numLikes,numComments,numShares,reactionTypeCounts[]}`, and that last URN is keyed by `ugcPost` rather than `activity`. The graph has to be followed; rewriting the URN string does not work.
+- **A plain repost is the original post.** LinkedIn does not wrap it in anything. The update *is* the original author's post, marked only by `header.text.text = "<member> reposted this"`, with `resharedUpdate: null`. That is why a repost comes back with the original author in `author`, `isReshare: true` and `reshared: null`.
+
+`resharedUpdate` (a nested `Update`) is what a repost *with added commentary* is expected to use, and it is what `reshared` is built from, but no such post was present in the recorded sample: that path is **unverified**. `articleComponent` and `linkedInVideoComponent` were likewise absent, so `article` and `video` are parsed defensively (`articleComponent.navigationContext.actionTarget`, `.title.text`) and are **unverified** too.
+
+### Re-capturing the posts `queryId`
+
+Persisted-query hashes are the one volatile constant in the project: LinkedIn rotates them whenever the underlying query changes. A stale one comes back as a 400 or a 404, which `/v1/posts` reports as `502 SCHEMA_DRIFT` with a message naming the environment variable. Recovering takes a minute and no code change:
+
+1. Open `https://www.linkedin.com/in/<any-slug>/recent-activity/all/` in a logged-in browser with DevTools on the **Network** tab.
+2. Filter for `graphql?queryId=voyagerFeedDashProfileUpdates`.
+3. The request URL ends in `voyagerFeedDashProfileUpdates.<hash>`. Copy the hash.
+4. Set `VOYAGER_POSTS_QUERY_ID=<hash>` and restart.
+
+The default is `20c70fe0314184158516a7ec004c0408`. The older hash `4af00b28d60ed0f1488018948daad822` was still accepted when this was captured, so LinkedIn evidently keeps retired hashes alive for a while.
+
 ### Failure handling
 
-`interpretVoyagerResponse` maps every way LinkedIn can say no onto one typed error: a login redirect or HTML body means the session is dead (`503`), a 403 "can't be accessed" is a missing or restricted profile (`404`), 429 is passed through with `Retry-After`, 400 means the decoration ID is no longer recognised (`SCHEMA_DRIFT`), and 999 is LinkedIn's bot-detection status. Only network errors and 5xx are retried, once.
+`interpretVoyagerResponse` maps every way LinkedIn can say no onto one typed error: a login redirect or HTML body means the session is dead (`503`), a 403 "can't be accessed" is a missing or restricted entity (`404`), 429 is passed through with `Retry-After`, 400 means the decoration ID or persisted query is no longer recognised (`SCHEMA_DRIFT`), and 999 is LinkedIn's bot-detection status. Only network errors and 5xx are retried, once.
+
+Every request carries a small `RequestContext` (`{ kind: 'profile' | 'company' | 'posts', identifier }`), which is what lets the same 403 become `PROFILE_NOT_FOUND` or `COMPANY_NOT_FOUND` depending on what was being fetched. It is also how a 400 on the posts query is recognised as a stale hash rather than a dead member: the top-card request has already proved the member exists by then.
 
 ---
 
 ## Architecture
 
 ```
-HTTP (Fastify + zod)          src/server.ts, src/routes/profile.ts
+HTTP (Fastify + zod)          src/server.ts, src/routes/{profile,company,posts}.ts
         │
         ▼
-ProfileService                src/linkedin/service.ts
-  cache → Voyager
+LinkedInService               src/linkedin/service.ts
+  getProfile / getCompany / getPosts, one cache with namespaced keys, one semaphore
         │
         ▼
-HttpVoyagerClient             src/linkedin/voyager/client.ts   ← cookies, CSRF, error mapping
+HttpVoyagerClient             src/linkedin/voyager/client.ts   ← cookies, CSRF, error mapping by entity kind
         │
         ▼
-     fetchProfileBundle        src/linkedin/voyager/endpoints.ts   ← every URL & decoration ID lives here
+     fetchProfileBundle / fetchCompanyBundle / fetchPostsBundle
+                               src/linkedin/voyager/endpoints.ts   ← every URL, decoration ID & queryId lives here
                  ▼
-     EntityGraph → normalizeProfile → ProfileData                 src/linkedin/voyager/{graph,normalize}.ts
+     EntityGraph → normalizeProfile | normalizeCompany | normalizePosts
+                               src/linkedin/voyager/{graph,normalize,normalize-company,normalize-posts}.ts
                                               ▼
-                                   zod ProfileResponse           src/schema/profile.ts  ← types + validation + OpenAPI
+     zod ProfileResponse | CompanyResponse | PostsResponse
+                               src/schema/{profile,company,post}.ts  ← types + validation + OpenAPI
 ```
 
 Design points worth calling out:
 
-- **One schema, three uses.** `src/schema/profile.ts` is a zod schema. It gives the TypeScript types, validates every response before it leaves the service (a mismatch becomes a `meta.warnings` entry, not a 500), and generates the OpenAPI document served at `/docs`.
+- **One schema, three uses.** Each of `src/schema/{profile,company,post}.ts` is a zod schema. It gives the TypeScript types, validates every response before it leaves the service (a mismatch becomes a `meta.warnings` entry, not a 500), and generates the OpenAPI document served at `/docs`. The shared pieces (`Image`, `Meta`, `ErrorResponse`) live in `src/schema/common.ts`.
+- **One service, three entities.** `LinkedInService` owns the cache and the semaphore for all three; cache keys are namespaced (`profile:<slug>`, `company:<name>`, `posts:<slug>:<count>`) so a posts lookup never collides with a profile of the same slug, and the count is part of the key because it changes the answer.
 - **Failure mapping lives in one place.** `interpretVoyagerResponse` turns every LinkedIn response into either a parsed body or a typed error; the transport itself is a one-method interface so tests substitute a fake.
-- **Volatile knowledge is quarantined.** Decoration IDs and URLs live only in `endpoints.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved.
+- **Volatile knowledge is quarantined.** Decoration IDs, URLs and the posts `queryId` default live only in `endpoints.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved; the `queryId` is additionally overridable from the environment, so the most perishable constant needs no redeploy at all.
 - **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic.
 - **Secrets never touch logs.** Cookie headers are redacted by pino; config is logged with `LI_AT` masked.
 
@@ -277,10 +491,10 @@ pnpm test:live     # hits LinkedIn for real; needs LI_AT in the environment
 pnpm typecheck && pnpm lint
 ```
 
-- **Unit:** URL parsing matrix, entity-graph resolution, the normaliser against a hand-written fixture that covers every branch (missing entities, capped skills, year-only dates, unknown enum values…), the HTTP client's error mapping and session bootstrap with a mocked `fetch`, cache/semaphore, and the service (caching, error propagation).
-- **Recorded fixtures:** `pnpm record-fixture <slug>` saves real Voyager responses (tracking noise stripped) under `tests/fixtures/voyager/<slug>/`. `normalize.recorded.test.ts` runs the normaliser over every recorded profile and checks the output against the schema, this is the schema-drift alarm.
-- **Integration:** the Fastify app via `app.inject`: routes, validation, error envelope, `Retry-After`, rate limiting, OpenAPI.
-- **Live:** an env-gated smoke test for a real profile (all sections present, skills paged past 20, unknown slug → 404).
+- **Unit:** the profile and company URL parsing matrices, entity-graph resolution, each normaliser against hand-written fixtures that cover every branch (missing entities, capped skills, year-only dates, unknown enum values, a company with no industry or `followingInfo`, a showcase sibling in `included[]`, a repost via `header`, a reshare via `resharedUpdate`, missing social counts…), `activityIdToDate`, the bundle fetchers' warning and stale-hash paths, the HTTP client's error mapping (per entity kind) and session bootstrap with a mocked `fetch`, cache/semaphore, and the service.
+- **Recorded fixtures:** `pnpm record-fixture <slug>` saves real Voyager responses (tracking noise stripped) under `tests/fixtures/voyager/<slug>/`; `pnpm record-fixture company <name>` and `pnpm record-fixture posts <slug>` do the same under `tests/fixtures/voyager/company/<name>/` and `tests/fixtures/voyager/posts/<slug>/`. `normalize.recorded.test.ts` runs the matching normaliser over every recorded entity and checks the output against the schema, this is the schema-drift alarm. Checked in so far: `company/anthropicresearch`, `company/iithyderabad`, `posts/sharmanityam`.
+- **Integration:** the Fastify app via `app.inject`: routes, validation (including `count` 0 and 51 → 400), the error envelope and per-entity 404s, `Retry-After`, rate limiting, OpenAPI.
+- **Live:** env-gated smoke tests against LinkedIn for a real profile (all sections present, skills paged past 20, unknown slug → 404), a company and a school, and a member's posts.
 
 ---
 
@@ -307,15 +521,25 @@ The blueprint targets the **free** plan. Free instances sleep after 15 minutes o
 
 **Session lifetime and revocation.** `li_at` expires (roughly yearly) and LinkedIn revokes it outright if it decides the session is being replayed from another client, see the note in [Getting `LI_AT`](#getting-li_at). The cookie bootstrap mitigates this; it doesn't eliminate it. Rotation is manual; the API reports `503 LINKEDIN_SESSION_EXPIRED` until it's done.
 
-**404 conflates "missing" and "private".** LinkedIn returns the same 403 `"This profile can't be accessed"` for a non-existent slug and for a profile the account is not allowed to see. The API reports both as `PROFILE_NOT_FOUND`.
+**404 conflates "missing" and "private".** LinkedIn returns the same 403 `"This profile can't be accessed"` for a non-existent slug and for a profile the account is not allowed to see. The API reports both as `PROFILE_NOT_FOUND`, or `COMPANY_NOT_FOUND` when a company or school page was the thing being fetched.
 
 **Data is what the viewer can see.** Results reflect the visibility the scraping account has: out-of-network profiles may show fewer details, and LinkedIn may serve a subset of a profile to accounts it considers suspicious.
 
-**Not exposed by the decorations used:** skill endorsement counts, contact info (email/phone/websites), follower/connection counts, recommendations, featured posts and activity. Adding any of these means finding its decoration or GraphQL `queryId` and extending `endpoints.ts` + `normalize.ts`.
+**Not exposed by the decorations used:** skill endorsement counts, contact info (email/phone/websites), a member's follower and connection counts, recommendations, featured posts, and comments or reactions on a post. A member's own posts are now available at `/v1/posts`, and a company's follower count at `/v1/company`. Adding any of the rest means finding its decoration or GraphQL `queryId` and extending `endpoints.ts` plus a normaliser.
 
 **Skills are capped at 200** (paged in 50s) to bound request count.
 
-**Decoration IDs are undocumented and versioned.** LinkedIn can retire `FullProfileWithEntities-101` at any time; the symptom would be `SCHEMA_DRIFT` and failing recorded-fixture tests. The remedy is to capture the new ID from the web app and update one constant.
+**Decoration IDs are undocumented and versioned.** LinkedIn can retire `FullProfileWithEntities-101` or `WebFullCompanyMain-12` at any time; the symptom would be `SCHEMA_DRIFT` and failing recorded-fixture tests. The remedy is to capture the new ID from the web app and update one constant.
+
+**The posts `queryId` rotates.** `/v1/posts` depends on a persisted-query hash, which LinkedIn regenerates whenever it changes the query. This is more perishable than a decoration ID, and the failure is loud: `502 SCHEMA_DRIFT` naming `VOYAGER_POSTS_QUERY_ID`. Recapturing it is a browser DevTools job and an env var, no redeploy, see [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid).
+
+**Posts are the newest 50 at most, and there is no pagination.** `count` is clamped to 1 to 50 and the response is whatever LinkedIn returns from the top of the member's activity feed, newest first. LinkedIn does send a `metadata.paginationToken`, which v1 ignores; deeper history would mean threading that token through the service and the schema. `paging.total` on the feed is `0` and cannot be used as a count.
+
+**The home feed is not exposed, by design.** `linkedin.com/feed/` would return whatever LinkedIn chose to show the account behind `LI_AT`, which is a property of that account rather than of any member the caller asked about. There is no endpoint for it and adding one is not planned.
+
+**Parts of the posts shape are unverified.** The recorded sample contains ordinary posts, image posts and one plain repost. It contains no repost with added commentary, no article share and no native video, so the nested `resharedUpdate` shape behind `reshared`, and the `articleComponent` and `linkedInVideoComponent` parsing behind `article` and `video`, are written defensively from the field names LinkedIn exposes and have not been exercised against real data. Treat those three fields as best-effort until a fixture covers them.
+
+**School handling is verified against one school.** `kind: "school"` is decided by the presence of a `school` URN on the company entity, checked against `iithyderabad`. Schools whose pages predate that field, or that LinkedIn models differently, may come back as `kind: "company"`. Unverified.
 
 **Bot detection.** Requests come from a plain HTTP client, not a browser. LinkedIn can respond with HTTP 999 if it decides the client looks automated; the API reports that as `502 UPSTREAM_ERROR`. Sending the session's companion cookies and a realistic user agent keeps this rare, but not impossible.
 
