@@ -9,7 +9,6 @@
  * Tracking/anti-abuse noise is stripped; everything else is kept verbatim so
  * the fixture is an honest sample of what LinkedIn returns.
  */
-import 'dotenv/config';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -189,6 +188,9 @@ export async function recordToDir(
 async function main(): Promise<void> {
   const target = parseArgs(process.argv.slice(2));
 
+  // Loaded here, not at module scope: importing this module from the unit
+  // tests must not pull the operator's .env into process.env.
+  await import('dotenv/config');
   const config = loadConfig();
   const client = new HttpVoyagerClient({
     liAt: config.LI_AT,
