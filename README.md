@@ -45,7 +45,11 @@ The service authenticates to LinkedIn with the `li_at` session cookie of a real 
 2. Open DevTools → **Application** → **Cookies** → `https://www.linkedin.com`.
 3. Copy the value of `li_at` into `.env` as `LI_AT=…`.
 
-The cookie normally lives for about a year. When it expires the API starts returning `503 LINKEDIN_SESSION_EXPIRED`; paste a fresh value and restart.
+4. **Strongly recommended:** in the same browser's DevTools console run `copy(document.cookie)` and paste the result into `.env` as `LI_COOKIES="…"`. This gives the backend the session's companion cookies (`JSESSIONID`, `bcookie`, `bscookie`, `lidc`), so its requests look like the browser that owns the session. (`li_at` is `HttpOnly`, which is why it isn't part of that string and is configured separately.)
+
+The cookie normally lives for about a year. When it expires — or LinkedIn revokes it — the API starts returning `503 LINKEDIN_SESSION_EXPIRED`; paste fresh values and restart.
+
+> **Why the companion cookies matter.** During development, using a freshly copied `li_at` from a plain HTTP client with a fabricated `JSESSIONID` got the *entire* session revoked within minutes — the browser was logged out too. LinkedIn evidently checks that `li_at` travels with the companions it was issued alongside. Sending them removes that signal. If you only provide `LI_AT`, the client mints a `JSESSIONID` and still works, but the session is more likely to be flagged.
 
 `.env` is git-ignored. Never commit it.
 
@@ -54,6 +58,7 @@ The cookie normally lives for about a year. When it expires the API starts retur
 | Variable | Default | Purpose |
 |---|---|---|
 | `LI_AT` | — | LinkedIn session cookie (required) |
+| `LI_COOKIES` | — | The browser's `document.cookie` for linkedin.com; sends the session's companion cookies (recommended) |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Listen address |
 | `RATE_LIMIT_PER_MINUTE` | `10` | Per-IP limit; protects the LinkedIn account behind the API |
 | `CACHE_TTL_SECONDS` | `900` | In-memory cache for repeated lookups of the same profile |
@@ -204,7 +209,7 @@ The older, widely-documented endpoints (`/identity/profiles/{slug}/profileView`,
 Two cookies and one header are all Voyager needs:
 
 - `li_at` — the real session cookie, issued at login. Supplied via env.
-- `JSESSIONID` + `csrf-token` — LinkedIn uses the *double-submit* CSRF pattern: the header must equal the cookie, but the value itself is client-chosen (the web app uses `ajax:<19 digits>`). The client generates one per process.
+- `JSESSIONID` + `csrf-token` — LinkedIn uses the *double-submit* CSRF pattern: the header must equal the cookie. If `LI_COOKIES` is set the browser's real `JSESSIONID` is used; otherwise the client mints one (the web app's form is `ajax:<19 digits>`), which LinkedIn accepts but treats as a weaker signal that the request is from the session's own client.
 - `x-restli-protocol-version: 2.0.0` and `accept: application/vnd.linkedin.normalized+json+2.1` — these switch the response into Rest.li's *normalized* format, described next.
 
 ### The normalized entity graph
@@ -305,7 +310,7 @@ The free tier (512 MB) is fine for the HTTP path; enable `BROWSER_FALLBACK=true`
 
 **Terms of service and account risk.** Accessing LinkedIn through its private API with a personal session violates LinkedIn's User Agreement. The account behind `LI_AT` can be rate-limited, challenged or restricted. This project exists as a technical exercise; the rate limit, cache and concurrency cap are there to keep volume low, but they don't make it sanctioned.
 
-**Session lifetime.** `li_at` expires (roughly yearly, sooner if LinkedIn detects anomalies). Rotation is manual; the API reports `503 LINKEDIN_SESSION_EXPIRED` until it's done.
+**Session lifetime and revocation.** `li_at` expires (roughly yearly) and LinkedIn revokes it outright if it decides the session is being replayed from another client — see the note in [Getting `LI_AT`](#getting-li_at). Providing `LI_COOKIES` mitigates this; it doesn't eliminate it. Rotation is manual; the API reports `503 LINKEDIN_SESSION_EXPIRED` until it's done.
 
 **404 conflates "missing" and "private".** LinkedIn returns the same 403 `"This profile can't be accessed"` for a non-existent slug and for a profile the account is not allowed to see. The API reports both as `PROFILE_NOT_FOUND`.
 
