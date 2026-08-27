@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { Image, Meta, ErrorResponse } from './common.js';
+export { Image, Meta, ErrorResponse };
 
 /**
  * Public response schema. This is the single source of truth: it drives the
@@ -15,13 +17,6 @@ export const PartialDate = z
     month: z.number().int().min(1).max(12).optional(),
   })
   .describe('Month-precision date as LinkedIn stores it');
-
-export const Image = z.object({
-  url: z.string().url().describe('Largest available rendition'),
-  variants: z
-    .array(z.object({ width: z.number().int(), height: z.number().int(), url: z.string().url() }))
-    .describe('All renditions, smallest first'),
-});
 
 export const Organization = z.object({
   name: z.string(),
@@ -114,14 +109,6 @@ export const Publication = z.object({
 
 export const Course = z.object({ name: z.string(), number: z.string().nullable() });
 
-export const Meta = z.object({
-  source: z.literal('voyager').describe('Where the data came from'),
-  fetchedAt: z.string().datetime(),
-  cached: z.boolean(),
-  durationMs: z.number().int().nonnegative(),
-  warnings: z.array(z.string()),
-});
-
 export const ProfileResponse = z.object({
   url: z.string().url().describe('Canonical profile URL'),
   publicIdentifier: z.string(),
@@ -155,14 +142,4 @@ export const ProfileResponse = z.object({
 export type ProfileResponse = z.infer<typeof ProfileResponse>;
 export type ProfileData = Omit<ProfileResponse, 'meta'>;
 export type PartialDate = z.infer<typeof PartialDate>;
-export type Image = z.infer<typeof Image>;
 export type Organization = z.infer<typeof Organization>;
-
-export const ErrorResponse = z.object({
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    details: z.record(z.string(), z.unknown()).optional(),
-  }),
-});
-export type ErrorResponse = z.infer<typeof ErrorResponse>;

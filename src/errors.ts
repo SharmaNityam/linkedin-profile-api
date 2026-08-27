@@ -6,6 +6,7 @@ export type ErrorCode =
   | 'INVALID_URL'
   | 'INVALID_REQUEST'
   | 'PROFILE_NOT_FOUND'
+  | 'COMPANY_NOT_FOUND'
   | 'RATE_LIMITED'
   | 'LINKEDIN_SESSION_EXPIRED'
   | 'UPSTREAM_ERROR'
@@ -16,6 +17,7 @@ const STATUS: Record<ErrorCode, number> = {
   INVALID_URL: 400,
   INVALID_REQUEST: 400,
   PROFILE_NOT_FOUND: 404,
+  COMPANY_NOT_FOUND: 404,
   RATE_LIMITED: 429,
   LINKEDIN_SESSION_EXPIRED: 503,
   UPSTREAM_ERROR: 502,
@@ -48,6 +50,16 @@ export class ProfileNotFoundError extends AppError {
       'PROFILE_NOT_FOUND',
       `LinkedIn reports that profile "${publicIdentifier}" can't be accessed. It may not exist, or its visibility may be restricted.`,
       { publicIdentifier },
+    );
+  }
+}
+
+export class CompanyNotFoundError extends AppError {
+  constructor(universalName: string) {
+    super(
+      'COMPANY_NOT_FOUND',
+      `LinkedIn reports that company "${universalName}" can't be accessed. It may not exist, or the name may be wrong.`,
+      { universalName },
     );
   }
 }
