@@ -36,5 +36,8 @@ export function loadEntityFixture(kind: FixtureKind, slug: string, file: string)
 
 export function listEntityFixtures(kind: 'company' | 'posts'): string[] {
   const dir = join(ROOT, kind);
-  return existsSync(dir) ? readdirSync(dir).filter((d) => d !== 'minimal') : [];
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && e.name !== 'minimal')
+    .map((e) => e.name);
 }
