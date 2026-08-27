@@ -3,7 +3,12 @@ import { z } from 'zod';
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
 
 const envSchema = z.object({
-  LI_AT: z.string().min(1, 'LI_AT (LinkedIn session cookie) is required'),
+  // Quotes are stripped so a value pasted as LI_AT="…" works whether it comes
+  // from dotenv (which unquotes) or `docker --env-file` (which doesn't).
+  LI_AT: z
+    .string()
+    .transform((v) => v.trim().replace(/^"|"$/g, ''))
+    .pipe(z.string().min(1, 'LI_AT (LinkedIn session cookie) is required')),
   /**
    * Optional: the browser's `document.cookie` for linkedin.com. Sends the same
    * companion cookies (JSESSIONID, bcookie, lidc…) the browser does, which
@@ -41,7 +46,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 export function redactConfig(config: Config): Record<string, unknown> {
   return {
     ...config,
-    LI_AT: `${config.LI_AT.slice(0, 6)}…(${config.LI_AT.length} chars)`,
+    LI_AT: `(${config.LI_AT.length} chars, redacted)`,
     LI_COOKIES: config.LI_COOKIES ? `(${config.LI_COOKIES.length} chars)` : undefined,
   };
 }
