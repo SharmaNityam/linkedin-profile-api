@@ -38,9 +38,10 @@ export function parseProfileUrl(input: string): ParsedProfileUrl {
   }
 
   // /in/<slug>, /mwlite/in/<slug>, with optional trailing segments/slash.
-  const match = /^\/(?:mwlite\/)?in\/([^/]+)/.exec(url.pathname);
+  // Paths are matched case-insensitively: shared links are often upper-cased.
+  const match = /^\/(?:mwlite\/)?in\/([^/]+)/i.exec(url.pathname);
   if (!match?.[1]) {
-    const kind = /^\/(company|school|pub|posts|jobs)\b/.exec(url.pathname)?.[1];
+    const kind = /^\/(company|school|pub|posts|jobs)\b/i.exec(url.pathname)?.[1]?.toLowerCase();
     throw new InvalidUrlError(
       kind === 'company' || kind === 'school'
         ? `"${url.pathname}" is a ${kind} URL, not a member profile; use /v1/company`
@@ -74,6 +75,8 @@ export interface ParsedCompanyUrl {
 
 // Universal names allow '&' and '.' (e.g. schools migrated from old vanity names).
 const COMPANY_SLUG = /^[\p{L}\p{N}\-_%.&]{1,120}$/u;
+// "host.tld", with an optional scheme and port and nothing else.
+const HOSTLIKE = /^(?:[a-z]+:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?$/i;
 
 /**
  * Accepts the ways a company/school URL shows up in the wild and returns the
@@ -84,8 +87,10 @@ export function parseCompanyUrl(input: string): ParsedCompanyUrl {
   const raw = input.trim();
   if (!raw) throw new InvalidUrlError('Company URL is empty');
 
-  // Bare slug (e.g. "anthropicresearch") is accepted as a convenience.
-  if (!raw.includes('/') && !raw.includes('.')) return fromCompanySlug(raw, 'company');
+  // Bare universal name (e.g. "anthropicresearch") is accepted as a
+  // convenience. Dots are legal in a universal name, so "." alone cannot
+  // decide this: anything that looks like a hostname is treated as a URL.
+  if (!raw.includes('/') && !HOSTLIKE.test(raw)) return fromCompanySlug(raw, 'company');
 
   const url = toUrl(raw, input);
 
@@ -93,16 +98,17 @@ export function parseCompanyUrl(input: string): ParsedCompanyUrl {
     throw new InvalidUrlError(`Host "${url.hostname}" is not linkedin.com`);
   }
 
-  const match = /^\/(company|school)\/([^/]+)/.exec(url.pathname);
+  // `showcase` pages are company pages reached through a different path.
+  const match = /^\/(?:mwlite\/)?(company|school|showcase)\/([^/]+)/i.exec(url.pathname);
   if (!match?.[2]) {
-    if (/^\/(?:mwlite\/)?in\//.test(url.pathname)) {
+    if (/^\/(?:mwlite\/)?in\//i.test(url.pathname)) {
       throw new InvalidUrlError(`"${url.pathname}" is a member profile URL; use /v1/profile`);
     }
     throw new InvalidUrlError(
       'Expected a company URL of the form https://www.linkedin.com/company/<name> or /school/<name>',
     );
   }
-  return fromCompanySlug(match[2], match[1] as 'company' | 'school');
+  return fromCompanySlug(match[2], match[1]!.toLowerCase() === 'school' ? 'school' : 'company');
 }
 
 function fromCompanySlug(segment: string, kind: 'company' | 'school'): ParsedCompanyUrl {
