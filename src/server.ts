@@ -14,6 +14,8 @@ import { z } from 'zod';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
 import type { LinkedInService } from './linkedin/service.js';
+import { companyRoutes } from './routes/company.js';
+import { postsRoutes } from './routes/posts.js';
 import { profileRoutes } from './routes/profile.js';
 
 export interface BuildAppOptions {
@@ -55,9 +57,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         title: 'LinkedIn Profile API',
         version: '1.0.0',
         description:
-          "Turns a LinkedIn profile URL into structured JSON, reverse engineered from LinkedIn's internal Voyager API.",
+          "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API.",
       },
-      tags: [{ name: 'profile' }, { name: 'ops' }],
+      tags: [{ name: 'profile' }, { name: 'company' }, { name: 'posts' }, { name: 'ops' }],
     },
     transform: jsonSchemaTransform,
   });
@@ -98,6 +100,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   await app.register(profileRoutes, { services: options.services });
+  await app.register(companyRoutes, { services: options.services });
+  await app.register(postsRoutes, { services: options.services });
 
   return app;
 }

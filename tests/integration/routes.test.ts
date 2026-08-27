@@ -3,36 +3,62 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/server.js';
 import type { LinkedInService } from '../../src/linkedin/service.js';
 import {
+  CompanyNotFoundError,
   ProfileNotFoundError,
   RateLimitedError,
   SessionExpiredError,
   InvalidUrlError,
 } from '../../src/errors.js';
+import { normalizeCompany } from '../../src/linkedin/voyager/normalize-company.js';
+import { normalizePosts } from '../../src/linkedin/voyager/normalize-posts.js';
 import { normalizeProfile } from '../../src/linkedin/voyager/normalize.js';
-import { loadFixture } from '../helpers/fixtures.js';
+import { loadEntityFixture, loadFixture } from '../helpers/fixtures.js';
+import type { CompanyResponse } from '../../src/schema/company.js';
+import type { Meta } from '../../src/schema/common.js';
+import type { PostsResponse } from '../../src/schema/post.js';
 import type { ProfileResponse } from '../../src/schema/profile.js';
+
+const meta: Meta = {
+  source: 'voyager',
+  fetchedAt: '2026-08-27T00:00:00.000Z',
+  cached: false,
+  durationMs: 12,
+  warnings: [],
+};
 
 const profile: ProfileResponse = {
   ...normalizeProfile({
     full: loadFixture('minimal', 'full.json'),
     topCard: loadFixture('minimal', 'topcard.json'),
   }),
-  meta: {
-    source: 'voyager',
-    fetchedAt: '2026-08-27T00:00:00.000Z',
-    cached: false,
-    durationMs: 12,
-    warnings: [],
-  },
+  meta,
+};
+
+const company: CompanyResponse = {
+  ...normalizeCompany({ company: loadEntityFixture('company', 'minimal', 'company.json') }),
+  meta,
+};
+
+const posts: PostsResponse = {
+  ...normalizePosts(
+    {
+      posts: loadEntityFixture('posts', 'minimal', 'posts.json'),
+      topCard: loadEntityFixture('posts', 'minimal', 'topcard.json'),
+    },
+    'jane-doe',
+  ),
+  meta,
 };
 
 describe('HTTP API', () => {
   let app: FastifyInstance;
   const getProfile = vi.fn<(url: string) => Promise<ProfileResponse>>();
+  const getCompany = vi.fn<(url: string) => Promise<CompanyResponse>>();
+  const getPosts = vi.fn<(url: string, count?: number) => Promise<PostsResponse>>();
 
   beforeAll(async () => {
     app = await buildApp({
-      services: { getProfile } as unknown as LinkedInService,
+      services: { getProfile, getCompany, getPosts } as unknown as LinkedInService,
       rateLimitPerMinute: 1000,
     });
     await app.ready();
@@ -102,18 +128,89 @@ describe('HTTP API', () => {
     expect(res.headers['retry-after']).toBe('42');
   });
 
-  it('serves OpenAPI with the profile schema', async () => {
+  it('GET /v1/company returns the company', async () => {
+    getCompany.mockResolvedValueOnce(company);
+    const res = await app.inject({
+      url: '/v1/company',
+      query: { url: 'https://www.linkedin.com/company/acme/' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(company);
+    expect(getCompany).toHaveBeenCalledWith('https://www.linkedin.com/company/acme/');
+  });
+
+  it('POST /v1/company accepts a JSON body', async () => {
+    getCompany.mockResolvedValueOnce(company);
+    const res = await app.inject({ method: 'POST', url: '/v1/company', payload: { url: 'acme' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<CompanyResponse>().universalName).toBe(company.universalName);
+    expect(getCompany).toHaveBeenCalledWith('acme');
+  });
+
+  it('rejects a company request with no url with 400 INVALID_REQUEST', async () => {
+    const res = await app.inject({ url: '/v1/company' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
+  });
+
+  it('maps CompanyNotFoundError to 404 COMPANY_NOT_FOUND', async () => {
+    getCompany.mockRejectedValueOnce(new CompanyNotFoundError('acme'));
+    const res = await app.inject({ url: '/v1/company', query: { url: 'acme' } });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({ error: { code: 'COMPANY_NOT_FOUND' } });
+  });
+
+  it('GET /v1/posts passes count through', async () => {
+    getPosts.mockResolvedValueOnce(posts);
+    const res = await app.inject({ url: '/v1/posts', query: { url: 'jane-doe', count: '5' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(posts);
+    expect(getPosts).toHaveBeenCalledWith('jane-doe', 5);
+  });
+
+  it('GET /v1/posts defaults count to 10', async () => {
+    getPosts.mockResolvedValueOnce(posts);
+    const res = await app.inject({ url: '/v1/posts', query: { url: 'jane-doe' } });
+    expect(res.statusCode).toBe(200);
+    expect(getPosts).toHaveBeenCalledWith('jane-doe', 10);
+  });
+
+  it.each(['0', '51', 'abc', '2.5'])('rejects count=%s with 400', async (count) => {
+    const res = await app.inject({ url: '/v1/posts', query: { url: 'jane-doe', count } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
+  });
+
+  it('POST /v1/posts accepts {url, count}', async () => {
+    getPosts.mockResolvedValueOnce(posts);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/posts',
+      payload: { url: 'jane-doe', count: 3 },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<PostsResponse>().publicIdentifier).toBe('jane-doe');
+    expect(getPosts).toHaveBeenCalledWith('jane-doe', 3);
+  });
+
+  it('OpenAPI lists every route', async () => {
     const res = await app.inject({ url: '/openapi.json' });
     expect(res.statusCode).toBe(200);
     const doc = res.json<{ paths: Record<string, unknown> }>();
-    expect(Object.keys(doc.paths)).toEqual(expect.arrayContaining(['/v1/profile', '/health']));
+    expect(Object.keys(doc.paths)).toEqual(
+      expect.arrayContaining(['/v1/profile', '/v1/company', '/v1/posts', '/health']),
+    );
   });
 });
 
 describe('rate limiting', () => {
   it('returns 429 with our error envelope once the per-IP limit is hit', async () => {
     const app = await buildApp({
-      services: { getProfile: vi.fn().mockResolvedValue(profile) } as unknown as LinkedInService,
+      services: {
+        getProfile: vi.fn().mockResolvedValue(profile),
+        getCompany: vi.fn().mockResolvedValue(company),
+        getPosts: vi.fn().mockResolvedValue(posts),
+      } as unknown as LinkedInService,
       rateLimitPerMinute: 2,
     });
     const hit = () =>
