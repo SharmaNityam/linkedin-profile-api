@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { activityIdToDate, normalizePosts } from '../../src/linkedin/voyager/normalize-posts.js';
+import { SchemaDriftError } from '../../src/errors.js';
 import { PostsResponse } from '../../src/schema/post.js';
-import type { VoyagerEntity } from '../../src/linkedin/voyager/types.js';
+import type { VoyagerEntity, VoyagerResponse } from '../../src/linkedin/voyager/types.js';
 import { loadEntityFixture } from '../helpers/fixtures.js';
 
 const bundle = {
@@ -16,6 +17,17 @@ const testMeta = {
   durationMs: 0,
   warnings: [],
 };
+
+/** Normalises a drifted `posts` response and returns the drift error it raised. */
+function driftOf(posts: unknown): SchemaDriftError {
+  try {
+    normalizePosts({ ...bundle, posts: posts as VoyagerResponse }, 'jane-doe');
+  } catch (err) {
+    if (err instanceof SchemaDriftError) return err;
+    throw err;
+  }
+  throw new Error('expected normalizePosts to throw a SchemaDriftError');
+}
 
 function findIncluded(posts: typeof bundle.posts, entityUrn: string): VoyagerEntity {
   const included = posts.included ?? [];
@@ -92,15 +104,63 @@ describe('normalizePosts', () => {
     expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
   });
 
-  it('returns an empty list when the feed has no elements', () => {
+  it.each([
+    ['an empty *elements list', { '*elements': [] }],
+    ['a feed with no *elements at all', { paging: { count: 10, start: 0, total: 0 } }],
+  ])('returns an empty list for %s', (_label, feed) => {
     const empty = {
       ...bundle,
       posts: {
-        data: { data: { feedDashProfileUpdatesByMemberShareFeed: { '*elements': [] } } },
+        data: { data: { feedDashProfileUpdatesByMemberShareFeed: feed } },
         included: [],
       },
     };
     expect(normalizePosts(empty, 'jane-doe').posts).toEqual([]);
+    expect(normalizePosts(empty, 'jane-doe').count).toBe(0);
+  });
+
+  it('raises schema drift when the feed key is missing', () => {
+    const err = driftOf({ data: { data: { someOtherFeed: {} } }, included: [] });
+    expect(err.message).toContain('feedDashProfileUpdatesByMemberShareFeed');
+    expect(err.details).toMatchObject({
+      publicIdentifier: 'jane-doe',
+      dataKeys: ['someOtherFeed'],
+    });
+  });
+
+  it('raises schema drift when the feed key is not an object', () => {
+    const err = driftOf({
+      data: { data: { feedDashProfileUpdatesByMemberShareFeed: null } },
+      included: [],
+    });
+    expect(err.message).toContain('feedDashProfileUpdatesByMemberShareFeed');
+  });
+
+  it('raises schema drift when no element resolves to a feed Update', () => {
+    const err = driftOf({
+      data: {
+        data: {
+          feedDashProfileUpdatesByMemberShareFeed: { '*elements': ['urn:li:fsd_update:(1)'] },
+        },
+      },
+      included: [
+        { entityUrn: 'urn:li:fsd_update:(1)', $type: 'com.linkedin.voyager.dash.feed.Widget' },
+      ],
+    });
+    expect(err.message).toBe('Posts feed elements were not feed Updates');
+    expect(err.details).toMatchObject({
+      publicIdentifier: 'jane-doe',
+      types: ['com.linkedin.voyager.dash.feed.Widget'],
+    });
+  });
+
+  it('raises schema drift when GraphQL reports a field-level error under a 200', () => {
+    const err = driftOf({
+      data: { data: null, errors: [{ message: 'Unknown persisted query' }] },
+      included: [],
+    });
+    expect(err.message).toContain('Unknown persisted query');
+    expect(err.message).toContain('VOYAGER_POSTS_QUERY_ID');
   });
 
   it('nulls url for a non-https or relative shareUrl instead of failing the schema', () => {

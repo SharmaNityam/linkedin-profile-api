@@ -1,3 +1,4 @@
+import { SchemaDriftError } from '../../errors.js';
 import type { Image } from '../../schema/common.js';
 import type { Post, PostsData } from '../../schema/post.js';
 import { EntityGraph } from './graph.js';
@@ -22,11 +23,48 @@ export function activityIdToDate(id: string): Date {
  * feed order is LinkedIn's (newest first) and is preserved; updates that carry
  * no resolvable activity id are dropped rather than throwing, so one odd card
  * never costs the caller the whole page.
+ *
+ * Individual cards are forgiving, but the *shape* of the feed is not: a
+ * missing feed key, a feed whose elements are no longer Updates, or a GraphQL
+ * field-level error are drift, and drift must be loud rather than served to
+ * the caller as an empty list. Only a genuinely empty `*elements` is an empty
+ * result.
  */
 export function normalizePosts(bundle: PostsBundle, publicIdentifier: string): PostsData {
   const graph = new EntityGraph(bundle.posts, bundle.topCard);
-  const feed = asRecord(asRecord(bundle.posts.data)?.data)?.feedDashProfileUpdatesByMemberShareFeed;
-  const updates = graph.refs(asRecord(feed), 'elements').filter((u) => u.$type === TYPES.update);
+  const root = asRecord(bundle.posts.data);
+  const errors = root?.errors;
+
+  // GraphQL reports field-level failures inside a 200; a stale persisted-query
+  // hash is the usual cause, so point at the override.
+  if (Array.isArray(errors) && errors.length > 0) {
+    const first = str(asRecord(errors[0])?.message) ?? 'no message';
+    throw new SchemaDriftError(
+      `LinkedIn returned a GraphQL error for the posts query: ${first}. The persisted query hash is probably stale; capture the current voyagerFeedDashProfileUpdates hash and set VOYAGER_POSTS_QUERY_ID.`,
+      { publicIdentifier },
+    );
+  }
+
+  const data = asRecord(root?.data);
+  const feed = asRecord(data?.feedDashProfileUpdatesByMemberShareFeed);
+  if (!feed) {
+    throw new SchemaDriftError(
+      'Posts response did not contain feedDashProfileUpdatesByMemberShareFeed',
+      { publicIdentifier, dataKeys: Object.keys(data ?? root ?? {}) },
+    );
+  }
+
+  const elements = graph.refs(feed, 'elements');
+  const updates = elements.filter((u) => u.$type === TYPES.update);
+  // An empty feed is a legitimate answer (the member has not posted); elements
+  // that exist but are no longer Updates are not.
+  if (updates.length === 0 && Array.isArray(feed['*elements']) && feed['*elements'].length > 0) {
+    throw new SchemaDriftError('Posts feed elements were not feed Updates', {
+      publicIdentifier,
+      types: [...new Set(elements.map((e) => e.$type ?? 'unknown'))],
+    });
+  }
+
   return {
     url: `https://www.linkedin.com/in/${encodeURIComponent(publicIdentifier)}/recent-activity/all/`,
     publicIdentifier,
