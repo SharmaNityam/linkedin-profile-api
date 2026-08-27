@@ -77,7 +77,7 @@ export class UpstreamError extends AppError {
 
 /**
  * Raised when LinkedIn returned a 2xx but the payload does not look like the
- * entity graph we know how to read. This is the signal for the browser fallback.
+ * entity graph we know how to read.
  */
 export class SchemaDriftError extends AppError {
   constructor(message: string, details?: Record<string, unknown>) {

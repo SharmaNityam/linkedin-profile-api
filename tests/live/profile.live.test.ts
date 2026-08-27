@@ -17,7 +17,7 @@ const liAt = process.env.LI_AT;
 describe.skipIf(!liAt)('live: LinkedIn Voyager', () => {
   const config = loadConfig({ ...process.env, LI_AT: liAt ?? 'x' });
   const service = new ProfileService({
-    http: new HttpVoyagerClient({
+    voyager: new HttpVoyagerClient({
       liAt: config.LI_AT,
       companionCookies: config.LI_COOKIES,
       userAgent: config.USER_AGENT,
@@ -45,7 +45,6 @@ describe.skipIf(!liAt)('live: LinkedIn Voyager', () => {
     expect(p.meta).toMatchObject({
       source: 'voyager',
       cached: false,
-      partial: false,
       warnings: [],
     });
   });

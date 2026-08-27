@@ -55,7 +55,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         title: 'LinkedIn Profile API',
         version: '1.0.0',
         description:
-          "Turns a LinkedIn profile URL into structured JSON, backed by LinkedIn's internal Voyager API with a headless-browser fallback.",
+          "Turns a LinkedIn profile URL into structured JSON, reverse engineered from LinkedIn's internal Voyager API.",
       },
       tags: [{ name: 'profile' }, { name: 'ops' }],
     },

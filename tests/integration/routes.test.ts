@@ -22,7 +22,6 @@ const profile: ProfileResponse = {
     fetchedAt: '2026-08-27T00:00:00.000Z',
     cached: false,
     durationMs: 12,
-    partial: false,
     warnings: [],
   },
 };

@@ -17,7 +17,6 @@ describe('normalizeProfile (minimal fixture)', () => {
       fetchedAt: new Date().toISOString(),
       cached: false,
       durationMs: 1,
-      partial: false,
       warnings: [],
     };
     expect(ProfileResponse.safeParse({ ...profile, meta }).success).toBe(true);

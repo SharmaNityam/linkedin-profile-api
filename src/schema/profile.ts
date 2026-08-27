@@ -115,13 +115,10 @@ export const Publication = z.object({
 export const Course = z.object({ name: z.string(), number: z.string().nullable() });
 
 export const Meta = z.object({
-  source: z.enum(['voyager', 'browser']).describe('Which extraction path produced this response'),
+  source: z.literal('voyager').describe('Where the data came from'),
   fetchedAt: z.string().datetime(),
   cached: z.boolean(),
   durationMs: z.number().int().nonnegative(),
-  partial: z
-    .boolean()
-    .describe('true when the fallback path was used and some sections may be missing'),
   warnings: z.array(z.string()),
 });
 

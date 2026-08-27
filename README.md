@@ -2,7 +2,7 @@
 
 A small HTTPS service that takes a LinkedIn profile URL and returns the profile as structured JSON: name, headline, location, about, experience, education, skills, certifications, languages, volunteering and images.
 
-It works by talking to **Voyager**, the private JSON API LinkedIn's own web app uses, rather than parsing HTML. A headless-browser path is kept in reserve for the cases where raw HTTP stops working.
+It is a pure reverse-engineering of **Voyager**, the private JSON API that LinkedIn's own web app calls. Every request goes straight to LinkedIn's endpoints over HTTP; there is no browser, no HTML parsing and no third-party service involved.
 
 ```bash
 curl "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
@@ -65,8 +65,6 @@ The cookie normally lives for about a year. When it expires, or LinkedIn revokes
 | `RATE_LIMIT_PER_MINUTE` | `10` | Per-IP limit; protects the LinkedIn account behind the API |
 | `CACHE_TTL_SECONDS` | `900` | In-memory cache for repeated lookups of the same profile |
 | `MAX_CONCURRENT_UPSTREAM` | `2` | Concurrent requests to LinkedIn |
-| `BROWSER_FALLBACK` | `false` | Enable the headless-Chromium fallback (needs ~1 GB RAM) |
-| `BROWSER_CHANNEL` | - | e.g. `chrome` to use a locally installed Chrome for the fallback |
 | `LOG_LEVEL` | `info` | pino log level |
 
 ---
@@ -157,7 +155,6 @@ Accepted URL forms: `https://www.linkedin.com/in/<slug>/`, `linkedin.com/in/<slu
     "fetchedAt": "2026-08-27T10:12:33.120Z",
     "cached": false,
     "durationMs": 1320,
-    "partial": false,
     "warnings": []
   }
 }
@@ -168,7 +165,7 @@ Schema conventions:
 - A field LinkedIn does not expose for that profile is `null`; a section the profile does not have is `[]`.
 - Dates are `{ "year", "month"? }`: LinkedIn stores month precision, so no day is ever invented.
 - `experience[].isCurrent` is `true` when a position has a start date and no end date.
-- `meta.source` tells you which path produced the response (`voyager` = raw HTTP, `browser` = headless browser). `meta.partial` is `true` only for the last-resort DOM path, which returns top-card fields only.
+- `meta.warnings` lists non-fatal problems, e.g. a skills page that could not be fetched.
 - The full schema is in [`src/schema/profile.ts`](src/schema/profile.ts) and served at `/openapi.json`.
 
 #### Errors
@@ -181,7 +178,7 @@ All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 | 400 | `INVALID_REQUEST` | Missing/invalid `url` parameter |
 | 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two) |
 | 429 | `RATE_LIMITED` | This API's per-IP limit, or LinkedIn's own limit (with `Retry-After`) |
-| 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (and the fallbacks, if enabled, couldn't either) |
+| 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape) |
 | 503 | `LINKEDIN_SESSION_EXPIRED` | The `LI_AT` cookie needs rotating |
 
 ### `GET /health`
@@ -236,13 +233,9 @@ Responses are not nested documents. They come as a flat `included[]` list of typ
 
 Images are assembled from `vectorImage.rootUrl + artifacts[].fileIdentifyingUrlPathSegment`, one URL per rendition.
 
-### Why a browser fallback, and why it's shaped this way
+### Failure handling
 
-The raw-HTTP path is fast (≈1–2 s per profile, three requests) and cheap to host, but it presents a non-browser TLS fingerprint and hand-built headers, so it is the path LinkedIn is most likely to block (HTTP 999) or break by tweaking CSRF handling. The fallback therefore doesn't try to *parse the page* first, it re-issues **the same Voyager requests from inside a real, logged-in Chromium tab**, where LinkedIn sees its own cookies, its own headers and a genuine browser. Same endpoints, same normaliser, same output.
-
-Only if that also fails does the service read the rendered DOM, and it deliberately limits itself to the **top card and About** (name, headline, location, about, photo). LinkedIn's profile page is now server-driven UI with build-hashed class names and lazily-loaded sections, so a class-selector scraper of experience/education would be brittle and dishonest; the DOM path instead keys off semantics (the section containing the name heading, the section titled "About") and returns `meta.partial: true` so callers know what they're getting.
-
-Escalation is decided in [`ProfileService`](src/linkedin/service.ts) and is deliberately narrow: only *infrastructure* failures (`UPSTREAM_ERROR`, `SCHEMA_DRIFT`) escalate. A profile that doesn't exist, an expired cookie or a rate limit are terminal, the browser would get the same answer, so the service doesn't spend ten seconds finding out.
+`interpretVoyagerResponse` maps every way LinkedIn can say no onto one typed error: a login redirect or HTML body means the session is dead (`503`), a 403 "can't be accessed" is a missing or restricted profile (`404`), 429 is passed through with `Retry-After`, 400 means the decoration ID is no longer recognised (`SCHEMA_DRIFT`), and 999 is LinkedIn's bot-detection status. Only network errors and 5xx are retried, once.
 
 ---
 
@@ -253,13 +246,12 @@ HTTP (Fastify + zod)          src/server.ts, src/routes/profile.ts
         │
         ▼
 ProfileService                src/linkedin/service.ts
-  cache → http Voyager → browser Voyager → DOM top card
-        │                    │                 │
-        ▼                    ▼                 ▼
-HttpVoyagerClient   BrowserVoyagerClient   scrapeTopCard      src/linkedin/voyager/client.ts
-        │                    │                                 src/linkedin/browser/scraper.ts
-        └────────┬───────────┘
-                 ▼
+  cache → Voyager
+        │
+        ▼
+HttpVoyagerClient             src/linkedin/voyager/client.ts   ← cookies, CSRF, error mapping
+        │
+        ▼
      fetchProfileBundle        src/linkedin/voyager/endpoints.ts   ← every URL & decoration ID lives here
                  ▼
      EntityGraph → normalizeProfile → ProfileData                 src/linkedin/voyager/{graph,normalize}.ts
@@ -270,8 +262,8 @@ HttpVoyagerClient   BrowserVoyagerClient   scrapeTopCard      src/linkedin/voyag
 Design points worth calling out:
 
 - **One schema, three uses.** `src/schema/profile.ts` is a zod schema. It gives the TypeScript types, validates every response before it leaves the service (a mismatch becomes a `meta.warnings` entry, not a 500), and generates the OpenAPI document served at `/docs`.
-- **Transports are interchangeable.** `VoyagerTransport` is a one-method interface; HTTP and browser implementations share `interpretVoyagerResponse`, so LinkedIn's failure modes are mapped to typed errors in exactly one place.
-- **Volatile knowledge is quarantined.** Decoration IDs and URLs live only in `endpoints.ts`; DOM heuristics only in `selectors.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved.
+- **Failure mapping lives in one place.** `interpretVoyagerResponse` turns every LinkedIn response into either a parsed body or a typed error; the transport itself is a one-method interface so tests substitute a fake.
+- **Volatile knowledge is quarantined.** Decoration IDs and URLs live only in `endpoints.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved.
 - **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic.
 - **Secrets never touch logs.** Cookie headers are redacted by pino; config is logged with `LI_AT` masked.
 
@@ -285,7 +277,7 @@ pnpm test:live     # hits LinkedIn for real; needs LI_AT in the environment
 pnpm typecheck && pnpm lint
 ```
 
-- **Unit:** URL parsing matrix, entity-graph resolution, the normaliser against a hand-written fixture that covers every branch (missing entities, capped skills, year-only dates, unknown enum values…), the HTTP client's error mapping with a mocked `fetch`, cache/semaphore, the DOM top-card parser, and the service's escalation table.
+- **Unit:** URL parsing matrix, entity-graph resolution, the normaliser against a hand-written fixture that covers every branch (missing entities, capped skills, year-only dates, unknown enum values…), the HTTP client's error mapping and session bootstrap with a mocked `fetch`, cache/semaphore, and the service (caching, error propagation).
 - **Recorded fixtures:** `pnpm record-fixture <slug>` saves real Voyager responses (tracking noise stripped) under `tests/fixtures/voyager/<slug>/`. `normalize.recorded.test.ts` runs the normaliser over every recorded profile and checks the output against the schema, this is the schema-drift alarm.
 - **Integration:** the Fastify app via `app.inject`: routes, validation, error envelope, `Retry-After`, rate limiting, OpenAPI.
 - **Live:** an env-gated smoke test for a real profile (all sections present, skills paged past 20, unknown slug → 404).
@@ -294,18 +286,18 @@ pnpm typecheck && pnpm lint
 
 ## Deployment
 
-The service ships as a Docker image based on `mcr.microsoft.com/playwright`, so Chromium and its system libraries are present for the fallback.
+The service ships as a small `node:22-slim` Docker image.
 
 ```bash
 docker build -t linkedin-profile-api .
-docker run --rm -p 3000:3000 -e LI_AT="$LI_AT" -e BROWSER_FALLBACK=true linkedin-profile-api
+docker run --rm -p 3000:3000 -e LI_AT="$LI_AT" linkedin-profile-api
 ```
 
 ### Render
 
 `render.yaml` describes the service. Connect the repo in the Render dashboard, create a Blueprint, and set `LI_AT` as a secret environment variable (it is marked `sync: false`, so it is never read from the repo). Render provisions HTTPS automatically.
 
-The blueprint targets the **free** plan, which is fine for the Voyager HTTP path. Two consequences: free instances (512 MB) cannot run Chromium, so `BROWSER_FALLBACK` is `false` there, switch to the starter plan and set it to `true` to enable the fallback; and free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes.
+The blueprint targets the **free** plan. Free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes.
 
 ---
 
@@ -325,7 +317,7 @@ The blueprint targets the **free** plan, which is fine for the Voyager HTTP path
 
 **Decoration IDs are undocumented and versioned.** LinkedIn can retire `FullProfileWithEntities-101` at any time; the symptom would be `SCHEMA_DRIFT` and failing recorded-fixture tests. The remedy is to capture the new ID from the web app and update one constant.
 
-**The DOM fallback is intentionally partial.** It returns identity fields only and flags `meta.partial: true`; list sections are not scraped from HTML (see [Approach](#why-a-browser-fallback-and-why-its-shaped-this-way)).
+**Bot detection.** Requests come from a plain HTTP client, not a browser. LinkedIn can respond with HTTP 999 if it decides the client looks automated; the API reports that as `502 UPSTREAM_ERROR`. Sending the session's companion cookies and a realistic user agent keeps this rare, but not impossible.
 
 **No persistence.** The cache is in-memory; a restart clears it. That's appropriate for this scope but means a multi-instance deployment would not share it.
 

@@ -28,7 +28,6 @@ describe.each(RECORDED)('recorded fixture: %s', (slug) => {
     fetchedAt: '2026-08-27T00:00:00.000Z',
     cached: false,
     durationMs: 0,
-    partial: false,
     warnings: [],
   };
 

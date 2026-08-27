@@ -21,9 +21,9 @@ export interface RequestContext {
   publicIdentifier: string;
 }
 
-/** Anything that can GET a Voyager path. Implemented over raw HTTP and over a real browser. */
+/** Anything that can GET a Voyager path. Kept as an interface so tests can substitute a fake. */
 export interface VoyagerTransport {
-  readonly name: 'http' | 'browser';
+  readonly name: string;
   get(path: string, context: RequestContext): Promise<VoyagerResponse>;
 }
 
@@ -99,7 +99,7 @@ export function interpretVoyagerResponse(
     });
   }
   if (res.status === 999) {
-    // LinkedIn's bot-detection status. The browser transport usually gets past it.
+    // LinkedIn's bot-detection status.
     throw new UpstreamError('LinkedIn blocked the request (HTTP 999, bot detection)', {
       status: 999,
     });
@@ -153,7 +153,7 @@ export interface HttpVoyagerClientOptions {
   log?: LogFn;
 }
 
-/** Voyager over plain HTTP. Fast and cheap; the primary path. */
+/** Voyager over plain HTTP. */
 export class HttpVoyagerClient implements VoyagerTransport {
   readonly name = 'http' as const;
   private readonly fetchImpl: typeof fetch;

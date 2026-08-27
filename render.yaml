@@ -14,6 +14,3 @@ services:
         value: "10"
       - key: CACHE_TTL_SECONDS
         value: "900"
-      # Free instances have 512 MB; Chromium needs ~1 GB. Set to "true" on a starter plan.
-      - key: BROWSER_FALLBACK
-        value: "false"

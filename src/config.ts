@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
-
 const envSchema = z.object({
   // Quotes are stripped so a value pasted as LI_AT="…" works whether it comes
   // from dotenv (which unquotes) or `docker --env-file` (which doesn't).
@@ -21,9 +19,6 @@ const envSchema = z.object({
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().default(900),
   MAX_CONCURRENT_UPSTREAM: z.coerce.number().int().positive().default(2),
-  BROWSER_FALLBACK: bool.default(false),
-  /** Playwright channel (e.g. "chrome") for local runs without a bundled Chromium. */
-  BROWSER_CHANNEL: z.string().optional(),
   USER_AGENT: z
     .string()
     .default(
