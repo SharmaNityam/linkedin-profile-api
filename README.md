@@ -235,7 +235,7 @@ A school differs only in the values. For `https://www.linkedin.com/school/iithyd
 Schema conventions:
 
 - Absent scalars are `null`, absent lists are `[]`, exactly as for profiles. Anthropic's page above genuinely has no `headquarter`, `foundedOn` or `specialities` set.
-- `staffCount` is the number of members who list the company as their employer; `staffCountRange` is the self-declared band. They disagree, and LinkedIn reports both.
+- `staffCount` and `staffCountRange` are both reported by LinkedIn and can disagree (5826 vs 501 to 1000 for Anthropic in the recorded sample); what each one counts is not documented, so treat `staffCountRange` as the band shown on the page and `staffCount` as a larger, separately computed figure.
 - `websiteUrl` is the company's own site, not the LinkedIn page (that is `url`).
 - The full schema is in [`src/schema/company.ts`](src/schema/company.ts).
 
@@ -249,7 +249,7 @@ The operator's own home feed (`linkedin.com/feed/`) is deliberately **not** expo
 
 #### Response `200`
 
-Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `count`, showing the newest post and the one repost in the sample; the other seven posts and the long bodies are elided:
+Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `count`, showing the newest post and the one repost in the sample; the other seven posts, the long bodies and the middle image renditions are elided:
 
 ```jsonc
 {
