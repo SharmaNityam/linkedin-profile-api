@@ -127,11 +127,14 @@ describe('HttpVoyagerClient', () => {
     expect((err as RateLimitedError).retryAfterSeconds).toBe(30);
   });
 
-  it('maps 400 (unknown decoration) to SchemaDriftError', async () => {
+  it('maps 400 (unknown decoration) to SchemaDriftError without leaking the upstream URL', async () => {
     const res = jsonResponse({ message: 'Unknown decoration' }, { status: 400 });
-    await expect(
-      client(vi.fn<typeof fetch>().mockResolvedValue(res)).get('/p', ctx),
-    ).rejects.toBeInstanceOf(SchemaDriftError);
+    const err = await client(vi.fn<typeof fetch>().mockResolvedValue(res))
+      .get('/p', ctx)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SchemaDriftError);
+    // Details reach the API caller; the Voyager path is operator detail.
+    expect((err as SchemaDriftError).details).toEqual({ status: 400 });
   });
 
   it('retries once on 5xx and network errors, then gives up', async () => {
@@ -220,7 +223,6 @@ describe('interpretVoyagerResponse', () => {
       interpretVoyagerResponse(
         { status: 999, contentType: 'text/html', retryAfter: null, text: '' },
         ctx,
-        'u',
       ),
     ).toThrow(/bot detection/);
   });
@@ -235,7 +237,6 @@ describe('interpretVoyagerResponse', () => {
           text: JSON.stringify({ data: { message: "This company can't be accessed" } }),
         },
         { kind: 'company', identifier: 'acme' },
-        'u',
       ),
     ).toThrow(CompanyNotFoundError);
   });
@@ -245,7 +246,6 @@ describe('interpretVoyagerResponse', () => {
       interpretVoyagerResponse(
         { status: 404, contentType: 'application/json', retryAfter: null, text: '{}' },
         { kind: 'posts', identifier: 'jane' },
-        'u',
       ),
     ).toThrow(ProfileNotFoundError);
   });

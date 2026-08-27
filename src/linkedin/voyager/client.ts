@@ -53,7 +53,6 @@ interface VoyagerErrorBody {
 export function interpretVoyagerResponse(
   res: RawResponse,
   context: RequestContext,
-  url: string,
 ): VoyagerResponse {
   const contentType = res.contentType ?? '';
   const ok = res.status >= 200 && res.status < 300;
@@ -99,9 +98,10 @@ export function interpretVoyagerResponse(
   }
   if (res.status === 400) {
     // Typically the decoration ID is no longer recognised, schema drift.
+    // `details` is serialised into the API response, so the Voyager URL (its
+    // decoration IDs and query hashes) stays out of it; the client logs it.
     throw new SchemaDriftError(`LinkedIn rejected the request: ${message ?? 'bad request'}`, {
       status: 400,
-      url,
     });
   }
   if (res.status === 999) {
@@ -270,7 +270,6 @@ export class HttpVoyagerClient implements VoyagerTransport {
         text: await res.text(),
       },
       context,
-      url,
     );
   }
 }
