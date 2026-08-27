@@ -108,9 +108,18 @@ describe('LinkedInService.getPosts', () => {
     const s = build(voyager);
     const r = await s.getPosts('jane-doe', 500);
     expect(get.mock.calls[1]![0]).toContain('count:50');
-    expect(r.count).toBeGreaterThan(0);
+    expect(r.count).toBe(50);
     expect((await s.getPosts('jane-doe', 500)).meta.cached).toBe(true);
     expect((await s.getPosts('jane-doe', 5)).meta.cached).toBe(false);
+  });
+
+  it('treats NaN count as the default', async () => {
+    const { voyager, get } = transport(async (p) =>
+      p.includes('graphql') ? postsFixture : topCard,
+    );
+    const r = await build(voyager).getPosts('jane-doe', Number.NaN);
+    expect(get.mock.calls[1]![0]).toContain('count:10');
+    expect(r.count).toBe(10);
   });
 
   it('uses the configured query id', async () => {

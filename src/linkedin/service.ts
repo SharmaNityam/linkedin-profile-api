@@ -58,7 +58,8 @@ export class LinkedInService {
 
   async getPosts(inputUrl: string, count?: number): Promise<PostsResponse> {
     const { publicIdentifier } = parseProfileUrl(inputUrl);
-    const n = Math.min(POSTS_MAX_COUNT, Math.max(1, Math.trunc(count ?? POSTS_DEFAULT_COUNT)));
+    const requested = Number.isFinite(count) ? (count as number) : POSTS_DEFAULT_COUNT;
+    const n = Math.min(POSTS_MAX_COUNT, Math.max(1, Math.trunc(requested)));
     return this.cached(`posts:${publicIdentifier}:${n}`, PostsResponse, async () => {
       const { bundle, warnings } = await fetchPostsBundle(
         this.deps.voyager,
