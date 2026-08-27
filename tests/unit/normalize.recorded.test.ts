@@ -110,6 +110,14 @@ describe.each(COMPANIES)('recorded company fixture: %s', (slug) => {
     expect(company.logo?.url).toMatch(/^https:\/\/media\.licdn\.com\//);
   });
 
+  // A school page carries the `school` flag; everything else is a company, and
+  // the canonical URL has to agree with the kind or the link 404s.
+  it('classifies the page and builds a matching canonical URL', () => {
+    const kind = slug === 'iithyderabad' ? 'school' : 'company';
+    expect(company.kind).toBe(kind);
+    expect(company.url).toContain(`/${kind}/`);
+  });
+
   it('never emits cookie-gated /dms/prv/ image URLs', () => {
     const urls = [company.logo, company.backgroundImage].flatMap(imageUrls);
     expect(urls.length).toBeGreaterThan(0);
@@ -149,6 +157,12 @@ describe.each(POSTS)('recorded posts fixture: %s', (slug) => {
 
   it('carries social counts on at least one post', () => {
     expect(posts.some((p) => p.stats !== null)).toBe(true);
+  });
+
+  // Every recorded feed contains a repost. Reshare detection reads the update
+  // header, which is the part of the feed shape most likely to move.
+  it('flags at least one post as a reshare', () => {
+    expect(posts.some((p) => p.isReshare)).toBe(true);
   });
 
   it('never emits cookie-gated /dms/prv/ image URLs', () => {
