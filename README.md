@@ -5,11 +5,11 @@ A small HTTPS service that takes a LinkedIn profile URL and returns the profile 
 It works by talking to **Voyager**, the private JSON API LinkedIn's own web app uses, rather than parsing HTML. A headless-browser path is kept in reserve for the cases where raw HTTP stops working.
 
 ```bash
-curl "https://<your-host>/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
+curl "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
 ```
 
-- **Live docs:** `https://<your-host>/docs` (Swagger UI, generated from the response schema)
-- **OpenAPI:** `https://<your-host>/openapi.json`
+- **Live docs:** `https://linkedin-profile-api-c925.onrender.com/docs` (Swagger UI, generated from the response schema)
+- **OpenAPI:** `https://linkedin-profile-api-c925.onrender.com/openapi.json`
 
 ---
 
