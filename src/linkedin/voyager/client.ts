@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import {
+  CompanyNotFoundError,
   ProfileNotFoundError,
   RateLimitedError,
   SchemaDriftError,
@@ -17,8 +18,11 @@ import {
 export const LINKEDIN_ORIGIN = 'https://www.linkedin.com';
 export const VOYAGER_BASE = `${LINKEDIN_ORIGIN}/voyager/api`;
 
+export type EntityKind = 'profile' | 'company' | 'posts';
+
 export interface RequestContext {
-  publicIdentifier: string;
+  kind: EntityKind;
+  identifier: string;
 }
 
 /** Anything that can GET a Voyager path. Kept as an interface so tests can substitute a fake. */
@@ -83,7 +87,9 @@ export function interpretVoyagerResponse(
     res.status === 404 ||
     (res.status === 403 && /can'?t be accessed|not found/i.test(message ?? ''))
   ) {
-    throw new ProfileNotFoundError(context.publicIdentifier);
+    throw context.kind === 'company'
+      ? new CompanyNotFoundError(context.identifier)
+      : new ProfileNotFoundError(context.identifier);
   }
   if (res.status === 403) {
     // e.g. "CSRF check failed", misconfiguration or LinkedIn blocking this client, not the user's fault.

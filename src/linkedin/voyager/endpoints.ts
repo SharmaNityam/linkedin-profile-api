@@ -45,7 +45,7 @@ export async function fetchProfileBundle(
   client: VoyagerTransport,
   publicIdentifier: string,
 ): Promise<FetchedProfile> {
-  const context = { publicIdentifier };
+  const context = { kind: 'profile' as const, identifier: publicIdentifier };
   const warnings: string[] = [];
 
   const [full, topCard] = await Promise.all([

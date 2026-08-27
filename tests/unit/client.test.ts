@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HttpVoyagerClient } from '../../src/linkedin/voyager/client.js';
+import { HttpVoyagerClient, interpretVoyagerResponse } from '../../src/linkedin/voyager/client.js';
 import {
+  CompanyNotFoundError,
   ProfileNotFoundError,
   RateLimitedError,
   SchemaDriftError,
@@ -26,7 +27,7 @@ function client(fetchImpl: typeof fetch) {
   });
 }
 
-const ctx = { publicIdentifier: 'jane' };
+const ctx = { kind: 'profile' as const, identifier: 'jane' };
 
 describe('HttpVoyagerClient', () => {
   it('sends the auth cookies, matching csrf-token and Rest.li headers', async () => {
@@ -215,7 +216,6 @@ describe('session bootstrap', () => {
 
 describe('interpretVoyagerResponse', () => {
   it('maps HTTP 999 (bot detection) to a non-retryable UpstreamError', async () => {
-    const { interpretVoyagerResponse } = await import('../../src/linkedin/voyager/client.js');
     expect(() =>
       interpretVoyagerResponse(
         { status: 999, contentType: 'text/html', retryAfter: null, text: '' },
@@ -223,5 +223,30 @@ describe('interpretVoyagerResponse', () => {
         'u',
       ),
     ).toThrow(/bot detection/);
+  });
+
+  it('maps 403 to CompanyNotFoundError for company requests', () => {
+    expect(() =>
+      interpretVoyagerResponse(
+        {
+          status: 403,
+          contentType: 'application/json',
+          retryAfter: null,
+          text: JSON.stringify({ data: { message: "This company can't be accessed" } }),
+        },
+        { kind: 'company', identifier: 'acme' },
+        'u',
+      ),
+    ).toThrow(CompanyNotFoundError);
+  });
+
+  it('maps 404 to ProfileNotFoundError for posts requests', () => {
+    expect(() =>
+      interpretVoyagerResponse(
+        { status: 404, contentType: 'application/json', retryAfter: null, text: '{}' },
+        { kind: 'posts', identifier: 'jane' },
+        'u',
+      ),
+    ).toThrow(ProfileNotFoundError);
   });
 });
