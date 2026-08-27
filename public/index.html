@@ -247,9 +247,27 @@
 
   // ---- renderers
   const initialOf = (name) => esc((name || '?').trim()[0] || '?');
-  const logo = (org, name) => org?.logoUrl
-    ? `<img class="logo" src="${esc(org.logoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'logo',textContent:this.dataset.i}))" data-i="${initialOf(name)}" />`
-    : `<div class="logo" aria-hidden="true">${initialOf(name)}</div>`;
+  const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${v.width}w`).join(', ') : '';
+  // Wrapped image: skeleton until `load`, fade in, fallback on `error`. `fallback` is the HTML to show on error.
+  function img({ image, alt = '', cls, eager = false, sizes, fallback }) {
+    if (!image?.url) return `<span class="img-wrap ${cls} is-loaded">${fallback}</span>`;
+    const ss = srcset(image);
+    return `<span class="img-wrap ${cls}" data-fallback="${esc(fallback)}"><span class="skel"></span><img data-img src="${esc(image.url)}"${ss ? ` srcset="${ss}" sizes="${esc(sizes)}"` : ''} alt="${esc(alt)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer" /></span>`;
+  }
+  const initialHtml = (name) => `<span class="initial" aria-hidden="true">${initialOf(name)}</span>`;
+  const logo = (org, name) => img({ image: org?.logoUrl ? { url: org.logoUrl, variants: [] } : null, cls: 'logo', sizes: '44px', fallback: initialHtml(name) });
+
+  function bindImages(root) {
+    for (const el of root.querySelectorAll('img[data-img]:not([data-bound])')) {
+      el.dataset.bound = '1';
+      const wrap = el.parentElement;
+      const loaded = () => wrap.classList.add('is-loaded');
+      const failed = () => { wrap.innerHTML = wrap.dataset.fallback || ''; wrap.classList.add('is-loaded', 'is-fallback'); };
+      if (el.complete) { el.naturalWidth > 0 ? loaded() : failed(); continue; }
+      el.addEventListener('load', loaded, { once: true });
+      el.addEventListener('error', failed, { once: true });
+    }
+  }
   const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
 
   function block(key, title, items, body) {
@@ -301,11 +319,12 @@
         ${v.description ? `<p class="desc">${esc(v.description)}</p>` : ''}
       </div></li>`).join('')}</ul>`);
 
-    const simple = (key, title, rows) => block(key, title, rows, `<ul class="timeline">${rows.map((r) => `<li><div class="logo" aria-hidden="true">·</div><div><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${r.description ? `<p class="desc">${esc(r.description)}</p>` : ''}</div></li>`).join('')}</ul>`);
+    const simple = (key, title, rows) => block(key, title, rows, `<ul class="timeline">${rows.map((r) => `<li>${logo(null, '·')}<div><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${r.description ? `<p class="desc">${esc(r.description)}</p>` : ''}</div></li>`).join('')}</ul>`);
 
     view.innerHTML = `
+      ${img({ image: p.backgroundImage, cls: 'banner', eager: true, sizes: '(max-width: 800px) 100vw, 800px', fallback: '' })}
       <div class="identity">
-        ${p.profileImage ? `<img class="avatar" src="${esc(p.profileImage.url)}" alt="${name}" referrerpolicy="no-referrer" />` : `<div class="avatar"></div>`}
+        ${img({ image: p.profileImage, alt: name, cls: 'avatar', eager: true, sizes: '88px', fallback: initialHtml(p.fullName) })}
         <h2>${name}${p.pronouns ? `<small>${esc(p.pronouns)}</small>` : ''}</h2>
         ${p.headline ? `<p class="headline">${esc(p.headline)}</p>` : ''}
         ${facts.length ? `<p class="facts">${facts.map((f) => `<span>${esc(f)}</span>`).join('')}<span><a href="${esc(p.url)}" rel="noopener" target="_blank" style="color:var(--muted)">linkedin.com/in/${esc(p.publicIdentifier)} ↗</a></span></p>` : ''}
@@ -314,6 +333,7 @@
       ${experience}${education}${skills}${certs}${languages}${vol}
       ${simple('projects', 'Projects', p.projects)}${simple('honors', 'Honors & awards', p.honors)}${simple('publications', 'Publications', p.publications)}${simple('courses', 'Courses', p.courses)}
     `;
+    bindImages(view);
     $('#more')?.addEventListener('click', (e) => { $('#about').dataset.clamped = 'false'; e.target.remove(); });
   }
 
@@ -345,7 +365,7 @@
   function setStatus(kind, text) { statusEl.hidden = false; statusEl.className = `pill ${kind}`; statusEl.textContent = text; }
 
   function showLoading() {
-    view.innerHTML = `<div class="skel-wrap"><div class="skel" style="width:88px;height:88px;border-radius:50%"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
+    view.innerHTML = `<div class="skel skel-banner"></div><div class="skel-wrap"><div class="skel skel-avatar"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
     setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
   }
   function showError(status, body) {
