@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_POSTS_QUERY_ID } from './linkedin/voyager/endpoints.js';
 
 const envSchema = z.object({
   // Quotes are stripped so a value pasted as LI_AT="…" works whether it comes
@@ -19,6 +20,12 @@ const envSchema = z.object({
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().default(900),
   MAX_CONCURRENT_UPSTREAM: z.coerce.number().int().positive().default(2),
+  /**
+   * The `voyagerFeedDashProfileUpdates` persisted-query hash. LinkedIn rotates
+   * it; set this to the current value (visible in the web app's network tab)
+   * when `/v1/posts` starts reporting SCHEMA_DRIFT.
+   */
+  VOYAGER_POSTS_QUERY_ID: z.string().min(8).default(DEFAULT_POSTS_QUERY_ID),
   USER_AGENT: z
     .string()
     .default(
