@@ -445,7 +445,7 @@ The default is `20c70fe0314184158516a7ec004c0408`. The older hash `4af00b28d60ed
 
 `interpretVoyagerResponse` maps every way LinkedIn can say no onto one typed error: a login redirect or HTML body means the session is dead (`503`), a 403 "can't be accessed" is a missing or restricted entity (`404`), 429 is passed through with `Retry-After`, 400 means the decoration ID or persisted query is no longer recognised (`SCHEMA_DRIFT`), and 999 is LinkedIn's bot-detection status. Only network errors and 5xx are retried, once.
 
-Every request carries a small `RequestContext` (`{ kind: 'profile' | 'company' | 'posts', identifier }`), which is what lets the same 403 become `PROFILE_NOT_FOUND` or `COMPANY_NOT_FOUND` depending on what was being fetched. It is also how a 400 on the posts query is recognised as a stale hash rather than a dead member: the top-card request has already proved the member exists by then.
+Every request carries a small `RequestContext` (`{ kind: 'profile' | 'company' | 'posts', identifier }`), which is what lets the same 403 become `PROFILE_NOT_FOUND` or `COMPANY_NOT_FOUND` depending on what was being fetched. Recognising a stale posts hash is a separate mechanism: `fetchPostsBundle` wraps the feed request in a try/catch and rewrites a rejection as schema drift, because by then the top-card request has already proved the member exists.
 
 ---
 
@@ -478,7 +478,7 @@ Design points worth calling out:
 - **One service, three entities.** `LinkedInService` owns the cache and the semaphore for all three; cache keys are namespaced (`profile:<slug>`, `company:<name>`, `posts:<slug>:<count>`) so a posts lookup never collides with a profile of the same slug, and the count is part of the key because it changes the answer.
 - **Failure mapping lives in one place.** `interpretVoyagerResponse` turns every LinkedIn response into either a parsed body or a typed error; the transport itself is a one-method interface so tests substitute a fake.
 - **Volatile knowledge is quarantined.** Decoration IDs, URLs and the posts `queryId` default live only in `endpoints.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved; the `queryId` is additionally overridable from the environment, so the most perishable constant needs no redeploy at all.
-- **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic.
+- **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic. The semaphore bounds concurrent *bundles*, not upstream requests: a posts bundle is 2 requests and a profile is 2 or more, so the real ceiling on in-flight LinkedIn calls is a small multiple of the limit.
 - **Secrets never touch logs.** Cookie headers are redacted by pino; config is logged with `LI_AT` masked.
 
 ---
@@ -543,7 +543,7 @@ The blueprint targets the **free** plan. Free instances sleep after 15 minutes o
 
 **Bot detection.** Requests come from a plain HTTP client, not a browser. LinkedIn can respond with HTTP 999 if it decides the client looks automated; the API reports that as `502 UPSTREAM_ERROR`. Sending the session's companion cookies and a realistic user agent keeps this rare, but not impossible.
 
-**Image URLs expire.** Every image URL LinkedIn returns is signed (`?e=<unix-expiry>&v=beta&t=<sig>`), typically valid for weeks. A response served from the cache after that point contains dead image URLs; the playground falls back to a placeholder instead of a broken image, and API consumers should treat `url`/`variants` as short-lived. Only `media.licdn.com` renditions are emitted; the cookie-gated `linkedin.com/dms/prv/` originals are never exposed.
+**Image URLs expire.** Every image URL LinkedIn returns is signed (`?e=<unix-expiry>&v=beta&t=<sig>`), typically valid for weeks. A response served from the cache after that point contains dead image URLs; the playground falls back to a placeholder instead of a broken image, and API consumers should treat `url`/`variants` as short-lived. Only `media.licdn.com` renditions are emitted, but nothing in the normalisers filters by host: that guarantee is enforced by the recorded-fixture test, which fails if a cookie-gated `linkedin.com/dms/prv/` URL ever reaches a response.
 
 **No persistence.** The cache is in-memory; a restart clears it. That's appropriate for this scope but means a multi-instance deployment would not share it.
 
