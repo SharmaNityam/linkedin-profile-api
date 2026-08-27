@@ -13,11 +13,11 @@ import {
 import { z } from 'zod';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
-import type { ProfileService } from './linkedin/service.js';
+import type { LinkedInService } from './linkedin/service.js';
 import { profileRoutes } from './routes/profile.js';
 
 export interface BuildAppOptions {
-  service: ProfileService;
+  services: LinkedInService;
   rateLimitPerMinute: number;
   /** A pino instance to log through; omitted in tests. */
   logger?: FastifyBaseLogger;
@@ -97,7 +97,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     decorateReply: false,
   });
 
-  await app.register(profileRoutes, { service: options.service });
+  await app.register(profileRoutes, { services: options.services });
 
   return app;
 }

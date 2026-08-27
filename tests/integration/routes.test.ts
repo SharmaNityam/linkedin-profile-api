@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/server.js';
-import type { ProfileService } from '../../src/linkedin/service.js';
+import type { LinkedInService } from '../../src/linkedin/service.js';
 import {
   ProfileNotFoundError,
   RateLimitedError,
@@ -32,7 +32,7 @@ describe('HTTP API', () => {
 
   beforeAll(async () => {
     app = await buildApp({
-      service: { getProfile } as unknown as ProfileService,
+      services: { getProfile } as unknown as LinkedInService,
       rateLimitPerMinute: 1000,
     });
     await app.ready();
@@ -113,7 +113,7 @@ describe('HTTP API', () => {
 describe('rate limiting', () => {
   it('returns 429 with our error envelope once the per-IP limit is hit', async () => {
     const app = await buildApp({
-      service: { getProfile: vi.fn().mockResolvedValue(profile) } as unknown as ProfileService,
+      services: { getProfile: vi.fn().mockResolvedValue(profile) } as unknown as LinkedInService,
       rateLimitPerMinute: 2,
     });
     const hit = () =>

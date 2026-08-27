@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { ErrorResponse, ProfileResponse } from '../schema/profile.js';
-import type { ProfileService } from '../linkedin/service.js';
+import type { LinkedInService } from '../linkedin/service.js';
 
 const UrlInput = z
   .string()
@@ -18,9 +18,9 @@ const errorResponses = {
   503: ErrorResponse.describe('The backend LinkedIn session has expired'),
 };
 
-export const profileRoutes: FastifyPluginAsyncZod<{ service: ProfileService }> = async (
+export const profileRoutes: FastifyPluginAsyncZod<{ services: LinkedInService }> = async (
   app,
-  { service },
+  { services },
 ) => {
   app.get(
     '/v1/profile',
@@ -32,7 +32,7 @@ export const profileRoutes: FastifyPluginAsyncZod<{ service: ProfileService }> =
         response: { 200: ProfileResponse, ...errorResponses },
       },
     },
-    async (req) => service.getProfile(req.query.url),
+    async (req) => services.getProfile(req.query.url),
   );
 
   app.post(
@@ -45,6 +45,6 @@ export const profileRoutes: FastifyPluginAsyncZod<{ service: ProfileService }> =
         response: { 200: ProfileResponse, ...errorResponses },
       },
     },
-    async (req) => service.getProfile(req.body.url),
+    async (req) => services.getProfile(req.body.url),
   );
 };

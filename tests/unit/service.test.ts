@@ -1,15 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ProfileService } from '../../src/linkedin/service.js';
+import { LinkedInService } from '../../src/linkedin/service.js';
 import { TtlCache } from '../../src/linkedin/cache.js';
 import { Semaphore } from '../../src/linkedin/semaphore.js';
 import type { VoyagerTransport } from '../../src/linkedin/voyager/client.js';
 import { ProfileNotFoundError, SchemaDriftError } from '../../src/errors.js';
-import type { ProfileResponse } from '../../src/schema/profile.js';
-import { loadFixture } from '../helpers/fixtures.js';
+import { loadEntityFixture, loadFixture } from '../helpers/fixtures.js';
 
 const full = loadFixture('minimal', 'full.json');
 const topCard = loadFixture('minimal', 'topcard.json');
 const skillsPage = loadFixture('minimal', 'skills-page.json');
+const companyFixture = loadEntityFixture('company', 'minimal', 'company.json');
+const postsFixture = loadEntityFixture('posts', 'minimal', 'posts.json');
 
 function transport(impl: (path: string) => Promise<unknown>) {
   const get = vi.fn(impl);
@@ -19,14 +20,15 @@ const good = async (path: string) =>
   path.includes('WebTopCardCore') ? topCard : path.includes('profileSkills') ? skillsPage : full;
 
 function build(voyager: VoyagerTransport, ttl = 60_000) {
-  return new ProfileService({
+  return new LinkedInService({
     voyager,
-    cache: new TtlCache<ProfileResponse>(ttl),
+    cache: new TtlCache<unknown>(ttl),
     semaphore: new Semaphore(2),
+    postsQueryId: 'test-id',
   });
 }
 
-describe('ProfileService', () => {
+describe('LinkedInService.getProfile', () => {
   it('returns a full profile with meta', async () => {
     const res = await build(transport(good).voyager).getProfile(
       'https://www.linkedin.com/in/jane-doe/',
@@ -73,5 +75,49 @@ describe('ProfileService', () => {
     const service = build(voyager);
     await expect(service.getProfile('jane-doe')).rejects.toBeInstanceOf(SchemaDriftError);
     await expect(service.getProfile('jane-doe')).resolves.toMatchObject({ fullName: 'Jane Doe' });
+  });
+});
+
+describe('LinkedInService.getCompany', () => {
+  it('returns a company with meta and caches by name', async () => {
+    const { voyager, get } = transport(async () => companyFixture);
+    const s = build(voyager);
+    const first = await s.getCompany('https://www.linkedin.com/company/acme/');
+    expect(first.name).toBe('Acme');
+    expect(first.meta.cached).toBe(false);
+    expect((await s.getCompany('acme')).meta.cached).toBe(true);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not collide with the profile cache', async () => {
+    const { voyager } = transport(async (p) =>
+      p.includes('organization') ? companyFixture : good(p),
+    );
+    const s = build(voyager);
+    await s.getProfile('acme');
+    const c = await s.getCompany('acme');
+    expect(c.meta.cached).toBe(false);
+  });
+});
+
+describe('LinkedInService.getPosts', () => {
+  it('fetches, clamps count and caches per count', async () => {
+    const { voyager, get } = transport(async (p) =>
+      p.includes('graphql') ? postsFixture : topCard,
+    );
+    const s = build(voyager);
+    const r = await s.getPosts('jane-doe', 500);
+    expect(get.mock.calls[1]![0]).toContain('count:50');
+    expect(r.count).toBeGreaterThan(0);
+    expect((await s.getPosts('jane-doe', 500)).meta.cached).toBe(true);
+    expect((await s.getPosts('jane-doe', 5)).meta.cached).toBe(false);
+  });
+
+  it('uses the configured query id', async () => {
+    const { voyager, get } = transport(async (p) =>
+      p.includes('graphql') ? postsFixture : topCard,
+    );
+    await build(voyager).getPosts('jane-doe');
+    expect(get.mock.calls[1]![0]).toContain('voyagerFeedDashProfileUpdates.test-id');
   });
 });
