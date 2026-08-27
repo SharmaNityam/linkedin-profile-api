@@ -75,4 +75,8 @@ export const TYPES = {
   legacyCompany: 'com.linkedin.voyager.organization.Company',
   legacyIndustry: 'com.linkedin.voyager.common.Industry',
   followingInfo: 'com.linkedin.voyager.common.FollowingInfo',
+  // Feed entities, reached through the GraphQL profile-updates query.
+  update: 'com.linkedin.voyager.dash.feed.Update',
+  socialDetail: 'com.linkedin.voyager.dash.social.SocialDetail',
+  socialActivityCounts: 'com.linkedin.voyager.dash.feed.SocialActivityCounts',
 } as const;
