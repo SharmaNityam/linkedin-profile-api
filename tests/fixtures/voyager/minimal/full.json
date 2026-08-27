@@ -1,0 +1,230 @@
+{
+  "data": {
+    "entityUrn": "urn:li:collectionResponse:root",
+    "paging": { "count": 10, "start": 0 },
+    "*elements": ["urn:li:fsd_profile:ABC"],
+    "$type": "com.linkedin.restli.common.CollectionResponse"
+  },
+  "included": [
+    {
+      "entityUrn": "urn:li:fsd_profile:ABC",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+      "publicIdentifier": "jane-doe",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "headline": "Engineer @Acme  ",
+      "summary": "I build things.",
+      "pronounUnion": { "standardizedPronoun": "SHE_HER" },
+      "showPremiumSubscriberBadge": false,
+      "*industry": "urn:li:fsd_industry:4",
+      "geoLocation": { "*geo": "urn:li:fsd_geo:1", "geoUrn": "urn:li:fsd_geo:1" },
+      "location": { "countryCode": "IN" },
+      "profilePicture": {
+        "displayImageReference": {
+          "vectorImage": {
+            "rootUrl": "https://media.licdn.com/dms/image/v2/X/profile-displayphoto-",
+            "artifacts": [
+              { "width": 400, "height": 400, "fileIdentifyingUrlPathSegment": "scale_400_400/a" },
+              { "width": 100, "height": 100, "fileIdentifyingUrlPathSegment": "scale_100_100/b" },
+              { "width": 800, "height": 800, "fileIdentifyingUrlPathSegment": "crop_800_800/c" }
+            ]
+          }
+        }
+      },
+      "backgroundPicture": null,
+      "*profilePositionGroups": "urn:li:col:positionGroups",
+      "*profileEducations": "urn:li:col:educations",
+      "*profileSkills": "urn:li:col:skills",
+      "*profileCertifications": "urn:li:col:certs",
+      "*profileLanguages": "urn:li:col:langs",
+      "*profileVolunteerExperiences": "urn:li:col:vol",
+      "*profileProjects": "urn:li:col:empty",
+      "*profileHonors": "urn:li:col:empty",
+      "*profilePublications": "urn:li:col:empty",
+      "*profileCourses": "urn:li:col:empty"
+    },
+    {
+      "entityUrn": "urn:li:fsd_industry:4",
+      "$type": "com.linkedin.voyager.dash.common.Industry",
+      "name": "Computer Software"
+    },
+    { "entityUrn": "urn:li:fsd_geo:1", "$type": "com.linkedin.voyager.dash.common.Geo" },
+
+    {
+      "entityUrn": "urn:li:col:positionGroups",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "paging": { "total": 2, "count": 10 },
+      "*elements": ["urn:li:pg:1", "urn:li:pg:2"]
+    },
+    {
+      "entityUrn": "urn:li:pg:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.PositionGroup",
+      "companyName": "Acme",
+      "*company": "urn:li:fsd_company:9",
+      "*profilePositionInPositionGroup": "urn:li:col:pg1pos"
+    },
+    {
+      "entityUrn": "urn:li:col:pg1pos",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "*elements": ["urn:li:pos:1", "urn:li:pos:2"]
+    },
+    {
+      "entityUrn": "urn:li:pos:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "title": "Senior Engineer",
+      "companyName": "Acme",
+      "*company": "urn:li:fsd_company:9",
+      "*employmentType": "urn:li:fsd_employmentType:1",
+      "locationName": "Chennai, India",
+      "description": "Leading the platform team.",
+      "dateRange": { "start": { "year": 2024, "month": 3 } }
+    },
+    {
+      "entityUrn": "urn:li:pos:2",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "title": "Engineer",
+      "*company": "urn:li:fsd_company:9",
+      "dateRange": { "start": { "year": 2022, "month": 1 }, "end": { "year": 2024, "month": 2 } }
+    },
+    {
+      "entityUrn": "urn:li:pg:2",
+      "$type": "com.linkedin.voyager.dash.identity.profile.PositionGroup",
+      "companyName": "Stealth Startup",
+      "*profilePositionInPositionGroup": "urn:li:col:pg2pos"
+    },
+    {
+      "entityUrn": "urn:li:col:pg2pos",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "*elements": ["urn:li:pos:3"]
+    },
+    {
+      "entityUrn": "urn:li:pos:3",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "title": "Intern",
+      "companyName": "Stealth Startup",
+      "*employmentType": "urn:li:fsd_employmentType:18",
+      "dateRange": { "start": { "year": 2021 }, "end": { "year": 2021 } }
+    },
+    {
+      "entityUrn": "urn:li:fsd_company:9",
+      "$type": "com.linkedin.voyager.dash.organization.Company",
+      "name": "Acme",
+      "url": "https://www.linkedin.com/company/acme/",
+      "universalName": "acme",
+      "logo": {
+        "vectorImage": {
+          "rootUrl": "https://media.licdn.com/dms/image/v2/L/company-logo_",
+          "artifacts": [
+            { "width": 200, "height": 200, "fileIdentifyingUrlPathSegment": "200_200/x" }
+          ]
+        }
+      }
+    },
+    {
+      "entityUrn": "urn:li:fsd_employmentType:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.EmploymentType",
+      "name": "Full-time"
+    },
+    {
+      "entityUrn": "urn:li:fsd_employmentType:18",
+      "$type": "com.linkedin.voyager.dash.identity.profile.EmploymentType",
+      "name": "Internship"
+    },
+
+    {
+      "entityUrn": "urn:li:col:educations",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "*elements": ["urn:li:edu:1"]
+    },
+    {
+      "entityUrn": "urn:li:edu:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Education",
+      "schoolName": "SRM Institute",
+      "*school": "urn:li:fsd_school:5",
+      "degreeName": "B.Tech",
+      "fieldOfStudy": "Computer Science",
+      "grade": "9.1",
+      "activities": "",
+      "dateRange": { "start": { "year": 2021 }, "end": { "year": 2025 } }
+    },
+    {
+      "entityUrn": "urn:li:fsd_school:5",
+      "$type": "com.linkedin.voyager.dash.organization.School",
+      "name": "SRM Institute",
+      "url": "https://www.linkedin.com/school/srm/"
+    },
+
+    {
+      "entityUrn": "urn:li:col:skills",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "paging": { "total": 3, "count": 2, "start": 0 },
+      "*elements": ["urn:li:skill:1", "urn:li:skill:2"]
+    },
+    {
+      "entityUrn": "urn:li:skill:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "TypeScript"
+    },
+    {
+      "entityUrn": "urn:li:skill:2",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "Flutter"
+    },
+
+    {
+      "entityUrn": "urn:li:col:certs",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "*elements": ["urn:li:cert:1"]
+    },
+    {
+      "entityUrn": "urn:li:cert:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Certification",
+      "name": "AWS Certified",
+      "authority": "Amazon",
+      "*company": "urn:li:fsd_company:MISSING",
+      "licenseNumber": "XYZ",
+      "url": "https://example.com/cert",
+      "dateRange": { "start": { "year": 2023, "month": 5 } }
+    },
+
+    {
+      "entityUrn": "urn:li:col:langs",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "*elements": ["urn:li:lang:1", "urn:li:lang:2"]
+    },
+    {
+      "entityUrn": "urn:li:lang:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Language",
+      "name": "Hindi",
+      "proficiency": "NATIVE_OR_BILINGUAL"
+    },
+    {
+      "entityUrn": "urn:li:lang:2",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Language",
+      "name": "Klingon",
+      "proficiency": "SOMETHING_NEW"
+    },
+
+    {
+      "entityUrn": "urn:li:col:vol",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "*elements": ["urn:li:vol:1"]
+    },
+    {
+      "entityUrn": "urn:li:vol:1",
+      "$type": "com.linkedin.voyager.dash.identity.profile.VolunteerExperience",
+      "role": "Mentor",
+      "companyName": "Code Club",
+      "cause": "EDUCATION",
+      "description": "Weekly sessions",
+      "dateRange": { "start": { "year": 2020, "month": 9 } }
+    },
+
+    {
+      "entityUrn": "urn:li:col:empty",
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "paging": { "total": 0 },
+      "*elements": []
+    }
+  ]
+}

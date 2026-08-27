@@ -1,0 +1,10 @@
+{
+  "data": { "*elements": ["urn:li:fsd_profile:ABC"] },
+  "included": [
+    {
+      "entityUrn": "urn:li:fsd_geo:1",
+      "$type": "com.linkedin.voyager.dash.common.Geo",
+      "defaultLocalizedName": "Chennai, Tamil Nadu, India"
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+import { describe, expect, it, vi } from 'vitest';
+import { HttpVoyagerClient } from '../../src/linkedin/voyager/client.js';
+import {
+  ProfileNotFoundError,
+  RateLimitedError,
+  SchemaDriftError,
+  SessionExpiredError,
+  UpstreamError,
+} from '../../src/errors.js';
+
+function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/vnd.linkedin.normalized+json+2.1' },
+    ...init,
+  });
+}
+
+function client(fetchImpl: typeof fetch) {
+  return new HttpVoyagerClient({
+    liAt: 'COOKIE',
+    userAgent: 'UA',
+    fetch: fetchImpl,
+    timeoutMs: 1000,
+  });
+}
+
+const ctx = { publicIdentifier: 'jane' };
+
+describe('HttpVoyagerClient', () => {
+  it('sends the auth cookies, matching csrf-token and Rest.li headers', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ data: {}, included: [] }));
+    await client(fetchMock).get('/identity/dash/profiles?x=1', ctx);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://www.linkedin.com/voyager/api/identity/dash/profiles?x=1');
+    const headers = init!.headers as Record<string, string>;
+    expect(headers.cookie).toMatch(/^li_at=COOKIE; JSESSIONID="ajax:\d+"$/);
+    expect(headers.cookie).toContain(`JSESSIONID="${headers['csrf-token']}"`);
+    expect(headers['x-restli-protocol-version']).toBe('2.0.0');
+    expect(headers.accept).toBe('application/vnd.linkedin.normalized+json+2.1');
+    expect(init!.redirect).toBe('manual');
+  });
+
+  it('returns the parsed body on success', async () => {
+    const body = { data: { a: 1 }, included: [{ entityUrn: 'x' }] };
+    await expect(
+      client(vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(body))).get('/p', ctx),
+    ).resolves.toEqual(body);
+  });
+
+  it.each([
+    ['401', new Response('', { status: 401 })],
+    [
+      'redirect to login',
+      new Response('', { status: 302, headers: { location: 'https://www.linkedin.com/login' } }),
+    ],
+    [
+      'HTML instead of JSON',
+      new Response('<html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    ],
+  ])('treats %s as an expired session', async (_name, res) => {
+    await expect(
+      client(vi.fn<typeof fetch>().mockResolvedValue(res)).get('/p', ctx),
+    ).rejects.toBeInstanceOf(SessionExpiredError);
+  });
+
+  it('maps LinkedIn\'s 403 "can\'t be accessed" to ProfileNotFoundError', async () => {
+    const res = jsonResponse(
+      {
+        data: {
+          exceptionClass: 'com.linkedin.voyager.common.VoyagerUserVisibleException',
+          message: "This profile can't be accessed",
+          status: 403,
+        },
+        included: [],
+      },
+      { status: 403 },
+    );
+    await expect(
+      client(vi.fn<typeof fetch>().mockResolvedValue(res)).get('/p', ctx),
+    ).rejects.toBeInstanceOf(ProfileNotFoundError);
+  });
+
+  it('maps other 403s (e.g. CSRF failure) to UpstreamError', async () => {
+    const res = jsonResponse({ message: 'CSRF check failed.' }, { status: 403 });
+    await expect(
+      client(vi.fn<typeof fetch>().mockResolvedValue(res)).get('/p', ctx),
+    ).rejects.toThrow(/CSRF check failed/);
+  });
+
+  it('maps 404 to ProfileNotFoundError', async () => {
+    await expect(
+      client(vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, { status: 404 }))).get(
+        '/p',
+        ctx,
+      ),
+    ).rejects.toBeInstanceOf(ProfileNotFoundError);
+  });
+
+  it('maps 429 to RateLimitedError with Retry-After', async () => {
+    const res = jsonResponse(
+      {},
+      { status: 429, headers: { 'retry-after': '30', 'content-type': 'application/json' } },
+    );
+    const err = await client(vi.fn<typeof fetch>().mockResolvedValue(res))
+      .get('/p', ctx)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RateLimitedError);
+    expect((err as RateLimitedError).retryAfterSeconds).toBe(30);
+  });
+
+  it('maps 400 (unknown decoration) to SchemaDriftError', async () => {
+    const res = jsonResponse({ message: 'Unknown decoration' }, { status: 400 });
+    await expect(
+      client(vi.fn<typeof fetch>().mockResolvedValue(res)).get('/p', ctx),
+    ).rejects.toBeInstanceOf(SchemaDriftError);
+  });
+
+  it('retries once on 5xx and network errors, then gives up', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce(jsonResponse({}, { status: 502 }));
+    await expect(client(fetchMock).get('/p', ctx)).rejects.toBeInstanceOf(UpstreamError);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('recovers when the retry succeeds', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({}, { status: 503 }))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+    await expect(client(fetchMock).get('/p', ctx)).resolves.toEqual({ ok: true });
+  });
+
+  it('does not retry terminal errors', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}, { status: 404 }));
+    await client(fetchMock)
+      .get('/p', ctx)
+      .catch(() => undefined);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('interpretVoyagerResponse', () => {
+  it('maps HTTP 999 (bot detection) to a non-retryable UpstreamError', async () => {
+    const { interpretVoyagerResponse } = await import('../../src/linkedin/voyager/client.js');
+    expect(() =>
+      interpretVoyagerResponse(
+        { status: 999, contentType: 'text/html', retryAfter: null, text: '' },
+        ctx,
+        'u',
+      ),
+    ).toThrow(/bot detection/);
+  });
+});

@@ -1,0 +1,18 @@
+{
+  "data": {
+    "paging": { "start": 2, "count": 50, "total": 3 },
+    "*elements": ["urn:li:skill:3", "urn:li:skill:dup"]
+  },
+  "included": [
+    {
+      "entityUrn": "urn:li:skill:3",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "Rust"
+    },
+    {
+      "entityUrn": "urn:li:skill:dup",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "typescript"
+    }
+  ]
+}
