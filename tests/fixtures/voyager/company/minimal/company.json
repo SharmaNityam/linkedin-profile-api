@@ -1,0 +1,66 @@
+{
+  "data": {
+    "entityUrn": "urn:li:collectionResponse:x",
+    "paging": { "count": 10, "start": 0 },
+    "*elements": ["urn:li:fs_normalized_company:1"],
+    "$type": "com.linkedin.restli.common.CollectionResponse"
+  },
+  "included": [
+    {
+      "entityUrn": "urn:li:fs_normalized_company:2",
+      "$type": "com.linkedin.voyager.organization.Company",
+      "name": "Acme Showcase",
+      "universalName": "acme-showcase",
+      "showcase": true,
+      "url": "https://www.linkedin.com/showcase/acme-showcase/"
+    },
+    {
+      "entityUrn": "urn:li:fs_industry:4",
+      "$type": "com.linkedin.voyager.common.Industry",
+      "localizedName": "Software Development"
+    },
+    {
+      "entityUrn": "urn:li:fs_followingInfo:urn:li:company:1",
+      "$type": "com.linkedin.voyager.common.FollowingInfo",
+      "followerCount": 1234,
+      "following": false
+    },
+    {
+      "entityUrn": "urn:li:fs_normalized_company:1",
+      "$type": "com.linkedin.voyager.organization.Company",
+      "name": "Acme",
+      "universalName": "acme",
+      "url": "https://www.linkedin.com/company/acme",
+      "companyPageUrl": "https://acme.example/",
+      "tagline": "We make things",
+      "description": "  Long description  ",
+      "staffCount": 42,
+      "staffCountRange": { "start": 11, "end": 50 },
+      "headquarter": {
+        "country": "IN",
+        "geographicArea": "Telangana",
+        "city": "Hyderabad",
+        "postalCode": "500001",
+        "line1": "1 Main St"
+      },
+      "foundedOn": { "year": 2008 },
+      "specialities": ["AI", "Robots"],
+      "phone": null,
+      "companyType": { "localizedName": "Privately Held", "code": "PRIVATELY_HELD" },
+      "school": null,
+      "showcase": false,
+      "*followingInfo": "urn:li:fs_followingInfo:urn:li:company:1",
+      "*companyIndustries": ["urn:li:fs_industry:4", "urn:li:fs_industry:999"],
+      "logo": {
+        "image": {
+          "rootUrl": "https://media.licdn.com/dms/image/v2/X/company-logo_",
+          "artifacts": [
+            { "width": 400, "height": 400, "fileIdentifyingUrlPathSegment": "400_400/a?e=1&v=beta&t=s" },
+            { "width": 100, "height": 100, "fileIdentifyingUrlPathSegment": "100_100/a?e=1&v=beta&t=s" }
+          ]
+        }
+      },
+      "backgroundCoverImage": null
+    }
+  ]
+}

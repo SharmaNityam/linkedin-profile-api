@@ -71,4 +71,8 @@ export const TYPES = {
   industry: 'com.linkedin.voyager.dash.common.Industry',
   employmentType: 'com.linkedin.voyager.dash.identity.profile.EmploymentType',
   collection: 'com.linkedin.restli.common.CollectionResponse',
+  // Company pages still come back decorated with the legacy (non-dash) family.
+  legacyCompany: 'com.linkedin.voyager.organization.Company',
+  legacyIndustry: 'com.linkedin.voyager.common.Industry',
+  followingInfo: 'com.linkedin.voyager.common.FollowingInfo',
 } as const;
