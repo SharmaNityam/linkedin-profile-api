@@ -247,14 +247,17 @@
 
   // ---- renderers
   const initialOf = (name) => esc((name || '?').trim()[0] || '?');
-  const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${v.width}w`).join(', ') : '';
+  const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${esc(v.width)}w`).join(', ') : '';
   // Wrapped image: skeleton until `load`, fade in, fallback on `error`. `fallback` is the HTML to show on error.
   function img({ image, alt = '', cls, eager = false, sizes, fallback }) {
     if (!image?.url) return `<span class="img-wrap ${cls} is-loaded">${fallback}</span>`;
     const ss = srcset(image);
     return `<span class="img-wrap ${cls}" data-fallback="${esc(fallback)}"><span class="skel"></span><img data-img src="${esc(image.url)}"${ss ? ` srcset="${ss}" sizes="${esc(sizes)}"` : ''} alt="${esc(alt)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer" /></span>`;
   }
-  const initialHtml = (name) => `<span class="initial" aria-hidden="true">${initialOf(name)}</span>`;
+  // A decorative initial (logos, whose name is already in the text beside them)
+  // is hidden from assistive tech; the avatar has no such neighbour, so passing
+  // `label` keeps it an image with an accessible name.
+  const initialHtml = (name, label) => `<span class="initial" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${initialOf(name)}</span>`;
   const logo = (org, name) => img({ image: org?.logoUrl ? { url: org.logoUrl, variants: [] } : null, cls: 'logo', sizes: '44px', fallback: initialHtml(name) });
 
   function bindImages(root) {
@@ -324,7 +327,7 @@
     view.innerHTML = `
       ${img({ image: p.backgroundImage, cls: 'banner', eager: true, sizes: '(max-width: 800px) 100vw, 800px', fallback: '' })}
       <div class="identity">
-        ${img({ image: p.profileImage, alt: p.fullName, cls: 'avatar', eager: true, sizes: '88px', fallback: initialHtml(p.fullName) })}
+        ${img({ image: p.profileImage, alt: p.fullName, cls: 'avatar', eager: true, sizes: '88px', fallback: initialHtml(p.fullName, p.fullName) })}
         <h2>${name}${p.pronouns ? `<small>${esc(p.pronouns)}</small>` : ''}</h2>
         ${p.headline ? `<p class="headline">${esc(p.headline)}</p>` : ''}
         ${facts.length ? `<p class="facts">${facts.map((f) => `<span>${esc(f)}</span>`).join('')}<span><a href="${esc(p.url)}" rel="noopener" target="_blank" style="color:var(--muted)">linkedin.com/in/${esc(p.publicIdentifier)} ↗</a></span></p>` : ''}

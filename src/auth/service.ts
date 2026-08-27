@@ -6,7 +6,7 @@ import { isAllowedDomain } from './email-domains.js';
 import type { MailSender } from './mailer.js';
 import type { PasswordHasher } from './password.js';
 import { normalizePhone } from './phone.js';
-import type { PhoneValidator, PhoneVerdict } from './phone-validation.js';
+import { answeredVerdict, type PhoneValidator, type PhoneVerdict } from './phone-validation.js';
 import type { PhoneValidation, Repositories, User } from './repositories.js';
 
 /** Long enough to be worth hashing, short enough not to be a DoS vector. */
@@ -283,23 +283,16 @@ export class AuthService {
 }
 
 /**
- * Cached rows are only written when the provider actually answered, so the
- * same rule applies as at the time of the call.
+ * Cached rows are only ever written when the provider answered, so replaying
+ * one through the same rule is exactly the call we would make today.
  */
 function fromCache(cached: PhoneValidation): PhoneVerdict {
-  const accepted = cached.valid === true && cached.type?.toLowerCase() === 'mobile';
-  return {
-    verdict: accepted ? 'accepted' : 'rejected',
-    reason: accepted
-      ? null
-      : cached.valid === true
-        ? `the provider reports this number as type ${cached.type ?? 'unknown'}, not a mobile`
-        : 'the provider reports this number as not in service (valid=false)',
-    raw: cached.raw,
+  return answeredVerdict({
     provider: cached.provider,
-    type: cached.type,
     valid: cached.valid,
-  };
+    type: cached.type,
+    raw: cached.raw,
+  });
 }
 
 function assertPasswordPolicy(password: string): void {

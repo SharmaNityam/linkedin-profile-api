@@ -89,28 +89,12 @@ export class AbstractPhoneValidator implements PhoneValidator {
     const valid = readBoolean(body, 'valid');
     if (valid === null) return this.skip('the provider returned no verdict');
 
-    const type = readString(body, 'type');
-    if (valid && type?.toLowerCase() === MOBILE) {
-      return {
-        verdict: 'accepted',
-        reason: null,
-        raw: body,
-        provider: ABSTRACT_PROVIDER,
-        type,
-        valid,
-      };
-    }
-
-    return {
-      verdict: 'rejected',
-      reason: valid
-        ? `the provider reports this number as type ${type ?? 'unknown'}, not a mobile`
-        : 'the provider reports this number as not in service (valid=false)',
-      raw: body,
+    return answeredVerdict({
       provider: ABSTRACT_PROVIDER,
-      type,
       valid,
-    };
+      type: readString(body, 'type'),
+      raw: body,
+    });
   }
 
   /** A skip is an operational event, so it is worth a line in the log. */
@@ -139,6 +123,34 @@ export class NoopPhoneValidator implements PhoneValidator {
       valid: null,
     };
   }
+}
+
+/**
+ * The accept/reject rule, applied to an answer the provider actually gave.
+ * Shared with the cache, so a row read back next month is judged by exactly
+ * the same rule — and worded the same way — as the live call that wrote it.
+ */
+export function answeredVerdict(answer: {
+  provider: string;
+  valid: boolean | null;
+  type: string | null;
+  raw: unknown;
+}): PhoneVerdict {
+  const { provider, valid, type, raw } = answer;
+  if (valid === true && type?.toLowerCase() === MOBILE) {
+    return { verdict: 'accepted', reason: null, raw, provider, type, valid };
+  }
+  return {
+    verdict: 'rejected',
+    reason:
+      valid === true
+        ? `the provider reports this number as type ${type ?? 'unknown'}, not a mobile`
+        : 'the provider reports this number as not in service (valid=false)',
+    raw,
+    provider,
+    type,
+    valid,
+  };
 }
 
 function field(body: unknown, key: string): unknown {
