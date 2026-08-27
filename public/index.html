@@ -315,10 +315,10 @@
   const PROF = { ELEMENTARY: [1, 'Elementary'], LIMITED_WORKING: [2, 'Limited working'], PROFESSIONAL_WORKING: [3, 'Professional working'], FULL_PROFESSIONAL: [4, 'Full professional'], NATIVE_OR_BILINGUAL: [5, 'Native / bilingual'] };
 
   // ---- renderers
-  const initial = (name) => esc((name || '?').trim()[0] || '?');
+  const initialOf = (name) => esc((name || '?').trim()[0] || '?');
   const logo = (org, name) => org?.logoUrl
-    ? `<img class="logo" src="${esc(org.logoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'logo',textContent:this.dataset.i}))" data-i="${initial(name)}" />`
-    : `<div class="logo" aria-hidden="true">${initial(name)}</div>`;
+    ? `<img class="logo" src="${esc(org.logoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'logo',textContent:this.dataset.i}))" data-i="${initialOf(name)}" />`
+    : `<div class="logo" aria-hidden="true">${initialOf(name)}</div>`;
   const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
 
   function block(key, title, items, body) {
