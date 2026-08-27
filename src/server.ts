@@ -1,7 +1,7 @@
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import {
   jsonSchemaTransform,
   serializerCompiler,
@@ -17,12 +17,13 @@ import { profileRoutes } from './routes/profile.js';
 export interface BuildAppOptions {
   service: ProfileService;
   rateLimitPerMinute: number;
-  logger?: FastifyInstance['log'] | boolean;
+  /** A pino instance to log through; omitted in tests. */
+  logger?: FastifyBaseLogger;
 }
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: options.logger ?? false,
+    ...(options.logger ? { loggerInstance: options.logger } : { logger: false }),
     requestIdHeader: 'x-request-id',
   }).withTypeProvider<ZodTypeProvider>();
 
