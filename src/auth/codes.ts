@@ -13,10 +13,12 @@ export function generateCode(random: () => number = () => randomInt(CODE_RANGE))
 }
 
 /**
- * What we store instead of the code itself. Six digits are trivially
- * brute-forced offline, so the protection is the short expiry, the attempt cap
- * and single use — not the cost of the digest; a slow KDF here would only add
- * latency to every verification.
+ * What we store instead of the code itself. A six-digit space is small
+ * enough to precompute every possible digest, so this hash gives no real
+ * protection on its own — even against someone who just reads the row out of
+ * the DB. The expiry, the 5-attempt cap and single use are what actually
+ * protect the code; a slow KDF here would only add latency to every
+ * verification.
  */
 export function hashCode(code: string): string {
   return createHash('sha256').update(code, 'utf8').digest('hex');

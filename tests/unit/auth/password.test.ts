@@ -1,5 +1,15 @@
+import { randomBytes, scryptSync } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { Argon2Hasher, createHasher, ScryptHasher } from '../../../src/auth/password.js';
+
+/** Builds a `$scrypt$...` hash with caller-chosen params, in the same format
+ * `ScryptHasher` writes, so we can prove verification derives the key using
+ * the params embedded in the hash rather than the module's current constants. */
+function buildScryptHash(password: string, n: number, r: number, p: number): string {
+  const salt = randomBytes(16);
+  const key = scryptSync(password, salt, 64, { N: n, r, p, maxmem: 256 * 1024 * 1024 });
+  return `$scrypt$N=${n},r=${r},p=${p}$${salt.toString('base64')}$${key.toString('base64')}`;
+}
 
 const PASSWORD = 'correct horse battery staple';
 
@@ -64,6 +74,25 @@ describe('ScryptHasher', () => {
     const hasher = new ScryptHasher();
     expect(await hasher.verify('$scrypt$broken', PASSWORD)).toBe(false);
     expect(await hasher.verify('', PASSWORD)).toBe(false);
+  });
+
+  it('rejects a hash with trailing junk (wrong field count)', async () => {
+    const hasher = new ScryptHasher();
+    expect(await hasher.verify(`${scryptHash}$extra`, PASSWORD)).toBe(false);
+  });
+
+  it('verifies using the params embedded in the hash, not the current constants', async () => {
+    const hasher = new ScryptHasher();
+    const hash = buildScryptHash(PASSWORD, 16384, 8, 1);
+    expect(await hasher.verify(hash, PASSWORD)).toBe(true);
+    expect(await hasher.verify(hash, 'wrong password')).toBe(false);
+  });
+
+  it('rejects a non-numeric parameter header instead of throwing', async () => {
+    const hasher = new ScryptHasher();
+    const salt = Buffer.alloc(16, 1).toString('base64');
+    const key = Buffer.alloc(64, 2).toString('base64');
+    expect(await hasher.verify(`$scrypt$N=abc,r=8,p=1$${salt}$${key}`, PASSWORD)).toBe(false);
   });
 });
 
