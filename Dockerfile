@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ---- build -----------------------------------------------------------------
 FROM node:22-slim AS build
 WORKDIR /app
