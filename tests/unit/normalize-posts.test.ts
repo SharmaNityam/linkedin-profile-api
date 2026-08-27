@@ -1,12 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { activityIdToDate, normalizePosts } from '../../src/linkedin/voyager/normalize-posts.js';
 import { PostsResponse } from '../../src/schema/post.js';
+import type { VoyagerEntity } from '../../src/linkedin/voyager/types.js';
 import { loadEntityFixture } from '../helpers/fixtures.js';
 
 const bundle = {
   topCard: loadEntityFixture('posts', 'minimal', 'topcard.json'),
   posts: loadEntityFixture('posts', 'minimal', 'posts.json'),
 };
+
+const testMeta = {
+  source: 'voyager',
+  fetchedAt: '2026-08-27T00:00:00.000Z',
+  cached: false,
+  durationMs: 0,
+  warnings: [],
+};
+
+function findIncluded(posts: typeof bundle.posts, entityUrn: string): VoyagerEntity {
+  const included = posts.included ?? [];
+  const entity = included.find((e) => e.entityUrn === entityUrn);
+  if (!entity) throw new Error(`fixture entity not found: ${entityUrn}`);
+  return entity;
+}
 
 describe('activityIdToDate', () => {
   it('extracts the Unix-ms timestamp from the activity id', () => {
@@ -85,5 +101,40 @@ describe('normalizePosts', () => {
       },
     };
     expect(normalizePosts(empty, 'jane-doe').posts).toEqual([]);
+  });
+
+  it('nulls url for a non-https or relative shareUrl instead of failing the schema', () => {
+    const posts = structuredClone(bundle.posts);
+    findIncluded(
+      posts,
+      'urn:li:fsd_update:(urn:li:activity:7390255662376824832,MEMBER_SHARES,EMPTY,DEFAULT,false)',
+    ).socialContent = { shareUrl: '/posts/relative' };
+    findIncluded(
+      posts,
+      'urn:li:fsd_update:(urn:li:activity:7193517581419380736,MEMBER_SHARES,EMPTY,DEFAULT,false)',
+    ).socialContent = { shareUrl: 'http://example.com/x' };
+
+    const withBad = { ...bundle, posts };
+    const r = normalizePosts(withBad, 'jane-doe');
+    expect(r.posts[0]!.url).toBeNull();
+    expect(r.posts[1]!.url).toBeNull();
+
+    const result = PostsResponse.safeParse({ ...r, meta: testMeta });
+    expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
+  });
+
+  it('flags a reshare from resharedUpdate presence even when its metadata is missing', () => {
+    const posts = structuredClone(bundle.posts);
+    const outer = findIncluded(
+      posts,
+      'urn:li:fsd_update:(urn:li:activity:7358006675577978882,MEMBER_SHARES,EMPTY,DEFAULT,false)',
+    );
+    const nested = outer.resharedUpdate as VoyagerEntity;
+    delete nested.metadata;
+
+    const r = normalizePosts({ ...bundle, posts }, 'jane-doe');
+    const p = r.posts[2]!;
+    expect(p.isReshare).toBe(true);
+    expect(p.reshared).toBeNull();
   });
 });

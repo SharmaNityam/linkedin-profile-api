@@ -46,7 +46,7 @@ function post(graph: EntityGraph, u: VoyagerEntity): Post | null {
   const nested = asRecord(u.resharedUpdate);
   const reshared = nested ? postBase(graph, nested) : null;
   const header = str(asRecord(asRecord(u.header)?.text)?.text);
-  return { ...base, isReshare: reshared !== null || /reposted/i.test(header ?? ''), reshared };
+  return { ...base, isReshare: nested !== undefined || /reposted/i.test(header ?? ''), reshared };
 }
 
 function postBase(graph: EntityGraph, u: VoyagerEntity): Omit<Post, 'reshared'> | null {
@@ -61,7 +61,7 @@ function postBase(graph: EntityGraph, u: VoyagerEntity): Omit<Post, 'reshared'> 
   const counts = graph.ref(graph.ref(u, 'socialDetail'), 'totalSocialActivityCounts');
   return {
     urn,
-    url: stripQuery(str(asRecord(u.socialContent)?.shareUrl)),
+    url: httpsOnly(stripQuery(str(asRecord(u.socialContent)?.shareUrl))),
     createdAt: activityIdToDate(id).toISOString(),
     text: str(asRecord(asRecord(u.commentary)?.text)?.text),
     author: {
@@ -112,7 +112,7 @@ function stripQuery(url: string | null): string | null {
   return i === -1 ? url : url.slice(0, i);
 }
 
-/** `linkedinUrl` is declared as a URL in the schema, so anything else is null. */
+/** `url`/`linkedinUrl` are declared as URLs in the schema, so anything else is null. */
 function httpsOnly(url: string | null): string | null {
   return url?.startsWith('https://') ? url : null;
 }
