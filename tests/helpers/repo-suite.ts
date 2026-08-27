@@ -148,6 +148,25 @@ export function repositorySuite(
         expect((await repos.users.findById(user.id))?.phoneVerifiedAt).toEqual(at);
       });
 
+      it('replaces the stored password hash', async () => {
+        const user = await newUser();
+
+        await repos.users.updatePasswordHash(user.id, 'hash-rotated');
+
+        expect((await repos.users.findById(user.id))?.passwordHash).toBe('hash-rotated');
+      });
+
+      it('rotates the password of only the requested user, leaving the rest alone', async () => {
+        const first = await newUser();
+        const second = await newUser();
+
+        await repos.users.updatePasswordHash(first.id, 'hash-rotated');
+
+        const stored = await repos.users.findById(first.id);
+        expect(stored).toEqual({ ...first, passwordHash: 'hash-rotated' });
+        expect((await repos.users.findById(second.id))?.passwordHash).toBe('hash-2');
+      });
+
       it('bumps the session version, returning the new value', async () => {
         const user = await newUser();
 
@@ -173,6 +192,10 @@ export function repositorySuite(
           'INTERNAL_ERROR',
         );
         await expectAppError(repos.users.bumpSessionVersion(MISSING_ID), 'INTERNAL_ERROR');
+        await expectAppError(
+          repos.users.updatePasswordHash(MISSING_ID, 'hash-rotated'),
+          'INTERNAL_ERROR',
+        );
       });
 
       it('does not hand out a reference into its own storage', async () => {

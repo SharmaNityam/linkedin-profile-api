@@ -83,9 +83,20 @@ export class AuthService {
       // A verified account keeps its password: re-running signup must not be a
       // way to reset someone else's credentials.
       if (existing.emailVerifiedAt) {
+        // Burn a hash anyway, so this branch costs what the others do and
+        // response latency does not say which addresses are already verified.
+        await this.deps.hasher.hash(password);
         this.deps.log?.('debug', 'signup for an already verified address', { canonical });
         return;
       }
+      // Nobody has proved they hold this mailbox yet, so the pending password
+      // belongs to whoever asked last. Leaving the first one in place would let
+      // an attacker pre-register an address and inherit the victim's account
+      // the moment they verify it.
+      await this.deps.repos.users.updatePasswordHash(
+        existing.id,
+        await this.deps.hasher.hash(password),
+      );
       await this.issueCode(existing);
       return;
     }
@@ -149,6 +160,15 @@ export class AuthService {
     userId: string,
     phone: string,
   ): Promise<{ me: Me; phoneValidation: 'accepted' | 'skipped' }> {
+    // Establish who is asking before anything else: an unverified account must
+    // not be able to spend provider quota, or claim a number, on the strength
+    // of a mailbox nobody has proved they hold.
+    const account = await this.deps.repos.users.findById(userId);
+    if (!account) throw noSession();
+    if (!account.emailVerifiedAt) {
+      throw new AppError('EMAIL_UNVERIFIED', 'Verify your email before adding a phone number');
+    }
+
     const phoneE164 = normalizePhone(phone);
 
     const owner = await this.deps.repos.users.findByPhone(phoneE164);
@@ -161,7 +181,7 @@ export class AuthService {
     if (outcome === 'taken') throw phoneTaken();
 
     const user = await this.deps.repos.users.findById(userId);
-    if (!user) throw new AppError('UNAUTHENTICATED', 'Your session is no longer valid');
+    if (!user) throw noSession();
     return { me: this.me(user), phoneValidation };
   }
 
@@ -266,9 +286,18 @@ export class AuthService {
   private gate(verdict: PhoneVerdict): 'accepted' | 'skipped' {
     if (verdict.verdict === 'accepted') return 'accepted';
     if (verdict.verdict === 'rejected') {
+      // The provider's own wording reaches the log and the cached `raw`; the
+      // caller gets a phrase we chose, so an unfamiliar line type cannot put
+      // provider text into our response.
+      this.deps.log?.('debug', 'phone rejected', {
+        provider: verdict.provider,
+        type: verdict.type,
+        valid: verdict.valid,
+        reason: verdict.reason,
+      });
       throw new AppError(
         'PHONE_REJECTED',
-        `We can only accept a mobile number: ${verdict.reason ?? 'this one was not accepted'}.`,
+        `We can only accept a mobile number: ${lineType(verdict)}.`,
       );
     }
     if (this.deps.failMode === 'closed') {
@@ -306,6 +335,32 @@ function assertPasswordPolicy(password: string): void {
 
 function invalidCredentials(): AppError {
   return new AppError('INVALID_CREDENTIALS', 'That email and password combination is not valid');
+}
+
+/**
+ * How we describe a rejected number. Only line types we recognise are named;
+ * anything else collapses to one fixed phrase, so the provider never gets to
+ * choose the words in a user-facing message.
+ */
+const LINE_TYPES: Record<string, string> = {
+  landline: 'that one is a landline',
+  voip: 'that one is an internet (VoIP) number',
+  toll_free: 'that one is a toll-free number',
+  prepaid: 'that one is a prepaid number',
+  satellite: 'that one is a satellite number',
+  pager: 'that one is a pager',
+};
+
+const UNRECOGNISED_LINE = 'that one is not a mobile line';
+
+function lineType(verdict: PhoneVerdict): string {
+  if (verdict.valid === false) return 'that one is not in service';
+  const known = verdict.type ? LINE_TYPES[verdict.type.toLowerCase()] : undefined;
+  return known ?? UNRECOGNISED_LINE;
+}
+
+function noSession(): AppError {
+  return new AppError('UNAUTHENTICATED', 'Your session is no longer valid');
 }
 
 function phoneTaken(): AppError {

@@ -53,6 +53,12 @@ export interface UserRepository {
   findByCanonicalEmail(emailCanonical: string): Promise<User | null>;
   findByPhone(phoneE164: string): Promise<User | null>;
   markEmailVerified(id: string, at: Date): Promise<void>;
+  /**
+   * Overwrites the stored hash. Signup uses it when an unverified address is
+   * claimed again, so the last person to submit a password is the only one who
+   * can sign in once the address is verified.
+   */
+  updatePasswordHash(id: string, passwordHash: string): Promise<void>;
   /** `'taken'` when another account already holds the number. */
   setPhone(id: string, phoneE164: string, at: Date): Promise<'ok' | 'taken'>;
   /** Returns the new session version. */

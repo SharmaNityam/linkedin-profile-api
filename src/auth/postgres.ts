@@ -92,6 +92,14 @@ class PostgresUserRepository implements UserRepository {
     if (rowCount === 0) throw missingUser(id);
   }
 
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    const { rowCount } = await this.pool.query(
+      'update users set password_hash = $2 where id = $1',
+      [id, passwordHash],
+    );
+    if (rowCount === 0) throw missingUser(id);
+  }
+
   async setPhone(id: string, phoneE164: string, at: Date): Promise<'ok' | 'taken'> {
     try {
       const { rowCount } = await this.pool.query(

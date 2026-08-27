@@ -16,14 +16,25 @@ const PHONE = '+91 98765 43210';
 const PHONE_E164 = '+919876543210';
 const OTHER_PHONE = '+919876543211';
 
-/** Fast and deterministic; the real hashers are covered by password.test.ts. */
+function digest(password: string): string {
+  return `fake$${createHash('sha256').update(password).digest('hex')}`;
+}
+
+/**
+ * Fast and deterministic; the real hashers are covered by password.test.ts.
+ * It counts `hash` calls, because "how many times did we hash?" is how the
+ * timing-oracle guards are asserted. `verify` deliberately does not count.
+ */
 class FakeHasher implements PasswordHasher {
+  hashCalls = 0;
+
   async hash(password: string): Promise<string> {
-    return `fake$${createHash('sha256').update(password).digest('hex')}`;
+    this.hashCalls += 1;
+    return digest(password);
   }
 
   async verify(hash: string, password: string): Promise<boolean> {
-    return hash === (await this.hash(password));
+    return hash === digest(password);
   }
 }
 
@@ -75,6 +86,7 @@ async function appError(fn: () => Promise<unknown>): Promise<AppError> {
 
 describe('AuthService', () => {
   let repos: Repositories;
+  let hasher: FakeHasher;
   let mailer: RecordingMailer;
   let validator: FakeValidator;
   let clock: Date;
@@ -85,7 +97,7 @@ describe('AuthService', () => {
   function build(failMode: 'open' | 'closed' = 'open'): AuthService {
     return new AuthService({
       repos,
-      hasher: new FakeHasher(),
+      hasher,
       mailer,
       phoneValidator: validator,
       allowedDomains: ['gmail.com', 'outlook.com'],
@@ -108,6 +120,7 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     repos = createMemoryRepositories();
+    hasher = new FakeHasher();
     mailer = new RecordingMailer();
     validator = new FakeValidator();
     clock = new Date('2026-01-01T00:00:00.000Z');
@@ -184,6 +197,27 @@ describe('AuthService', () => {
       await expect(service.verifyEmail(EMAIL, fresh)).resolves.toBeTruthy();
     });
 
+    it('replaces the password when an unverified address is claimed again', async () => {
+      const first = 'first-password-in';
+      const second = 'second-password-in';
+      await service.signup(EMAIL, first);
+      await service.signup(ALIAS, second);
+
+      await service.verifyEmail(EMAIL, mailer.lastCode);
+
+      await expect(service.login(EMAIL, second)).resolves.toBeTruthy();
+      expect((await appError(() => service.login(EMAIL, first))).code).toBe('INVALID_CREDENTIALS');
+    });
+
+    it('hashes exactly once for an address that is already verified', async () => {
+      await signupAndVerify();
+      hasher.hashCalls = 0;
+
+      await service.signup(ALIAS, 'a-completely-different-password');
+
+      expect(hasher.hashCalls).toBe(1);
+    });
+
     it('says nothing and sends nothing once the address is verified', async () => {
       await signupAndVerify();
       mailer.sent.length = 0;
@@ -194,7 +228,7 @@ describe('AuthService', () => {
 
       expect(mailer.sent).toHaveLength(0);
       const user = await mustFind(EMAIL);
-      expect(await new FakeHasher().verify(user.passwordHash, PASSWORD)).toBe(true);
+      expect(user.passwordHash).toBe(digest(PASSWORD));
     });
   });
 
@@ -389,6 +423,59 @@ describe('AuthService', () => {
       await service.setPhone(user.id, OTHER_PHONE);
 
       expect((await mustFind(EMAIL)).phoneE164).toBe(OTHER_PHONE);
+    });
+
+    it('refuses a phone until the email is verified', async () => {
+      await service.signup(EMAIL, PASSWORD);
+      const user = await mustFind(EMAIL);
+
+      const err = await appError(() => service.setPhone(user.id, PHONE));
+
+      expect(err.code).toBe('EMAIL_UNVERIFIED');
+      expect(validator.calls).toHaveLength(0);
+      expect((await mustFind(EMAIL)).phoneE164).toBeNull();
+    });
+
+    it('rejects a user id that no longer exists', async () => {
+      const err = await appError(() =>
+        service.setPhone('ffffffff-ffff-4fff-8fff-ffffffffffff', PHONE),
+      );
+
+      expect(err.code).toBe('UNAUTHENTICATED');
+      expect(validator.calls).toHaveLength(0);
+    });
+
+    it('names a line type it recognises without quoting the provider', async () => {
+      const user = await signupAndVerify();
+      validator.next = verdict({
+        verdict: 'rejected',
+        reason: 'the provider reports this number as type Landline, not a mobile',
+        type: 'Landline',
+      });
+
+      const err = await appError(() => service.setPhone(user.id, PHONE));
+
+      expect(err.code).toBe('PHONE_REJECTED');
+      expect(err.message).toContain('landline');
+      expect(err.message).not.toContain('the provider reports');
+    });
+
+    it('does not echo an unknown line type back to the caller', async () => {
+      const user = await signupAndVerify();
+      const type = 'FIXED_LINE_OR_MOBILE <script>';
+      validator.next = verdict({
+        verdict: 'rejected',
+        reason: `the provider reports this number as type ${type}, not a mobile`,
+        type,
+      });
+
+      const err = await appError(() => service.setPhone(user.id, PHONE));
+
+      expect(err.code).toBe('PHONE_REJECTED');
+      expect(err.message).not.toContain(type);
+      expect(err.message).not.toContain('the provider reports');
+      // The provider's own spelling still reaches the cache, where it is useful.
+      expect((await repos.phoneValidations.find(PHONE_E164))?.type).toBe(type);
     });
 
     it('rejects an unparseable number before touching the provider', async () => {

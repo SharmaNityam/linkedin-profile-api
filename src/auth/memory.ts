@@ -67,6 +67,10 @@ class MemoryUserRepository implements UserRepository {
     this.mutable(id).emailVerifiedAt = at;
   }
 
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    this.mutable(id).passwordHash = passwordHash;
+  }
+
   async setPhone(id: string, phoneE164: string, at: Date): Promise<'ok' | 'taken'> {
     const user = this.mutable(id);
     for (const other of this.byId.values()) {
