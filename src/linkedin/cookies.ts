@@ -57,3 +57,16 @@ export function buildSessionCookies(
 function unquote(value: string | undefined): string | undefined {
   return value?.replace(/^"|"$/g, '') || undefined;
 }
+
+/** Applies `Set-Cookie` headers to a jar. Cookies that LinkedIn is deleting ("delete me") are skipped. */
+export function applySetCookies(jar: Map<string, string>, setCookies: string[]): void {
+  for (const header of setCookies) {
+    const [pair] = header.split(';');
+    const i = pair?.indexOf('=') ?? -1;
+    if (!pair || i <= 0) continue;
+    const name = pair.slice(0, i).trim();
+    const value = pair.slice(i + 1).trim();
+    if (!name || /^"?delete me"?$/i.test(value)) continue;
+    jar.set(name, value);
+  }
+}

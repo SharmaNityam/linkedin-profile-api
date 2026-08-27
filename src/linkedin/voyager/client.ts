@@ -7,7 +7,12 @@ import {
   UpstreamError,
 } from '../../errors.js';
 import type { VoyagerResponse } from './types.js';
-import { buildSessionCookies, serializeCookies, type SessionCookies } from '../cookies.js';
+import {
+  applySetCookies,
+  buildSessionCookies,
+  serializeCookies,
+  type SessionCookies,
+} from '../cookies.js';
 
 export const LINKEDIN_ORIGIN = 'https://www.linkedin.com';
 export const VOYAGER_BASE = `${LINKEDIN_ORIGIN}/voyager/api`;
@@ -154,13 +159,63 @@ export class HttpVoyagerClient implements VoyagerTransport {
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
   private readonly log: LogFn;
-  private readonly session: SessionCookies;
+  private session: SessionCookies | undefined;
+  private bootstrapping: Promise<SessionCookies> | undefined;
 
   constructor(private readonly options: HttpVoyagerClientOptions) {
     this.fetchImpl = options.fetch ?? fetch;
     this.timeoutMs = options.timeoutMs ?? 15_000;
     this.log = options.log ?? (() => undefined);
-    this.session = buildSessionCookies(options.liAt, options.companionCookies, newCsrfToken);
+    if (options.companionCookies) {
+      this.session = buildSessionCookies(options.liAt, options.companionCookies, newCsrfToken);
+    }
+  }
+
+  /**
+   * Establishes the session cookies. If the operator supplied the browser's
+   * companion cookies we use those. Otherwise we do what a browser does on its
+   * first visit: load a page with `li_at` only and keep the `JSESSIONID`,
+   * `bcookie`, `bscookie` and `lidc` LinkedIn sets in response. Replaying
+   * `li_at` without its companions is what gets sessions revoked.
+   */
+  private ensureSession(): Promise<SessionCookies> {
+    if (this.session) return Promise.resolve(this.session);
+    this.bootstrapping ??= this.bootstrap().finally(() => (this.bootstrapping = undefined));
+    return this.bootstrapping;
+  }
+
+  private async bootstrap(): Promise<SessionCookies> {
+    const url = `${LINKEDIN_ORIGIN}/feed/`;
+    let res: Response;
+    try {
+      res = await this.fetchImpl(url, {
+        method: 'GET',
+        headers: {
+          cookie: `li_at=${this.options.liAt}`,
+          'user-agent': this.options.userAgent,
+          accept: 'text/html,application/xhtml+xml',
+          'accept-language': 'en-US,en;q=0.9',
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      throw new UpstreamError(
+        `Network error bootstrapping LinkedIn session: ${errorMessage(err)}`,
+        { retryable: true },
+      );
+    }
+    const location = res.headers.get('location') ?? '';
+    if (res.status === 401 || /\/(login|authwall|checkpoint)/.test(location))
+      throw new SessionExpiredError();
+
+    const jar = new Map<string, string>();
+    applySetCookies(jar, res.headers.getSetCookie());
+    const issued = [...jar.keys()];
+    const session = buildSessionCookies(this.options.liAt, serializeCookies(jar), newCsrfToken);
+    this.log('debug', 'bootstrapped LinkedIn session', { status: res.status, issued });
+    this.session = session;
+    return session;
   }
 
   /** Retries once on network errors and 5xx; everything else is terminal. */
@@ -180,13 +235,14 @@ export class HttpVoyagerClient implements VoyagerTransport {
   }
 
   private async once(url: string, context: RequestContext): Promise<VoyagerResponse> {
+    const session = await this.ensureSession();
     let res: Response;
     try {
       res = await this.fetchImpl(url, {
         method: 'GET',
         headers: {
-          ...voyagerHeaders(this.session.csrfToken),
-          cookie: serializeCookies(this.session.jar),
+          ...voyagerHeaders(session.csrfToken),
+          cookie: serializeCookies(session.jar),
           'user-agent': this.options.userAgent,
           referer: `${LINKEDIN_ORIGIN}/`,
         },
@@ -199,6 +255,7 @@ export class HttpVoyagerClient implements VoyagerTransport {
       });
     }
     this.log('debug', 'voyager response', { url, status: res.status });
+    applySetCookies(session.jar, res.headers.getSetCookie());
     return interpretVoyagerResponse(
       {
         status: res.status,

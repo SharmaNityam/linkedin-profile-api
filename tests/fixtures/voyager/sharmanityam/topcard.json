@@ -17,7 +17,7 @@
         "links": [],
         "$type": "com.linkedin.restli.common.CollectionMetadata"
       },
-      "entityUrn": "urn:li:collectionResponse:d1edrWrqiMNu6frwFqcklr5UPSuwNwemVbbBBNgUshs=",
+      "entityUrn": "urn:li:collectionResponse:X2sBITmUh2WPpf5XwAVIKvcD4ftUTl90yH9u0AZXaEE=",
       "elements": [],
       "$type": "com.linkedin.restli.common.CollectionResponse"
     },
@@ -127,15 +127,15 @@
             "artifacts": [
               {
                 "width": 506,
-                "fileIdentifyingUrlPathSegment": "900_1200/B56Z0R4rMRJwAI-/0/1774121570579?m=AQLhw20QpBb_hgAAAaBCJ88HREmRM8CJdatfivEtZ9S4U1F2rOuM1ml5fA&e=1787902700&v=beta&t=HxChyiWHQxOdZzL8JG33dk_Hsd22ODMTWGaYxupu_Ys",
-                "expiresAt": 1787902700000,
+                "fileIdentifyingUrlPathSegment": "900_1200/B56Z0R4rMRJwAI-/0/1774121570579?m=AQLeSd8iOi0aOQAAAaBCM2vv_OyoiO7ZQkG50dexWhJYWYOfsNZIcU3yxg&e=1787903461&v=beta&t=hSIbllmVAtNmW4CNhHrxjWZr8A3EZ-I59EQo4HC3xZY",
+                "expiresAt": 1787903461000,
                 "height": 900,
                 "$type": "com.linkedin.common.VectorArtifact"
               },
               {
                 "width": 253,
-                "fileIdentifyingUrlPathSegment": "450_600/B56Z0R4rMRJwAQ-/0/1774121570579?m=AQLjdLvWQBJ-mwAAAaBCJ88IF6Q2xuGjkjGzasRIpXeayxXGO25SX4bl5A&e=1787902700&v=beta&t=nzmrCEQgBgyvKVPjE_EWHp8OFMO1oKnTYCky7WgxTvs",
-                "expiresAt": 1787902700000,
+                "fileIdentifyingUrlPathSegment": "450_600/B56Z0R4rMRJwAQ-/0/1774121570579?m=AQJUbzMmPZjV9QAAAaBCM2vvW_qJlblJSN-SMyUyxtNz86_U4fOO9tEVdA&e=1787903461&v=beta&t=hlAqCqC3Lz5C0la5zIqT10y_dyiGdjNzDDcex3-YEA4",
+                "expiresAt": 1787903461000,
                 "height": 450,
                 "$type": "com.linkedin.common.VectorArtifact"
               }
@@ -186,7 +186,7 @@
       "firstName": "Nityam",
       "idvAdditionalNameConsent": false,
       "showVerificationBadge": true,
-      "*profileGeneratedSuggestionPromo": "urn:li:collectionResponse:d1edrWrqiMNu6frwFqcklr5UPSuwNwemVbbBBNgUshs=",
+      "*profileGeneratedSuggestionPromo": "urn:li:collectionResponse:X2sBITmUh2WPpf5XwAVIKvcD4ftUTl90yH9u0AZXaEE=",
       "lastName": "Sharma",
       "memorialized": false,
       "*experienceCard": "urn:li:fsd_profileCard:(ACoAADWmn7EBq2ee4qHNQuCDElf75bzgeeT83JM,EXPERIENCE,en_US)",
@@ -242,15 +242,15 @@
             "artifacts": [
               {
                 "width": 800,
-                "fileIdentifyingUrlPathSegment": "200_800/B56ZVHP2YZGoAY-/0/1740657092733?m=AQLV3fOmHMdnbAAAAaBCJ88K5s_2O2izhhGQvnYKsrOvgA9hW6w4lT1WQA&e=1787902700&v=beta&t=1wpWyJHu81a1ZTLsjX5LhOZzKwo8SkxF7cwm_5o3a8o",
-                "expiresAt": 1787902700000,
+                "fileIdentifyingUrlPathSegment": "200_800/B56ZVHP2YZGoAY-/0/1740657092733?m=AQJt9qq6ugaXtQAAAaBCM2vm1Y8guCb3qGtxQiG9k3crSMnLwAb5AnnjNA&e=1787903461&v=beta&t=5K8IKFUZk7gZkoE2QmurPL8IU9l5RAG8FGxsx6AWYm4",
+                "expiresAt": 1787903461000,
                 "height": 200,
                 "$type": "com.linkedin.common.VectorArtifact"
               },
               {
                 "width": 1584,
-                "fileIdentifyingUrlPathSegment": "396_1584/B56ZVHP2YZGoAQ-/0/1740657092733?m=AQIXU1yWZI4P3QAAAaBCJ88LdBQoWAO9qUbO0g8GlL-DHiBWevuA6tZqZA&e=1787902700&v=beta&t=xAwyYuZRU3IOpzStu4Zdpaz2c0_bR-58Tui8TNWE_Ak",
-                "expiresAt": 1787902700000,
+                "fileIdentifyingUrlPathSegment": "396_1584/B56ZVHP2YZGoAQ-/0/1740657092733?m=AQIaEkL304LfEwAAAaBCM2vmLHDNB5euaYKWqYZrhdnk70izS7_7QPWlGw&e=1787903461&v=beta&t=rZjHbz681J8doOUnNBJZUz7o_6bsb8LSLllnz4wzes8",
+                "expiresAt": 1787903461000,
                 "height": 396,
                 "$type": "com.linkedin.common.VectorArtifact"
               }

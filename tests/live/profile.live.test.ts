@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../../src/config.js';
 import { HttpVoyagerClient } from '../../src/linkedin/voyager/client.js';

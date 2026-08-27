@@ -19,6 +19,7 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 function client(fetchImpl: typeof fetch) {
   return new HttpVoyagerClient({
     liAt: 'COOKIE',
+    companionCookies: 'bcookie=b',
     userAgent: 'UA',
     fetch: fetchImpl,
     timeoutMs: 1000,
@@ -37,7 +38,7 @@ describe('HttpVoyagerClient', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe('https://www.linkedin.com/voyager/api/identity/dash/profiles?x=1');
     const headers = init!.headers as Record<string, string>;
-    expect(headers.cookie).toMatch(/^li_at=COOKIE; JSESSIONID="ajax:\d+"$/);
+    expect(headers.cookie).toMatch(/^bcookie=b; li_at=COOKIE; JSESSIONID="ajax:\d+"$/);
     expect(headers.cookie).toContain(`JSESSIONID="${headers['csrf-token']}"`);
     expect(headers['x-restli-protocol-version']).toBe('2.0.0');
     expect(headers.accept).toBe('application/vnd.linkedin.normalized+json+2.1');
@@ -155,6 +156,60 @@ describe('HttpVoyagerClient', () => {
       .get('/p', ctx)
       .catch(() => undefined);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('session bootstrap', () => {
+  it('visits /feed/ with li_at only and keeps the cookies LinkedIn issues', async () => {
+    const bootstrapRes = new Response('', {
+      status: 200,
+      headers: [
+        ['set-cookie', 'JSESSIONID="ajax:555"; Path=/; Secure'],
+        ['set-cookie', 'bcookie="v2:xyz"; Domain=.linkedin.com'],
+        ['set-cookie', 'lidc="b=1"; Path=/'],
+        ['set-cookie', 'li_a=delete me; Max-Age=0'],
+      ],
+    });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(bootstrapRes)
+      .mockResolvedValueOnce(jsonResponse({ ok: 1 }));
+    const c = new HttpVoyagerClient({ liAt: 'COOKIE', userAgent: 'UA', fetch: fetchMock });
+    await expect(c.get('/p', ctx)).resolves.toEqual({ ok: 1 });
+
+    const [bootUrl, bootInit] = fetchMock.mock.calls[0]!;
+    expect(bootUrl).toBe('https://www.linkedin.com/feed/');
+    expect((bootInit!.headers as Record<string, string>).cookie).toBe('li_at=COOKIE');
+
+    const headers = fetchMock.mock.calls[1]![1]!.headers as Record<string, string>;
+    expect(headers.cookie).toBe(
+      'JSESSIONID="ajax:555"; bcookie="v2:xyz"; lidc="b=1"; li_at=COOKIE',
+    );
+    expect(headers['csrf-token']).toBe('ajax:555');
+  });
+
+  it('bootstraps once even for concurrent requests', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (url) =>
+        (url as string).endsWith('/feed/')
+          ? new Response('', { status: 200, headers: { 'set-cookie': 'JSESSIONID="ajax:1"' } })
+          : jsonResponse({}),
+      );
+    const c = new HttpVoyagerClient({ liAt: 'COOKIE', userAgent: 'UA', fetch: fetchMock });
+    await Promise.all([c.get('/a', ctx), c.get('/b', ctx)]);
+    expect(fetchMock.mock.calls.filter(([u]) => (u as string).endsWith('/feed/'))).toHaveLength(1);
+  });
+
+  it('reports an expired session when bootstrap is redirected to login', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response('', { status: 302, headers: { location: 'https://www.linkedin.com/login' } }),
+      );
+    await expect(
+      new HttpVoyagerClient({ liAt: 'COOKIE', userAgent: 'UA', fetch: fetchMock }).get('/p', ctx),
+    ).rejects.toBeInstanceOf(SessionExpiredError);
   });
 });
 
