@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig, redactConfig } from '../../src/config.js';
 import { DEFAULT_POSTS_QUERY_ID } from '../../src/linkedin/voyager/endpoints.js';
 
-const base = { LI_AT: 'x' };
+const SESSION_KEY = 'a'.repeat(64);
+const base = { LI_AT: 'x', SESSION_KEY };
 
 describe('loadConfig', () => {
   it('requires LI_AT and strips surrounding quotes', () => {
     expect(() => loadConfig({})).toThrow(/LI_AT/);
-    expect(loadConfig({ LI_AT: '"cookie"' }).LI_AT).toBe('cookie');
+    expect(loadConfig({ LI_AT: '"cookie"', SESSION_KEY }).LI_AT).toBe('cookie');
   });
 
   it('defaults the posts query id and accepts an override', () => {
@@ -41,22 +42,76 @@ describe('loadConfig', () => {
   it('rejects an unknown log level', () => {
     expect(() => loadConfig({ ...base, LOG_LEVEL: 'chatty' })).toThrow(/LOG_LEVEL/);
   });
+
+  it('requires a well-formed SESSION_KEY', () => {
+    expect(() => loadConfig({ LI_AT: 'x' })).toThrow(/SESSION_KEY/);
+    expect(() => loadConfig({ LI_AT: 'x', SESSION_KEY: 'not-hex' })).toThrow(/SESSION_KEY/);
+  });
+
+  it('defaults the SMTP host/port, APP_ORIGIN and OTP limits', () => {
+    const config = loadConfig(base);
+    expect(config.SMTP_HOST).toBe('smtp.gmail.com');
+    expect(config.SMTP_PORT).toBe(465);
+    expect(config.APP_ORIGIN).toBe('http://localhost:3000');
+    expect(config.OTP_RATE_LIMIT_PER_HOUR).toBe(10);
+    expect(config.OTP_PER_EMAIL_PER_HOUR).toBe(5);
+  });
+
+  it('defaults EMAIL_FROM to SMTP_USER', () => {
+    expect(loadConfig({ ...base, SMTP_USER: 'a@b.com' }).EMAIL_FROM).toBe('a@b.com');
+    expect(
+      loadConfig({ ...base, SMTP_USER: 'a@b.com', EMAIL_FROM: 'other@b.com' }).EMAIL_FROM,
+    ).toBe('other@b.com');
+    expect(loadConfig(base).EMAIL_FROM).toBeUndefined();
+  });
+
+  it('requires SMTP_USER and SMTP_PASS in production', () => {
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).toThrow(/SMTP_USER/);
+    expect(() =>
+      loadConfig({ ...base, NODE_ENV: 'production', SMTP_USER: 'a@b.com' }),
+    ).toThrow(/SMTP_USER/);
+    expect(() =>
+      loadConfig({
+        ...base,
+        NODE_ENV: 'production',
+        SMTP_USER: 'a@b.com',
+        SMTP_PASS: 'secret',
+      }),
+    ).not.toThrow();
+  });
 });
 
 describe('redactConfig', () => {
   it('redacts the session cookie', () => {
-    const redacted = redactConfig(loadConfig({ LI_AT: 'secret' }));
+    const redacted = redactConfig(loadConfig({ LI_AT: 'secret', SESSION_KEY }));
     expect(redacted.LI_AT).toBe('(6 chars, redacted)');
   });
 
-  it('leaks no secret value', () => {
-    const config = loadConfig({ LI_AT: 'li-at-secret', LI_COOKIES: 'cookie-secret' });
-    const serialised = JSON.stringify(redactConfig(config));
-
-    for (const secret of ['li-at-secret', 'cookie-secret']) expect(serialised).not.toContain(secret);
+  it('redacts SESSION_KEY and SMTP_PASS', () => {
+    const config = loadConfig({ ...base, SMTP_USER: 'a@b.com', SMTP_PASS: 'super-secret' });
+    const redacted = redactConfig(config);
+    expect(redacted.SESSION_KEY).toBe(`(${SESSION_KEY.length} chars, redacted)`);
+    expect(redacted.SMTP_PASS).toBe('(12 chars, redacted)');
   });
 
-  it('leaves an absent LI_COOKIES undefined', () => {
-    expect(redactConfig(loadConfig(base)).LI_COOKIES).toBeUndefined();
+  it('leaks no secret value', () => {
+    const config = loadConfig({
+      LI_AT: 'li-at-secret',
+      LI_COOKIES: 'cookie-secret',
+      SESSION_KEY,
+      SMTP_USER: 'a@b.com',
+      SMTP_PASS: 'smtp-pass-secret',
+    });
+    const serialised = JSON.stringify(redactConfig(config));
+
+    for (const secret of ['li-at-secret', 'cookie-secret', SESSION_KEY, 'smtp-pass-secret']) {
+      expect(serialised).not.toContain(secret);
+    }
+  });
+
+  it('leaves an absent LI_COOKIES and SMTP_PASS undefined', () => {
+    const redacted = redactConfig(loadConfig(base));
+    expect(redacted.LI_COOKIES).toBeUndefined();
+    expect(redacted.SMTP_PASS).toBeUndefined();
   });
 });
