@@ -5,10 +5,12 @@ A small HTTPS service that takes a LinkedIn URL and returns structured JSON. Thr
 It is a pure reverse-engineering of **Voyager**, the private JSON API that LinkedIn's own web app calls. Every request goes straight to LinkedIn's endpoints over HTTP; there is no browser, no HTML parsing and no third-party service involved.
 
 ```bash
-curl "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
-curl "https://linkedin-profile-api-c925.onrender.com/v1/company?url=https://www.linkedin.com/company/anthropicresearch/"
-curl "https://linkedin-profile-api-c925.onrender.com/v1/posts?url=https://www.linkedin.com/in/sharmanityam/&count=5"
+curl -b jar "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
+curl -b jar "https://linkedin-profile-api-c925.onrender.com/v1/company?url=https://www.linkedin.com/company/anthropicresearch/"
+curl -b jar "https://linkedin-profile-api-c925.onrender.com/v1/posts?url=https://www.linkedin.com/in/sharmanityam/&count=5"
 ```
+
+The `/v1/*` endpoints are **account-gated**: they need a `sid` session cookie from a verified account, which is what `-b jar` above supplies. Getting one takes three requests and is described in [Accounts and access](#accounts-and-access). `/`, `/docs`, `/openapi.json`, `/health` and `/auth/*` stay public.
 
 - **Live docs:** `https://linkedin-profile-api-c925.onrender.com/docs` (Swagger UI, generated from the response schema)
 - **OpenAPI:** `https://linkedin-profile-api-c925.onrender.com/openapi.json`
@@ -18,7 +20,17 @@ curl "https://linkedin-profile-api-c925.onrender.com/v1/posts?url=https://www.li
 ## Contents
 
 - [Quick start](#quick-start)
+- [Accounts and access](#accounts-and-access)
+  - [Why an account and not just a per-IP limit](#why-an-account-and-not-just-a-per-ip-limit)
+  - [The flow](#the-flow)
+  - [What each check proves, and what it does not](#what-each-check-proves-and-what-it-does-not)
 - [API](#api)
+  - [`POST /auth/signup`](#post-authsignup)
+  - [`POST /auth/verify-email`](#post-authverify-email)
+  - [`POST /auth/login`](#post-authlogin)
+  - [`POST /auth/phone`](#post-authphone)
+  - [`POST /auth/logout`](#post-authlogout)
+  - [`GET /auth/me`](#get-authme)
   - [`GET|POST /v1/profile`](#getpost-v1profile)
   - [`GET|POST /v1/company`](#getpost-v1company)
   - [`GET|POST /v1/posts`](#getpost-v1posts)
@@ -42,9 +54,12 @@ Requirements: Node 22+, pnpm, and a LinkedIn account.
 git clone https://github.com/SharmaNityam/linkedin-profile-api
 cd linkedin-profile-api
 pnpm install
-cp .env.example .env        # then fill in LI_AT (see below)
-pnpm dev                    # http://localhost:3000/docs
+cp .env.example .env                                  # then fill in LI_AT (see below)
+echo "SESSION_KEY=$(openssl rand -hex 32)" >> .env    # required; signs the session cookie
+pnpm dev                                              # http://localhost:3000/docs
 ```
+
+Without `DATABASE_URL`, accounts live in the process and are lost on restart, which is fine for a local run; the startup log says so. To use a real database locally, set `DATABASE_URL` and run `pnpm migrate:dev` once.
 
 ### Getting `LI_AT`
 
@@ -66,20 +81,171 @@ The cookie normally lives for about a year. When it expires, or LinkedIn revokes
 
 ### Configuration
 
+Everything the service reads is declared and validated in [`src/config.ts`](src/config.ts); an invalid environment fails the process at startup rather than at the first request.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `LI_AT` | - | LinkedIn session cookie (required) |
 | `LI_COOKIES` | - | Optional: the browser's `document.cookie` for linkedin.com, used instead of bootstrapping companion cookies |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Listen address |
-| `RATE_LIMIT_PER_MINUTE` | `10` | Per-IP limit; protects the LinkedIn account behind the API |
+| `RATE_LIMIT_PER_MINUTE` | `10` | Requests per minute, keyed by **account** once signed in and by IP before that; protects the LinkedIn account behind the API |
 | `CACHE_TTL_SECONDS` | `900` | In-memory cache for repeated lookups of the same entity |
 | `MAX_CONCURRENT_UPSTREAM` | `2` | Concurrent requests to LinkedIn |
 | `VOYAGER_POSTS_QUERY_ID` | `20c70fe0314184158516a7ec004c0408` | The `voyagerFeedDashProfileUpdates` persisted-query hash used by `/v1/posts`. LinkedIn rotates these; see [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid) |
-| `LOG_LEVEL` | `info` | pino log level |
+| `LOG_LEVEL` | `info` | pino log level. `debug` is what prints verification codes locally, see [The flow](#the-flow) |
+
+Accounts:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NODE_ENV` | `development` | `development` \| `test` \| `production`. Production additionally **requires** `DATABASE_URL` and a non-localhost `APP_ORIGIN`, and puts `Secure` on the session cookie |
+| `DATABASE_URL` | - | Postgres connection string. **Required when `NODE_ENV=production`.** Unset elsewhere means the in-memory repositories, with a startup warning. TLS is verified for every host except loopback, so a hosted database needs no extra flag and a local one needs no certificate |
+| `SESSION_KEY` | - | **Required.** The session cookie's encryption key: 32 bytes as 64 hex characters, `openssl rand -hex 32`. Changing it invalidates every cookie in circulation |
+| `APP_ORIGIN` | `http://localhost:3000` | The only `Origin` a `POST`/`PUT`/`PATCH`/`DELETE` may declare. Must be the public origin in production |
+| `RESEND_API_KEY` | - | Resend key for the verification email. Unset falls back to writing the code to the log at `debug`, which is fine locally and **not** fine in production |
+| `EMAIL_FROM` | `LinkedIn Profile API <onboarding@resend.dev>` | The `From:` header. Resend rejects sender domains it has not verified; the default shared sender needs none |
+| `ABSTRACT_API_KEY` | - | Abstract Phone Validation v1 key. Unset means every number comes back `skipped` |
+| `PHONE_VALIDATION_FAIL_MODE` | `open` | What to do when the provider gives no verdict (no key, no quota, its 5xx). `open` accepts and reports `phoneValidation: "skipped"`; `closed` rejects with `400 PHONE_REJECTED` |
+| `ALLOWED_EMAIL_DOMAINS` | built-in list | Comma-separated override for the accepted mailbox providers. The built-in list is the consumer Google, Microsoft and Yahoo domains in [`src/auth/email-domains.ts`](src/auth/email-domains.ts) |
+| `AUTH_RATE_LIMIT_PER_HOUR` | `5` | Per-IP hourly budget on `/auth/*`, the endpoints an anonymous caller can reach |
+| `PASSWORD_HASHER` | `argon2` | Which algorithm new passwords are written with: `argon2` (argon2id, 19 MiB, t=2, p=1, native binding) or `scrypt` (N=2^17, pure node). Both verify either format, so switching re-hashes nothing and signs nobody out |
+
+Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY`, `RESEND_API_KEY` and `ABSTRACT_API_KEY` by length, and strips the password out of `DATABASE_URL` while leaving the host and database name readable.
+
+---
+
+## Accounts and access
+
+### Why an account and not just a per-IP limit
+
+Every request this API serves is a request to LinkedIn made with one real person's session cookie. The thing being rationed is not CPU, it is how suspicious that account looks to LinkedIn's abuse systems. So the budget has to attach to a *caller*, and a per-IP limit does not attach to anything durable:
+
+- **An IP is rented, not owned.** A datacentre proxy pool, a residential proxy service or a phone's flight-mode toggle all hand out a fresh IP in seconds. The limit resets with it, so the ceiling on what one determined caller can pull is not `RATE_LIMIT_PER_MINUTE`, it is that number times however many addresses they can cycle through.
+- **It punishes the wrong people.** An office, a university or a mobile carrier NAT puts thousands of unrelated users behind one address, and they share a budget none of them agreed to. Signed in, the budget follows the account across IPs instead, so those users stop colliding.
+- **There is nobody to talk to.** When a caller does start pulling harder than the LinkedIn account can absorb, an IP is not a handle you can revoke; an account is.
+
+Signing up is not free either, which is the point: a mailbox at an accepted provider, plus a distinct mobile number, is a real cost per identity. It does not make farming impossible. It makes it expensive enough to be worth someone's time rather than a loop.
+
+### The flow
+
+Three requests, then the `sid` cookie opens `/v1/*`. `curl` keeps that cookie in a jar: `-c jar` writes what the server sets, `-b jar` sends what is already there, and a step that needs both takes both.
+
+Two things every state-changing request needs, and both are enforced (see [`src/auth/plugin.ts`](src/auth/plugin.ts)): a `content-type` of `application/json`, and either no `Origin` header at all (`curl`'s default) or one exactly equal to `APP_ORIGIN`. A browser form posting from somewhere else gets `403 FORBIDDEN_ORIGIN`; a form-encoded body gets `400 INVALID_REQUEST`.
+
+```bash
+API=https://linkedin-profile-api-c925.onrender.com
+
+# 1. Sign up. Answers the same way whether or not the address is already taken.
+curl -X POST "$API/auth/signup" \
+  -H 'content-type: application/json' \
+  -d '{"email":"you@gmail.com","password":"a-long-enough-password"}'
+# {"status":"verification_sent"}
+
+# 2. Confirm the six-digit code from the email. This is what issues the cookie.
+curl -c jar -X POST "$API/auth/verify-email" \
+  -H 'content-type: application/json' \
+  -d '{"email":"you@gmail.com","code":"860576"}'
+# {"email":"you@gmail.com","emailVerified":true,"phoneVerified":false,"createdAt":"2026-08-28T07:44:33.776Z"}
+
+# 3. Link a mobile number. Until this lands, /v1/* answers 403 PHONE_REQUIRED.
+curl -c jar -b jar -X POST "$API/auth/phone" \
+  -H 'content-type: application/json' \
+  -d '{"phone":"+919876543210"}'
+# {"email":"you@gmail.com","emailVerified":true,"phoneVerified":true,"createdAt":"…","phoneValidation":"skipped"}
+
+# Now the data endpoints work, and the rate limit is counted against the account.
+curl -b jar "$API/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
+```
+
+On a later day, `POST /auth/login` with the same email and password mints a fresh cookie; the signup and verify steps are not repeated. `GET /auth/me` reports where an account got to, which is how the playground decides which step to show.
+
+Running locally without a `RESEND_API_KEY`, the code is not mailed anywhere: it is written to the log at `debug` level, so start the server with `LOG_LEVEL=debug` and read it off the `verification code` line.
+
+```
+{"level":20,…,"to":"you@gmail.com","code":"860576","msg":"verification code"}
+```
+
+The number in the example is Indian; any number `libphonenumber-js/max` accepts works, but the country code is not optional. There is no default country, because a bare `98765 43210` is a valid Indian mobile and nonsense elsewhere, and guessing would let two accounts claim one line from different regions.
+
+### What each check proves, and what it does not
+
+The honest version, because the gate is worth exactly what its weakest step is worth.
+
+**Email verification proves control of a mailbox, and nothing else.** A six-digit code is generated, mailed, and stored only as a digest; confirming it is proof the person reading the mail is the person signing up. It says nothing about who they are. The two things that stop one mailbox becoming many accounts are the **domain allowlist** (consumer Google, Microsoft and Yahoo domains out of the box, overridable with `ALLOWED_EMAIL_DOMAINS`) and **canonicalisation**: for Google, `googlemail.com` folds to `gmail.com`, dots in the local part are stripped and everything after a `+` is dropped, so `j.o.h.n+api@googlemail.com` and `john@gmail.com` are one account. Every other provider is lowercased and left alone, so `john+tag@outlook.com` genuinely is a second address there. This limits alias farming. It does not end it, and a disposable-mailbox provider that Google, Microsoft or Yahoo happen to host would slip through.
+
+**Phone linking proves a number exists and looks like a mobile. It does not prove possession.** The number is normalised to E.164 with `libphonenumber-js/max` and is unique across accounts, so one line cannot back two of them. Abstract Phone Validation v1 then rejects anything it reports as `valid=false` or with a `type` other than `Mobile`. Nobody ever sends a message to that number, so a caller can supply a stranger's number, or a number from a list, and the check passes. The documented tier also **does not flag VoIP**, which is the cheap end of the number supply. **SMS OTP is the known next step**, and the reason it is not here is that it is not free.
+
+**The provider's verdict is best-effort, and by default it fails open.** Abstract's free quota is small, so verdicts are cached in `phone_validations` and a number already paid for is never re-checked. A missing `ABSTRACT_API_KEY`, or a 402, 429 or 5xx from the provider, produces `skipped` rather than a rejection: with `PHONE_VALIDATION_FAIL_MODE=open` (the default) the signup continues and the response says so in `phoneValidation`, and with `closed` it is rejected instead. Choosing `open` is a deliberate trade: running out of credits should not lock out real users, and it means a caller who can exhaust the quota can walk past the phone filter entirely. A `skipped` is never cached, so one bad minute for the provider is not remembered forever. An answer, though, is cached **permanently**: `checked_at` is recorded and never read, so a number that was a mobile in 2026 stays accepted no matter what it is reassigned to later.
+
+**Passwords are hashed, and that is the whole password policy.** Argon2id at OWASP's 2024 minimum by default, scrypt as a pure-node fallback, and the only rule on the password itself is 10 to 200 characters. Length is the rule because a composition rule mostly moves people to `Password1!`.
+
+**The session is a cookie, and the server keeps no record of it.** `sid` carries authenticated encryption keyed by `SESSION_KEY`, and is `httpOnly`, `sameSite=lax`, `Secure` in production, valid 30 days and renewed on every request that resolves. Nothing is stored server-side, so there is no session table to revoke a single device from. What exists is `session_version` on the account: `POST /auth/logout {"everywhere": true}` bumps it and every cookie already issued stops resolving on its next request.
+
+**And none of this launders the LinkedIn side.** An account gate rations who can ask; it does not make asking sanctioned. See [Known limitations](#known-limitations).
 
 ---
 
 ## API
+
+Public: `GET /`, `GET /docs`, `GET /openapi.json`, `GET /health` and every `/auth/*` route. Everything under `/v1/` requires the `sid` session cookie of an account that has verified an email **and** linked a phone number; without one it answers `401 UNAUTHENTICATED`, and with a session that has not reached the phone step, `403 PHONE_REQUIRED`.
+
+All six account endpoints are also in the Swagger UI at `/docs` under the `auth` tag, generated from the same zod schemas that validate them ([`src/schema/auth.ts`](src/schema/auth.ts)).
+
+The four endpoints an anonymous caller can reach (`signup`, `verify-email`, `login`, `phone`) carry their own budget of `AUTH_RATE_LIMIT_PER_HOUR` per IP per hour, keyed by IP rather than by account because at that point there is no account yet. Those are the ones worth hammering: address enumeration, code guessing, password spraying, and the mail provider's quota. `logout` and `me` fall under the ordinary per-minute limit.
+
+### `POST /auth/signup`
+
+Body `{"email": "…", "password": "…"}`. The address must be at an accepted provider and the password 10 to 200 characters.
+
+Always answers `200 {"status": "verification_sent"}`, whether the address was new, already registered, or already verified. That is deliberate: a distinguishable response would turn signup into an account-existence oracle, so the already-verified branch even burns a password hash to keep the timing comparable. A code is only actually mailed in the first two cases.
+
+Re-running signup on an address that has **not** been verified yet replaces the pending password with the newest submission. That closes a pre-registration hijack, where an attacker signs up as `victim@gmail.com` first and inherits the account the moment the real owner verifies it; instead the owner's own password is the one that survives. A verified account's password is never touched this way.
+
+`400 EMAIL_DOMAIN_NOT_ALLOWED` names the rejected domain. `400 INVALID_REQUEST` is a malformed address or an out-of-range password.
+
+### `POST /auth/verify-email`
+
+Body `{"email": "…", "code": "123456"}`. On success sets the `sid` cookie and returns the [`/auth/me`](#get-authme) shape.
+
+The code is six digits, valid **10 minutes**, capped at **5 attempts**, and single use: verifying deletes it, and re-issuing replaces it so only the newest code ever works. Wrong, expired and exhausted all come back as `400 INVALID_CODE`; the message distinguishes them, since by that point the caller has already shown they know an address that was sent a code.
+
+### `POST /auth/login`
+
+Body `{"email": "…", "password": "…"}`. On success sets the cookie and returns the `/auth/me` shape.
+
+An unknown address and a wrong password are both `401 INVALID_CREDENTIALS` with the same message, and the unknown-address path hashes anyway so response time does not separate the two. An account that exists with the right password but an unverified address gets `403 EMAIL_UNVERIFIED`, which leaks nothing new: the caller just proved they know the password.
+
+### `POST /auth/phone`
+
+Body `{"phone": "+919876543210"}`. Needs a session whose email is verified. Any readable form is accepted and normalised to E.164, but the country code is required.
+
+```jsonc
+{
+  "email": "you@gmail.com",
+  "emailVerified": true,
+  "phoneVerified": true,
+  "createdAt": "2026-08-28T07:44:33.776Z",
+  "phoneValidation": "skipped"   // or "accepted"
+}
+```
+
+`phoneValidation` is `accepted` when the provider confirmed a live mobile line and `skipped` when it gave no verdict at all and `PHONE_VALIDATION_FAIL_MODE` is `open`. `401 UNAUTHENTICATED` means no session, `403 EMAIL_UNVERIFIED` a session that has not verified its address, `400 INVALID_PHONE` a number `libphonenumber-js` will not parse, `400 PHONE_REJECTED` a number the provider says is not in service or not a mobile, and `409 PHONE_TAKEN` a number already linked to another account.
+
+### `POST /auth/logout`
+
+Body optional. `200 {"status": "signed_out"}`, and signing out when already signed out is a no-op rather than an error.
+
+`{"everywhere": true}` additionally bumps the account's `session_version`, which invalidates every cookie already issued to it. Since sessions are stateless there is no other way to revoke one, and no way to revoke a single device.
+
+### `GET /auth/me`
+
+The signed-in account, or `401 UNAUTHENTICATED`.
+
+```jsonc
+{ "email": "you@gmail.com", "emailVerified": true, "phoneVerified": true, "createdAt": "2026-08-28T07:44:33.776Z" }
+```
+
+No ids, no hashes and no phone number: enough for a client to know which step of the flow the account is on, and nothing more.
 
 ### `GET|POST /v1/profile`
 
@@ -332,10 +498,21 @@ All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 | Status | `code` | When |
 |---|---|---|
 | 400 | `INVALID_URL` | Wrong kind of LinkedIn URL for the endpoint. A company URL on `/v1/profile` says "use /v1/company"; an `/in/` URL on `/v1/company` says "use /v1/profile" |
-| 400 | `INVALID_REQUEST` | Missing/invalid `url` parameter, or a `count` outside 1 to 50 |
+| 400 | `INVALID_REQUEST` | Missing/invalid `url` parameter, a `count` outside 1 to 50, a malformed account body, a password outside 10 to 200 characters, or a state-changing request whose `content-type` is not `application/json` |
+| 400 | `EMAIL_DOMAIN_NOT_ALLOWED` | The address is not at one of the accepted mailbox providers. `details.domain` names the one that was rejected |
+| 400 | `INVALID_CODE` | The verification code is wrong, expired, or its 5 attempts are spent. The message says which |
+| 400 | `INVALID_PHONE` | The number could not be parsed as a valid E.164 number. Usually a missing country code |
+| 400 | `PHONE_REJECTED` | The validation provider reports the number as not in service or not a mobile line. Also what `PHONE_VALIDATION_FAIL_MODE=closed` returns when the provider gave no verdict |
+| 401 | `UNAUTHENTICATED` | No `sid` cookie, or one whose account is gone or whose sessions were revoked. `/v1/*` and `/auth/me` |
+| 401 | `INVALID_CREDENTIALS` | Wrong password, or an address with no account. Identical either way, by design |
+| 403 | `EMAIL_UNVERIFIED` | The account exists and the password was right, but the address has not been confirmed |
+| 403 | `PHONE_REQUIRED` | Signed in, but no phone number is linked yet, so `/v1/*` is still closed |
+| 403 | `FORBIDDEN_ORIGIN` | A state-changing request declared an `Origin` other than `APP_ORIGIN` |
 | 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two). Also returned by `/v1/posts` for a member it cannot resolve |
 | 404 | `COMPANY_NOT_FOUND` | Same, for a company or school page |
-| 429 | `RATE_LIMITED` | This API's per-IP limit, or LinkedIn's own limit (with `Retry-After`) |
+| 409 | `PHONE_TAKEN` | That number is already linked to a different account |
+| 429 | `RATE_LIMITED` | The per-account (or, signed out, per-IP) limit on `/v1/*`, the per-IP hourly limit on `/auth/*`, or LinkedIn's own limit. Always with `Retry-After` |
+| 500 | `INTERNAL_ERROR` | An unhandled failure, including a mail provider that would not accept the verification email. Deliberately opaque; the diagnosis is in the log |
 | 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape). On `/v1/posts` a stale persisted-query hash surfaces here, with a message naming `VOYAGER_POSTS_QUERY_ID` |
 | 503 | `LINKEDIN_SESSION_EXPIRED` | The `LI_AT` cookie needs rotating |
 
@@ -452,9 +629,29 @@ Every request carries a small `RequestContext` (`{ kind: 'profile' | 'company' |
 ## Architecture
 
 ```
-HTTP (Fastify + zod)          src/server.ts, src/routes/{profile,company,posts}.ts
+HTTP (Fastify + zod)          src/server.ts
         │
-        ▼
+        ├── authPlugin        src/auth/plugin.ts   ← sid cookie, request.currentUser, CSRF origin + content-type
+        │      │                                     runs on onRequest, before the rate limiter keys by account
+        │      ▼
+        │   /auth/*           src/routes/auth.ts + src/schema/auth.ts   ← bodies in, AppError or a session out
+        │      │
+        │      ▼
+        │   AuthService       src/auth/service.ts   ← every account rule: allowlist, canonical email, codes,
+        │      │                                      phone verdict + fail mode, session claims
+        │      ▼
+        │   Repositories      src/auth/repositories.ts   ← one interface, two implementations
+        │      ├── postgres.ts  (pg pool, migrations/*.sql applied by src/db/migrate.ts)
+        │      └── memory.ts    (tests and a DATABASE_URL-less local run)
+        │   Collaborators     password.ts (argon2 | scrypt), codes.ts, email.ts, email-domains.ts,
+        │                     phone.ts, phone-validation.ts (Abstract), mailer.ts (Resend | log)
+        │
+        └── requireAccount    src/auth/plugin.ts   ← one encapsulated context wraps all three /v1 routes
+               │
+               ▼
+        /v1/*                 src/routes/{profile,company,posts}.ts
+               │
+               ▼
 LinkedInService               src/linkedin/service.ts
   getProfile / getCompany / getPosts, one cache with namespaced keys, one semaphore
         │
@@ -478,8 +675,11 @@ Design points worth calling out:
 - **One service, three entities.** `LinkedInService` owns the cache and the semaphore for all three; cache keys are namespaced (`profile:<slug>`, `company:<name>`, `posts:<slug>:<count>`) so a posts lookup never collides with a profile of the same slug, and the count is part of the key because it changes the answer.
 - **Failure mapping lives in one place.** `interpretVoyagerResponse` turns every LinkedIn response into either a parsed body or a typed error; the transport itself is a one-method interface so tests substitute a fake.
 - **Volatile knowledge is quarantined.** Decoration IDs, URLs and the posts `queryId` default live only in `endpoints.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved; the `queryId` is additionally overridable from the environment, so the most perishable constant needs no redeploy at all.
-- **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic. The semaphore bounds concurrent *bundles*, not upstream requests: a posts bundle is 2 requests and a profile is 2 or more, so the real ceiling on in-flight LinkedIn calls is a small multiple of the limit.
-- **Secrets never touch logs.** Cookie headers are redacted by pino; config is logged with `LI_AT` masked.
+- **The account is protected.** Per-account rate limiting (per IP until someone signs in), a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic. The semaphore bounds concurrent *bundles*, not upstream requests: a posts bundle is 2 requests and a profile is 2 or more, so the real ceiling on in-flight LinkedIn calls is a small multiple of the limit.
+- **The gate is stated once.** `requireAccount` is a `preHandler` on a single encapsulated Fastify context that wraps all three `/v1` routes, so a fourth entity route inherits it rather than having to remember it. `authPlugin` itself is registered with `fastify-plugin` on purpose: its `onRequest` hook has to resolve `request.currentUser` *before* `@fastify/rate-limit`'s own hook reads it, and encapsulating it would silently key every limit by IP.
+- **Order in `buildApp` is load-bearing.** Swagger UI is registered before helmet so the docs keep their looser CSP; the playground's static files are registered before the rate limiter so loading a page never spends the budget; the auth plugin sits before the limiter for the reason above.
+- **Account rules live in one class.** `AuthService` owns the allowlist, canonicalisation, code lifecycle, phone verdicts and session claims; the routes only map a body in and an `AppError` or a session cookie out. The same flow is therefore testable without a server, and the storage behind it is an interface with a Postgres and an in-memory implementation.
+- **Secrets never touch logs.** Cookie headers are redacted by pino; config is logged through `redactConfig`, which masks `LI_AT`, `SESSION_KEY` and both API keys and strips the password from `DATABASE_URL`.
 
 ---
 
@@ -493,25 +693,73 @@ pnpm typecheck && pnpm lint
 
 - **Unit:** the profile and company URL parsing matrices, entity-graph resolution, each normaliser against hand-written fixtures that cover every branch (missing entities, capped skills, year-only dates, unknown enum values, a company with no industry or `followingInfo`, a showcase sibling in `included[]`, a repost via `header`, a reshare via `resharedUpdate`, missing social counts…), `activityIdToDate`, the bundle fetchers' warning and stale-hash paths, the HTTP client's error mapping (per entity kind) and session bootstrap with a mocked `fetch`, cache/semaphore, and the service.
 - **Recorded fixtures:** `pnpm record-fixture <slug>` saves real Voyager responses (tracking noise stripped) under `tests/fixtures/voyager/<slug>/`; `pnpm record-fixture company <name>` and `pnpm record-fixture posts <slug>` do the same under `tests/fixtures/voyager/company/<name>/` and `tests/fixtures/voyager/posts/<slug>/`. `normalize.recorded.test.ts` runs the matching normaliser over every recorded entity and checks the output against the schema, this is the schema-drift alarm. Checked in so far: `company/anthropicresearch`, `company/iithyderabad`, `posts/sharmanityam`.
-- **Integration:** the Fastify app via `app.inject`: routes, validation (including `count` 0 and 51 → 400), the error envelope and per-entity 404s, `Retry-After`, rate limiting, OpenAPI.
+- **Accounts:** `tests/unit/auth/` covers the pieces in isolation, each against the rule it owns: email canonicalisation and the domain allowlist, phone normalisation, the Abstract client with a mocked `fetch` (mobile accepted, landline rejected, no key or a provider error to `skipped`), both hashers and their cross-format verification, code expiry and the attempt cap, the mailer, and the in-memory repositories. `tests/unit/auth/password-scrypt-only.test.ts` is the one that matters for portability: it proves the scrypt path never imports the argon2 native addon. `tests/integration/auth.test.ts` drives the whole flow through the app.
+- **Integration:** the Fastify app via `app.inject`. `routes.test.ts` covers the entity routes, validation (including `count` 0 and 51 → 400), the error envelope and per-entity 404s, `Retry-After` and OpenAPI. `auth.test.ts` covers the flow end to end (signup → verify → phone → `/v1/profile`), a repeat signup on a verified address keeping its password, a duplicate phone number, both CSRF guards, logout and logout-everywhere, and that the limit is counted per account rather than per IP while the playground and `/health` are never counted at all.
+- **Database:** `tests/db/postgres.test.ts` runs the real repositories against Postgres and is skipped unless `DATABASE_URL` is set, so `pnpm test` stays offline by default.
 - **Live:** env-gated smoke tests against LinkedIn for a real profile (all sections present, skills paged past 20, unknown slug → 404), a company and a school, and a member's posts.
 
 ---
 
 ## Deployment
 
-The service ships as a small `node:22-slim` Docker image.
+The service ships as a small `node:22-slim` Docker image. Two stages: the build stage installs with pnpm, compiles, then prunes to production dependencies; the runtime stage copies `node_modules`, `dist`, `public` and `migrations` and runs as the unprivileged `node` user.
 
 ```bash
 docker build -t linkedin-profile-api .
-docker run --rm -p 3000:3000 -e LI_AT="$LI_AT" linkedin-profile-api
+
+# Production-shaped: the image sets NODE_ENV=production, which requires a
+# database and a real origin.
+docker run --rm -p 3000:3000 \
+  -e LI_AT="$LI_AT" \
+  -e SESSION_KEY="$(openssl rand -hex 32)" \
+  -e DATABASE_URL="$DATABASE_URL" \
+  -e APP_ORIGIN=https://linkedin-profile-api-c925.onrender.com \
+  linkedin-profile-api
+
+# Or, to try the image with in-memory accounts and no database at all:
+docker run --rm -p 3000:3000 \
+  -e NODE_ENV=development -e LI_AT="$LI_AT" -e SESSION_KEY="$(openssl rand -hex 32)" \
+  linkedin-profile-api
 ```
+
+The container's `CMD` applies migrations and then starts the server, guarded so that the second form still boots:
+
+```sh
+if [ -n "$DATABASE_URL" ]; then node dist/db/migrate.js; fi && node dist/main.js
+```
+
+`dist/db/migrate.js` (`pnpm migrate`) applies every `migrations/*.sql` not already recorded in `schema_migrations`, in filename order, each in its own transaction, behind a Postgres advisory lock so two instances booting at once cannot both apply the same file. It is idempotent, so running it on every boot costs one round trip when there is nothing to do. It requires `DATABASE_URL`, and refuses to run without one, which is what the guard is for.
+
+**Neither `argon2` nor `sodium-native` is compiled at image build time.** `node:22-slim` has no compiler, and does not need one: `argon2` resolves a prebuilt `linux-x64` binding through `node-gyp-build`, and `sodium-native` (which `@fastify/secure-session` uses) ships prebuilds and is never built at all. `pnpm-workspace.yaml` has to allow `argon2`'s install script (`allowBuilds`) for that resolution step to run, so it is copied into the build stage alongside `package.json`. If a future dependency does need a compiler, install `python3 make g++` in the **build** stage only, never the runtime one.
+
+### Database: Neon
+
+1. Create a project at [neon.tech](https://neon.tech) (free tier).
+2. Copy the **pooled** connection string, the one whose host contains `-pooler`. Render's free instances restart often and Neon's free tier allows few direct connections; the pooler is what keeps a redeploy from exhausting them. The application's own `pg` pool is capped at 5 on top of that.
+3. Set it as `DATABASE_URL`. TLS is on and verified for any non-loopback host, which is what Neon wants, so nothing needs to be appended to the URL and `sslmode=require` is harmless if it is already there.
+4. Nothing else to do: the container runs the migrations on its next boot.
+
+**Why not Render's own free Postgres.** Render deletes a free database 30 days after it is created, with no upgrade path that preserves it. That is an unrecoverable data loss with a calendar on it, which is a strange property for the thing holding the accounts. Neon's free tier has no such expiry; it suspends an idle database instead and wakes it on the next connection.
 
 ### Render
 
-`render.yaml` describes the service. Connect the repo in the Render dashboard, create a Blueprint, and set `LI_AT` as a secret environment variable (it is marked `sync: false`, so it is never read from the repo). Render provisions HTTPS automatically.
+`render.yaml` describes the service. Connect the repo in the Render dashboard, create a Blueprint, and set the secrets. Render provisions HTTPS automatically.
 
-The blueprint targets the **free** plan. Free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes.
+Marked `sync: false`, so Render prompts for them once and they are never read from the repo:
+
+| Secret | Needed for | If unset |
+|---|---|---|
+| `LI_AT` | Every LinkedIn call | The service will not start |
+| `DATABASE_URL` | Accounts | The service will not start (`NODE_ENV=production` requires it) |
+| `SESSION_KEY` | The session cookie | The service will not start. `openssl rand -hex 32` |
+| `RESEND_API_KEY` | Mailing verification codes | Codes are written to the log instead of sent, so nobody outside the log can sign up. **Set this in production** |
+| `ABSTRACT_API_KEY` | Filtering non-mobile numbers | Every number is `skipped` and, under the default fail-open, accepted |
+
+Set in the blueprint itself, since none of them is a secret: `NODE_ENV=production`, `APP_ORIGIN=https://linkedin-profile-api-c925.onrender.com` (production refuses to start on a localhost origin), `EMAIL_FROM`, `PHONE_VALIDATION_FAIL_MODE=open`, `AUTH_RATE_LIMIT_PER_HOUR=5`, `PASSWORD_HASHER=argon2`, `RATE_LIMIT_PER_MINUTE=10`, `CACHE_TTL_SECONDS=900`.
+
+`APP_ORIGIN` has to match the origin the playground is actually served from, or every state-changing request the page makes is rejected with `403 FORBIDDEN_ORIGIN`. If the service is renamed or moved to a custom domain, that value moves with it.
+
+The blueprint targets the **free** plan. Free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes. Signed-in sessions survive that, because the cookie is the session.
 
 ---
 
@@ -546,6 +794,26 @@ The blueprint targets the **free** plan. Free instances sleep after 15 minutes o
 **Image URLs expire.** Every image URL LinkedIn returns is signed (`?e=<unix-expiry>&v=beta&t=<sig>`), typically valid for weeks. A response served from the cache after that point contains dead image URLs; the playground falls back to a placeholder instead of a broken image, and API consumers should treat `url`/`variants` as short-lived. Only `media.licdn.com` renditions are emitted, but nothing in the normalisers filters by host: that guarantee is enforced by the recorded-fixture test, which fails if a cookie-gated `linkedin.com/dms/prv/` URL ever reaches a response.
 
 **No persistence.** The cache is in-memory; a restart clears it. That's appropriate for this scope but means a multi-instance deployment would not share it.
+
+### Accounts
+
+**Phone possession is not proven.** Linking a number establishes that it exists, that it is unique in this system, and that a provider calls it a mobile. Nothing is ever sent to it, so a caller can supply a number they do not hold. **SMS OTP is the next step** and the only reason it is not here is cost. The provider's documented tier also does not flag VoIP, which is where cheap numbers come from.
+
+**The phone filter has a small quota and fails open.** Abstract's free tier is limited, and a missing key or a 402/429/5xx produces `skipped` rather than a rejection, which under the default `PHONE_VALIDATION_FAIL_MODE=open` accepts the number. So a caller who can exhaust the quota can walk past the filter entirely. `closed` trades that for locking out real users during a provider outage. Neither is right; `open` is the one chosen.
+
+**Cached phone verdicts never expire.** `phone_validations` stores the answer per number and `checked_at` is written but never read, so a verdict from today still stands in five years. Numbers get disconnected and reassigned; this will not notice. A TTL on that column is the obvious fix and is not implemented.
+
+**Sessions are stateless, so revocation is coarse.** The `sid` cookie is self-contained; nothing about it is stored server-side. There is no list of active sessions, no way to sign out one device, and no way to invalidate a cookie before its 30 days are up except `POST /auth/logout {"everywhere": true}`, which bumps `session_version` and drops **every** session on the account at once. A stolen cookie is valid until one of those happens or `SESSION_KEY` is rotated, which signs out everyone.
+
+**In-memory mode loses every account on restart.** With no `DATABASE_URL` the repositories are process memory. `NODE_ENV=production` refuses to start in that state, and outside production the startup log warns, so this is only ever a local surprise. It is still a surprise.
+
+**The verification code digest is unsalted sha256.** Six digits is a million-entry space, so every possible digest can be precomputed in seconds; the hash gives essentially no protection against someone who can already read the `email_verifications` table. What actually protects a code is that it expires in 10 minutes, allows 5 attempts, and is deleted on use. A slow KDF there would add latency to every verification and buy nothing, so this is a deliberate choice rather than an oversight, but it does mean database read access is equivalent to code access.
+
+**The signup password reset is not transactional.** Re-running signup on an unverified address writes the new password hash and then issues a new code as two separate statements. A crash between them leaves the account with the newest password and the previous pending code, which the newest caller does not have. The account is not lost (signup can simply be run again) but the two writes should be one transaction and are not.
+
+**Nothing rate-limits an account's creation beyond the mailbox and the number.** `AUTH_RATE_LIMIT_PER_HOUR` is per IP, so the same address rotation that defeats a per-IP read limit also paces signups. What bounds farming is the supply of accepted-provider mailboxes and distinct mobile numbers, not this counter.
+
+**Email deliverability is Resend's shared sender by default.** `EMAIL_FROM` points at `onboarding@resend.dev`, which works without a verified domain and lands in spam more often than a domain you own. A verification code nobody sees is indistinguishable from a broken signup.
 
 ---
 
