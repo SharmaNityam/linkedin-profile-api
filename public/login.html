@@ -30,41 +30,6 @@
   <div class="shell signin" id="card"></div>
 </main>
 
-<style>
-/* Local, login.html-scoped rules — fold into app.css once agreed:
-   1) main[data-state="signin"] is a state value only this page ever sets,
-      so it top-anchors the sign-in card instead of the landing page's
-      centred layout (stops the card jumping when its height changes).
-   2) The rest are scoped under .signin / #card / #panel so they only
-      touch this page's markup (.field, .auth-row, .auth-stack, .tabs,
-      .btn-text classes are not used anywhere in index.html). */
-main[data-state="signin"] { justify-content: flex-start; }
-main[data-state="signin"] > .shell { padding-top: clamp(48px, 18vh, 160px); }
-
-.auth-stack label, .auth-row label { font-size: 13px; color: var(--muted); }
-.auth-stack { gap: 4px; }
-.auth-stack .field + label { margin-top: 8px; }
-.auth-err { margin: 8px 0 0; }
-.auth-row { flex-wrap: wrap; }
-.auth-row label { flex-basis: 100%; }
-
-/* H1 fix, scoped to the two sign-in fields: restore a visible keyboard
-   focus ring (app.css:133 removes outline entirely on .field:focus). */
-#panel .field:focus-visible {
-  outline: 1px solid var(--text);
-  outline-offset: 2px;
-  border-color: var(--text);
-}
-
-/* M7 fix, scoped to this page's tabs/text buttons: 44px hit area
-   without changing the visible box. */
-.signin .btn-text, .signin .tabs button { position: relative; }
-.signin .btn-text::after, .signin .tabs button::after {
-  content: ""; position: absolute; inset: 50% 0 auto 0;
-  height: 44px; transform: translateY(-50%); min-width: 44px;
-}
-</style>
-
 <script>
 (() => {
   const $ = (s, r = document) => r.querySelector(s);

@@ -149,16 +149,19 @@ form.lookup input::placeholder { color: var(--faint); }
    carries the 44px hit area. Only controls that sit alone on a line get one —
    in the rails the rows grow instead (see ul.quiet), because two overlapping
    44px overlays would steal each other's clicks. */
-.ex, .more, .tabs button,
-.links .btn-text, .json-actions .btn-text, .me .btn-text, .panel-foot .btn-text { position: relative; }
+.ex, .more, .tabs button, .links .btn-text, .json-actions .btn-text,
+.me .btn-text, .panel-foot .btn-text, .auth-links .btn-text { position: relative; }
 .ex::after, .more::after, .tabs button::after,
 .links .btn-text::after, .json-actions .btn-text::after,
-.me .btn-text::after, .panel-foot .btn-text::after {
+.me .btn-text::after, .panel-foot .btn-text::after, .auth-links .btn-text::after {
   content: ""; position: absolute; inset: 50% 0 auto 0;
   height: 44px; min-width: 44px; transform: translateY(-50%);
 }
 
-/* the sign-in page: one narrow column, centred the way the landing block is */
+/* The sign-in page: one narrow column, top-anchored. Centring it would move
+   the card every time its height changes, and it changes on every tab switch. */
+main[data-state="signin"] { justify-content: flex-start; }
+main[data-state="signin"] > .shell { padding-top: clamp(48px, 18vh, 160px); }
 .shell.signin { max-width: 400px; }
 .signin h1 { font-size: 20px; }
 .signin .tabs { margin: 16px 0 20px; }
@@ -176,12 +179,15 @@ form.lookup input::placeholder { color: var(--faint); }
 .auth-note, .auth-err { font-size: 13px; }
 .auth-note { margin: 8px 0 0; color: var(--muted); }
 .auth-note.faint { margin-top: 4px; color: var(--faint); }
-.auth-err { margin: 12px 0 0; color: var(--err); }
+.auth-err { margin: 8px 0 0; color: var(--err); }
 .auth-err[hidden] { display: none; }
-.auth-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+.auth-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .auth-row .field { flex: 1; min-width: 0; }
-.auth-stack { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.auth-stack { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
 .auth-stack .btn { margin-top: 8px; }
+.auth-stack .field + label { margin-top: 8px; }
+.auth-stack label, .auth-row label { font-size: 13px; color: var(--muted); }
+.auth-row label { flex-basis: 100%; }
 .auth-links { margin: 12px 0 0; font-size: 13px; }
 /* Only the address truncates. Clipping the whole line hid the Sign-out button
    while leaving it in the Tab order. */
