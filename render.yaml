@@ -16,6 +16,10 @@ services:
         value: '900'
       - key: SESSION_KEY
         sync: false # 64 hex chars, e.g. `openssl rand -hex 32`; set in the dashboard
+      - key: BREVO_API_KEY
+        sync: false # Brevo transactional-email API key; SMTP ports are blocked on this plan, set in the dashboard
+      - key: EMAIL_FROM
+        value: sharmanityam03@gmail.com
       - key: SMTP_USER
         sync: false # Gmail address that sends OTP codes; set in the dashboard
       - key: SMTP_PASS
