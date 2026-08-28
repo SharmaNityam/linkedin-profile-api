@@ -107,5 +107,8 @@ export function redactConfig(config: Config): Record<string, unknown> {
     BREVO_API_KEY: config.BREVO_API_KEY
       ? `(${config.BREVO_API_KEY.length} chars, redacted)`
       : undefined,
+    ADMIN_PASSWORD: config.ADMIN_PASSWORD
+      ? `(${config.ADMIN_PASSWORD.length} chars, redacted)`
+      : undefined,
   };
 }

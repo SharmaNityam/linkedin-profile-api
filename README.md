@@ -99,22 +99,26 @@ Everything the service reads is declared and validated in [`src/config.ts`](src/
 | `BREVO_API_KEY`           | -                                  | Brevo transactional-email API key. When set, mail is sent over HTTPS via Brevo instead of SMTP, and takes priority over `SMTP_USER`/`SMTP_PASS`; required on hosts that block outbound SMTP (see [Sending codes](#sending-codes))          |
 | `EMAIL_FROM`              | `SMTP_USER`                        | Sender address on the code email (Brevo's `sender.email`, or SMTP's `From`). Required when `BREVO_API_KEY` is set and `SMTP_USER` isn't                                                                                                    |
 | `APP_ORIGIN`              | `http://localhost:3000`            | The only `Origin` a mutating request may declare; anything else is rejected (CSRF defence for the cookie)                                                                                                                                  |
-| `OTP_RATE_LIMIT_PER_HOUR` | `10`                               | Per-IP budget for `/auth/request-code` and `/auth/verify`                                                                                                                                                                                  |
+| `OTP_RATE_LIMIT_PER_HOUR` | `10`                               | Per-IP budget for `/auth/request-code`, `/auth/verify` and `/auth/login`                                                                                                                                                                   |
 | `OTP_PER_EMAIL_PER_HOUR`  | `5`                                | Per-address budget for code issuance, independent of IP                                                                                                                                                                                    |
+| `ALLOWED_EMAIL_DOMAINS`   | `gmail.com,yahoo.com,outlook.com,myyahoo.com` | Comma list of domains `/auth/request-code` accepts, lowercased and trimmed. See [Access](#access)                                                                                                                               |
+| `ACCOUNTS_PER_IP`         | `10`                               | Distinct verified accounts a single IP may accumulate inside a trailing 7 days before `/auth/request-code` starts refusing new ones. See [Access](#access)                                                                                |
+| `ADMIN_EMAIL`             | -                                  | Optional shared tester address for `POST /auth/login`. Must be set together with `ADMIN_PASSWORD`, or not at all                                                                                                                          |
+| `ADMIN_PASSWORD`          | -                                  | Optional shared tester password for `POST /auth/login`, at least 12 characters. Hashed once at boot with scrypt; never stored or logged in the clear                                                                                       |
 
-Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY`, `SMTP_PASS` and `BREVO_API_KEY` by length and reports only the length of `LI_COOKIES`.
+Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY`, `SMTP_PASS`, `BREVO_API_KEY` and `ADMIN_PASSWORD` by length and reports only the length of `LI_COOKIES`.
 
 ---
 
 ## Access
 
-`/v1/*` is behind an email one-time-code gate: no password, no phone number, no database. Proving control of an inbox is the only credential.
+`/v1/*` is behind an email one-time-code gate: no password, no phone number, no database. Proving control of an inbox is the only credential — plus two deterrents against casual abuse of that inbox check, described below.
 
-1. `GET /auth/config` reports the gate this deployment uses (`{"gate":"email"}`), unlimited — a client probes this before deciding whether to show a sign-in step.
-2. `POST /auth/request-code {"email"}` mails a 6-digit code to that address and always answers `200 {"status":"code_sent"}` (except when the per-address rate limit is hit, see below — the response never otherwise reveals whether the address has been seen before).
+1. `GET /auth/config` reports the gate this deployment uses, the domains it accepts, and whether an admin login is configured (`{"gate":"email","domains":["gmail.com","yahoo.com","outlook.com","myyahoo.com"],"admin":false}`), unlimited — a client probes this before deciding whether to show a sign-in step.
+2. `POST /auth/request-code {"email"}` mails a 6-digit code to that address and always answers `200 {"status":"code_sent"}` (except when the per-address rate limit, the domain allowlist, or the per-IP account cap reject it first, see below — the response never otherwise reveals whether the address has been seen before).
 3. `POST /auth/verify {"email","code"}` checks the code and, on success, sets a signed and encrypted `sid` cookie (`httpOnly`, `sameSite=lax`, 30-day expiry, and `Secure` when `NODE_ENV=production` — off in development, where there's no TLS) and returns `{"email"}`.
 4. Every `/v1/*` request needs that cookie; a request without one, or with an expired/invalid one, gets `401 UNAUTHENTICATED`.
-5. `GET /auth/me` reports the signed-in address or `401`; it counts against the global `RATE_LIMIT_PER_MINUTE` budget like a `/v1/*` call, not the per-hour OTP limits. `POST /auth/logout` clears the cookie and is unlimited.
+5. `GET /auth/me` reports the signed-in viewer (`{"email","role"}`, `role` is `"user"` or `"admin"`) or `401`; it counts against the global `RATE_LIMIT_PER_MINUTE` budget like a `/v1/*` call, not the per-hour OTP limits. `POST /auth/logout` clears the cookie and is unlimited.
 
 Codes are 6 digits, expire in 10 minutes, allow 5 attempts, and are single-use. They live in memory only: a server restart invalidates every _pending_ code (an in-flight sign-in has to start over), but it does **not** invalidate already-issued cookies — a session survives a restart. The only way to revoke every session at once is to rotate `SESSION_KEY`, which invalidates every cookie in existence.
 
@@ -143,12 +147,24 @@ In development, leaving all of the above unset is fine: the server logs the code
 
 ### Limits, and what this does and doesn't prove
 
-- **Per-IP**: `OTP_RATE_LIMIT_PER_HOUR` (default 10) on `/auth/request-code` and `/auth/verify`.
+- **Per-IP**: `OTP_RATE_LIMIT_PER_HOUR` (default 10) on `/auth/request-code`, `/auth/verify` and `/auth/login`.
 - **Per-address**: `OTP_PER_EMAIL_PER_HOUR` (default 5) on code issuance, independent of IP, so one address can't be hammered from many IPs. The cap applies to the _canonical_ address (see [`canonicalEmail`](src/auth/email.ts)): Gmail addresses fold dots and a trailing `+tag` (`j.o.h.n+promo@gmail.com` and `john@googlemail.com` share one budget with `john@gmail.com`), but a `+tag` on any other provider counts as a distinct address (`john+work@outlook.com` has its own budget, separate from `john@outlook.com`).
 - **Gmail's own cap**: a personal Gmail account can send roughly 500 messages a day; this service does not track that separately, so a burst of sign-ins can exhaust it.
 - **CSRF**: a mutating request whose `Origin` header is present and doesn't match `APP_ORIGIN` is rejected with `403 FORBIDDEN_ORIGIN`; a mutating request with a body must declare `application/json`.
 - **What it proves**: the caller can read mail sent to the address they typed. **What it doesn't prove**: identity, that the address is theirs long-term, or anything beyond that one inbox at that one moment. It keeps casual, anonymous use off the LinkedIn-backed endpoints; it is not account security.
 - The playground at `/` has the same flow inline: enter an email, type the code, then fetch; the cookie it sets is the one `curl` callers get from `/auth/verify`.
+
+### Email domain allowlist
+
+`POST /auth/request-code` only mails a code to an address on `ALLOWED_EMAIL_DOMAINS` (default `gmail.com,yahoo.com,outlook.com,myyahoo.com`); anything else gets `400 EMAIL_DOMAIN_NOT_ALLOWED`. This is a deterrent against the disposable/temp-mail addresses that make anonymous sign-up trivial, not a real check — a determined caller can still register a look-alike mailbox on an allowed provider. The actual fix, if this ever needs to be airtight, is a third-party disposable-domain checker; the allowlist just raises the bar for free. `GET /auth/config` reports the current list so a client can validate before submitting.
+
+### Per-IP account cap
+
+`POST /auth/request-code` also refuses to mint a code for a _new_ address once the requesting IP already has `ACCOUNTS_PER_IP` (default 10) distinct verified accounts within the trailing 7 days (`403 TOO_MANY_ACCOUNTS`); an address that already has an account on that IP is unaffected. This tracking is in-memory only — it resets on every deploy or restart — so it's a deterrent against casual bulk sign-up, not proof of anything. It also has a real false-positive cost: everyone behind the same NAT (an office, a university, a shared VPN exit) shares one budget, so a busy shared IP can lock out a legitimate 11th colleague.
+
+### Admin account
+
+Setting both `ADMIN_EMAIL` and `ADMIN_PASSWORD` enables `POST /auth/login {"email","password"}`: a single shared tester credential, separate from the OTP flow, meant for one operator (or a small team sharing one login) who doesn't want to wait on email for every session. The password is hashed once at boot with scrypt and compared in constant time; on success it sets the same `sid` cookie as `/auth/verify`, but with `role: "admin"` in both the session and the `/auth/login`/`/auth/me` response. The admin address never goes through `/auth/request-code`, so it is exempt from both the domain allowlist and the per-IP account cap by construction. Leaving both variables unset disables the endpoint entirely: it always answers `401 INVALID_CREDENTIALS`, with the same message for a wrong password and an unrecognized email, so a prober can't tell which case they hit.
 
 ---
 
@@ -447,8 +463,11 @@ All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 | 404    | `COMPANY_NOT_FOUND`               | Same, for a company or school page                                                                                                                                                                                                                                       |
 | 429    | `RATE_LIMITED`                    | This API's per-IP limit, or LinkedIn's own. The local limiter **always** sets `Retry-After`, because it knows exactly when the window resets. When the 429 came from LinkedIn it is only passed through if LinkedIn sent one, so that case can arrive without the header |
 | 400    | `INVALID_CODE`                    | The OTP code is wrong, expired, or its 5-attempt budget is spent (`/auth/verify`)                                                                                                                                                                                        |
+| 400    | `EMAIL_DOMAIN_NOT_ALLOWED`        | `/auth/request-code` was asked to mail an address whose domain isn't on `ALLOWED_EMAIL_DOMAINS`. See [Email domain allowlist](#email-domain-allowlist)                                                                                                                    |
 | 401    | `UNAUTHENTICATED`                 | No valid `sid` cookie on a `/v1/*` or `/auth/me` request                                                                                                                                                                                                                 |
+| 401    | `INVALID_CREDENTIALS`             | `/auth/login` got a wrong password, an unrecognized email, or no admin login is configured — one message for all three, so none is distinguishable                                                                                                                       |
 | 403    | `FORBIDDEN_ORIGIN`                | A mutating request's `Origin` header didn't match `APP_ORIGIN`                                                                                                                                                                                                           |
+| 403    | `TOO_MANY_ACCOUNTS`               | `/auth/request-code` was asked for a new address, but the requesting IP already has `ACCOUNTS_PER_IP` verified accounts in the trailing 7 days. See [Per-IP account cap](#per-ip-account-cap)                                                                            |
 | 500    | `INTERNAL_ERROR`                  | An unhandled failure. Deliberately opaque; the diagnosis is in the log                                                                                                                                                                                                   |
 | 502    | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape). On `/v1/posts` a stale persisted-query hash surfaces here, with a message naming `VOYAGER_POSTS_QUERY_ID`                                                               |
 | 502    | `MAIL_FAILED`                     | The code could not be mailed (SMTP error); the cause is logged, never returned                                                                                                                                                                                           |
