@@ -111,7 +111,19 @@ export class AuthService {
       expiresAt: new Date(this.now().getTime() + CODE_TTL_MS),
     });
     await this.capPending(canonical);
-    await this.deps.mailer.sendVerificationCode(email.trim(), code);
+
+    // Deliberately not awaited. The mail provider is a network round trip we do
+    // not control, and it is the one step whose duration differs between "this
+    // address is free" and "this address already has an account" — awaiting it
+    // would hand back the account-existence answer that the matched hash above
+    // is there to hide. A send that fails is a logged warning; the caller is
+    // told to check their mail either way, and can sign up again.
+    void this.deps.mailer.sendVerificationCode(email.trim(), code).catch((err: unknown) => {
+      this.deps.log?.('warn', 'verification mail failed', {
+        emailCanonical: canonical,
+        err: String(err),
+      });
+    });
   }
 
   /**

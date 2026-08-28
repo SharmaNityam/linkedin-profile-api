@@ -160,6 +160,32 @@ describe('AuthService', () => {
       expect(pending?.expiresAt.getTime()).toBe(clock.getTime() + 10 * 60_000);
     });
 
+    // The provider is a network round trip we do not control, and it is the
+    // one step whose duration would separate "free address" from "already
+    // registered". A failure is logged, never returned.
+    it('does not fail the signup when the mail provider does', async () => {
+      const logged: string[] = [];
+      service = new AuthService({
+        repos,
+        hasher,
+        mailer: {
+          sendVerificationCode: () => Promise.reject(new Error('provider is down')),
+        },
+        phoneValidator: validator,
+        allowedDomains: ['gmail.com', 'outlook.com'],
+        failMode: 'open',
+        now,
+        log: (_level, message) => logged.push(message),
+      });
+
+      await expect(service.signup(EMAIL, PASSWORD)).resolves.toBeUndefined();
+      // Let the detached rejection settle.
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(logged).toContain('verification mail failed');
+      expect(await pendingFor(EMAIL)).toHaveLength(1);
+    });
+
     it('rejects a domain outside the allowlist', async () => {
       const err = await appError(() => service.signup('john@example.com', PASSWORD));
       expect(err.code).toBe('EMAIL_DOMAIN_NOT_ALLOWED');

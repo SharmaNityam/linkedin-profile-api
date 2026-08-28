@@ -28,7 +28,12 @@ export class FakeHasher implements PasswordHasher {
   }
 }
 
-/** Keeps every code it was asked to send, so tests can read them back. */
+/**
+ * Keeps every code it was asked to send, so tests can read them back. The push
+ * happens before the first `await` on purpose: `signup` does not await the
+ * send, so a test that reads a code straight after it only sees the code if
+ * recording it is synchronous.
+ */
 export class RecordingMailer implements MailSender {
   readonly sent: { to: string; code: string }[] = [];
 

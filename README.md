@@ -203,7 +203,7 @@ The four endpoints an anonymous caller can reach (`signup`, `verify-email`, `log
 
 Body `{"email": "…", "password": "…"}`. The address must be at an accepted provider and the password 10 to 200 characters.
 
-Always answers `200 {"status": "verification_sent"}`, whether or not the address already has an account. That is deliberate: a distinguishable response would turn signup into an account-existence oracle, so the already-registered branch burns a password hash to keep the timing comparable. A code is only actually mailed when there is no account yet.
+Always answers `200 {"status": "verification_sent"}`, whether or not the address already has an account. That is deliberate: a distinguishable response would turn signup into an account-existence oracle, so the already-registered branch burns a password hash to keep the timing comparable. A code is only actually mailed when there is no account yet — and the send is **not** awaited on the response path, because a round trip to the mail provider is the one step whose duration would give the answer away no matter how the hashes are matched. What separates the two branches is now a hash and a couple of local writes. A send that fails is logged as a warning; the caller is told to check their mail either way and can sign up again.
 
 Signing up does **not** create an account. It creates a row in `pending_signups`, holding the address as typed, that submission's password hash, that submission's code digest and its expiry — and it never touches another row. Verifying a code creates the account from the row that code belongs to, so the password that ends up on the account is always the one submitted alongside the code that came back.
 
@@ -521,7 +521,7 @@ All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 | 404 | `COMPANY_NOT_FOUND` | Same, for a company or school page |
 | 409 | `PHONE_TAKEN` | That number is already linked to a different account |
 | 429 | `RATE_LIMITED` | The per-account (or, signed out, per-IP) limit on `/v1/*`, the per-IP hourly limit on `/auth/*`, or LinkedIn's own limit. Always with `Retry-After` |
-| 500 | `INTERNAL_ERROR` | An unhandled failure, including a mail provider that would not accept the verification email. Deliberately opaque; the diagnosis is in the log |
+| 500 | `INTERNAL_ERROR` | An unhandled failure. Deliberately opaque; the diagnosis is in the log. A mail provider that will not accept the verification email is **not** one of these: the send is off the response path, so it is a logged warning and signup still answers `200` |
 | 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape). On `/v1/posts` a stale persisted-query hash surfaces here, with a message naming `VOYAGER_POSTS_QUERY_ID` |
 | 503 | `LINKEDIN_SESSION_EXPIRED` | The `LI_AT` cookie needs rotating |
 
