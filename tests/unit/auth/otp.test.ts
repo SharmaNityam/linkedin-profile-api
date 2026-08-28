@@ -106,4 +106,55 @@ describe('OtpStore', () => {
     const evenLater = new Date(later.getTime() + 1);
     expect(store.issue('a@b.com', evenLater).status).toBe('issued');
   });
+
+  it('keeps counting toward the per-email cap after a successful verify', () => {
+    const store = new OtpStore(2);
+    const now = new Date('2026-01-01T00:00:00.000Z');
+
+    const first = store.issue('a@b.com', now);
+    if (first.status !== 'issued') throw new Error('expected issued');
+    expect(store.verify('a@b.com', first.code, now)).toBe('ok');
+
+    const second = store.issue('a@b.com', now);
+    if (second.status !== 'issued') throw new Error('expected issued');
+    expect(store.verify('a@b.com', second.code, now)).toBe('ok');
+
+    // A successful verify must not have reset the hourly issuance count.
+    expect(store.issue('a@b.com', now).status).toBe('rate_limited');
+  });
+
+  it('sweeps expired entries on verify, not just on issue', () => {
+    const store = new OtpStore(1000);
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const first = store.issue('a@b.com', now);
+    if (first.status !== 'issued') throw new Error('expected issued');
+
+    const afterExpiry = new Date(now.getTime() + 10 * 60 * 1000 + 1);
+    // Touching a wholly unrelated email still runs the sweep, which should
+    // drop a@b.com's expired entry (proven by it not counting toward the cap).
+    expect(store.verify('nobody@b.com', '000000', afterExpiry)).toBe('none');
+    expect(store.pendingCount()).toBe(0);
+  });
+
+  it('evicts the oldest-expiring entry once the store hits 10,000 pending', () => {
+    const store = new OtpStore(1000);
+    const now = new Date('2026-01-01T00:00:00.000Z');
+
+    // The first entry expires soonest; give every later one a later expiry.
+    const oldest = store.issue('oldest@b.com', now);
+    if (oldest.status !== 'issued') throw new Error('expected issued');
+
+    for (let i = 1; i < 10_000; i += 1) {
+      const later = new Date(now.getTime() + i);
+      const outcome = store.issue(`user${i}@b.com`, later);
+      if (outcome.status !== 'issued') throw new Error('expected issued');
+    }
+    expect(store.pendingCount()).toBe(10_000);
+
+    // One more push should evict the oldest-expiring entry rather than grow.
+    const overflow = store.issue('newest@b.com', new Date(now.getTime() + 10_000));
+    if (overflow.status !== 'issued') throw new Error('expected issued');
+    expect(store.pendingCount()).toBe(10_000);
+    expect(store.verify('oldest@b.com', oldest.code, now)).toBe('none');
+  });
 });
