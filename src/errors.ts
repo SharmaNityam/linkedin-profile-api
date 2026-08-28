@@ -12,7 +12,11 @@ export type ErrorCode =
   | 'LINKEDIN_SESSION_EXPIRED'
   | 'UPSTREAM_ERROR'
   | 'SCHEMA_DRIFT'
-  | 'INTERNAL_ERROR';
+  | 'INTERNAL_ERROR'
+  | 'UNAUTHENTICATED'
+  | 'FORBIDDEN_ORIGIN'
+  | 'INVALID_CODE'
+  | 'MAIL_FAILED';
 
 const STATUS: Record<ErrorCode, number> = {
   INVALID_URL: 400,
@@ -25,6 +29,10 @@ const STATUS: Record<ErrorCode, number> = {
   UPSTREAM_ERROR: 502,
   SCHEMA_DRIFT: 502,
   INTERNAL_ERROR: 500,
+  UNAUTHENTICATED: 401,
+  FORBIDDEN_ORIGIN: 403,
+  INVALID_CODE: 400,
+  MAIL_FAILED: 502,
 };
 
 export class AppError extends Error {

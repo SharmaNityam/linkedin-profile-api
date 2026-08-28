@@ -12,16 +12,34 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import type { MailSender } from './auth/mailer.js';
+import type { OtpStore } from './auth/otp.js';
+import { authPlugin, requireViewer } from './auth/plugin.js';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
 import type { LinkedInService } from './linkedin/service.js';
+import { authRoutes } from './routes/auth.js';
 import { companyRoutes } from './routes/company.js';
 import { postsRoutes } from './routes/posts.js';
 import { profileRoutes } from './routes/profile.js';
 
+export interface BuildAppAuthOptions {
+  store: OtpStore;
+  mailer: MailSender;
+  /** 32 bytes as 64 hex chars; see `SESSION_KEY`. */
+  sessionKey: string;
+  /** The only `Origin` a state-changing request may declare. */
+  appOrigin: string;
+  /** `Secure` on the session cookie. Off in development, where there's no TLS. */
+  secureCookies: boolean;
+  /** Per IP, on `/auth/request-code` and `/auth/verify`. */
+  otpRateLimitPerHour: number;
+}
+
 export interface BuildAppOptions {
   services: LinkedInService;
-  /** Per IP. */
+  auth: BuildAppAuthOptions;
+  /** Per IP, or per verified email once signed in. */
   rateLimitPerMinute: number;
   /** A pino instance to log through; omitted in tests. */
   logger?: FastifyBaseLogger;
@@ -31,6 +49,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const app = Fastify({
     ...(options.logger ? { loggerInstance: options.logger } : { logger: false }),
     requestIdHeader: 'x-request-id',
+    // Render terminates TLS and proxies through exactly one hop. This
+    // Fastify disables bare hop-count trust (`trustProxy: <number>` always
+    // fails closed — see @fastify/proxy-addr) because it can't validate the
+    // immediate peer, so hop-count trust is expressed as a function instead:
+    // trust only the socket peer (hop 0, i.e. Render's edge) as a proxy, so
+    // its single `X-Forwarded-For` entry is honoured, but nothing a client
+    // prepends beyond that is — `req.ip` becomes the real client address
+    // without letting a caller spoof further hops.
+    trustProxy: (_address: string, hop: number) => hop === 0,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
@@ -65,6 +92,46 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     },
     transform: jsonSchemaTransform,
   });
+  // authPlugin and rateLimit are registered before every other route —
+  // including the docs UI, /health, /openapi.json and the static playground
+  // — because Fastify hooks only apply to routes declared after the hook is
+  // added. Registering the limiter first means it sees every request, and
+  // the public paths below are exempted explicitly via its `allowList`
+  // rather than by accidents of registration order.
+  await app.register(authPlugin, {
+    sessionKey: options.auth.sessionKey,
+    appOrigin: options.auth.appOrigin,
+    secureCookies: options.auth.secureCookies,
+  });
+
+  await app.register(rateLimit, {
+    max: options.rateLimitPerMinute,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => req.viewer?.email ?? req.ip,
+    // Path matched alone, query string excluded, so `/health?x=1` is exempt
+    // just like `/health`. Covers everything `@fastify/static` serves too
+    // (just `/` and `/index.html`: the playground is a single file).
+    allowList: (req) => {
+      const path = req.url.split('?', 1)[0] ?? '';
+      return (
+        path === '/' ||
+        path === '/index.html' ||
+        path === '/health' ||
+        path === '/openapi.json' ||
+        path === '/docs' ||
+        path.startsWith('/docs/')
+      );
+    },
+    errorResponseBuilder: (_req, ctx) => ({
+      statusCode: 429,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many requests. Limit is ${ctx.max} per minute per IP.`,
+        details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
+      },
+    }),
+  });
+
   // Registered before helmet so the docs UI keeps its own, looser CSP; helmet's
   // hooks only apply to routes registered after it.
   await app.register(swaggerUi, { routePrefix: '/docs', staticCSP: true });
@@ -113,37 +180,24 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     wildcard: false,
   });
 
-  await app.register(rateLimit, {
-    max: options.rateLimitPerMinute,
-    timeWindow: '1 minute',
-    // Path matched alone; query string excluded from rate limit
-    allowList: (req) => {
-      const path = req.url.split('?', 1)[0] ?? '';
-      return (
-        path === '/health' ||
-        path === '/openapi.json' ||
-        path === '/docs' ||
-        path.startsWith('/docs/')
-      );
-    },
-    errorResponseBuilder: (_req, ctx) => ({
-      statusCode: 429,
-      error: {
-        code: 'RATE_LIMITED',
-        message: `Too many requests. Limit is ${ctx.max} per minute per IP.`,
-        details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
-      },
-    }),
-  });
-
   app.setNotFoundHandler({ preHandler: app.rateLimit() }, async (request) => {
     const path = request.url.split('?', 1)[0] ?? '';
     throw new AppError('NOT_FOUND', `Route ${request.method} ${path} not found`);
   });
 
-  await app.register(profileRoutes, { services: options.services });
-  await app.register(companyRoutes, { services: options.services });
-  await app.register(postsRoutes, { services: options.services });
+  await app.register(authRoutes, {
+    store: options.auth.store,
+    mailer: options.auth.mailer,
+    otpRateLimitPerHour: options.auth.otpRateLimitPerHour,
+  });
+
+  // Encapsulated so requireViewer() gates only /v1/*, not /auth/* or /health.
+  await app.register(async (v1) => {
+    v1.addHook('preHandler', requireViewer());
+    await v1.register(profileRoutes, { services: options.services });
+    await v1.register(companyRoutes, { services: options.services });
+    await v1.register(postsRoutes, { services: options.services });
+  });
 
   return app;
 }

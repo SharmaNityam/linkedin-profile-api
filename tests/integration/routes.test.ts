@@ -12,6 +12,7 @@ import {
 import { normalizeCompany } from '../../src/linkedin/voyager/normalize-company.js';
 import { normalizePosts } from '../../src/linkedin/voyager/normalize-posts.js';
 import { normalizeProfile } from '../../src/linkedin/voyager/normalize.js';
+import { testAuth, verifiedCookie } from '../helpers/auth.js';
 import { loadEntityFixture, loadFixture } from '../helpers/fixtures.js';
 import type { CompanyResponse } from '../../src/schema/company.js';
 import type { Meta } from '../../src/schema/common.js';
@@ -52,16 +53,20 @@ const posts: PostsResponse = {
 
 describe('HTTP API', () => {
   let app: FastifyInstance;
+  let cookie: string;
   const getProfile = vi.fn<(url: string) => Promise<ProfileResponse>>();
   const getCompany = vi.fn<(url: string) => Promise<CompanyResponse>>();
   const getPosts = vi.fn<(url: string, count?: number) => Promise<PostsResponse>>();
 
   beforeAll(async () => {
+    const { auth, mailer } = testAuth();
     app = await buildApp({
       services: { getProfile, getCompany, getPosts } as unknown as LinkedInService,
+      auth,
       rateLimitPerMinute: 1000,
     });
     await app.ready();
+    cookie = await verifiedCookie(app, mailer);
   });
   afterAll(() => app.close());
 
@@ -85,6 +90,7 @@ describe('HTTP API', () => {
     const res = await app.inject({
       url: '/v1/profile',
       query: { url: 'https://www.linkedin.com/in/jane-doe/' },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(profile);
@@ -97,6 +103,7 @@ describe('HTTP API', () => {
       method: 'POST',
       url: '/v1/profile',
       payload: { url: 'jane-doe' },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json<ProfileResponse>().publicIdentifier).toBe('jane-doe');
@@ -115,7 +122,7 @@ describe('HTTP API', () => {
     [new Error('kaboom'), 500, 'INTERNAL_ERROR'],
   ])('maps %s to %i %s', async (err, status, code) => {
     getProfile.mockRejectedValueOnce(err);
-    const res = await app.inject({ url: '/v1/profile', query: { url: 'x' } });
+    const res = await app.inject({ url: '/v1/profile', query: { url: 'x' }, headers: { cookie } });
     expect(res.statusCode).toBe(status);
     expect(res.json()).toMatchObject({ error: { code } });
     if (status === 500) expect(res.body).not.toContain('kaboom');
@@ -123,7 +130,7 @@ describe('HTTP API', () => {
 
   it('passes LinkedIn Retry-After through on 429', async () => {
     getProfile.mockRejectedValueOnce(new RateLimitedError(42));
-    const res = await app.inject({ url: '/v1/profile', query: { url: 'x' } });
+    const res = await app.inject({ url: '/v1/profile', query: { url: 'x' }, headers: { cookie } });
     expect(res.statusCode).toBe(429);
     expect(res.headers['retry-after']).toBe('42');
   });
@@ -133,6 +140,7 @@ describe('HTTP API', () => {
     const res = await app.inject({
       url: '/v1/company',
       query: { url: 'https://www.linkedin.com/company/acme/' },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(company);
@@ -145,6 +153,7 @@ describe('HTTP API', () => {
       method: 'POST',
       url: '/v1/company',
       payload: { url: 'acme' },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json<CompanyResponse>().universalName).toBe(company.universalName);
@@ -162,6 +171,7 @@ describe('HTTP API', () => {
     const res = await app.inject({
       url: '/v1/company',
       query: { url: 'acme' },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({ error: { code: 'COMPANY_NOT_FOUND' } });
@@ -172,6 +182,7 @@ describe('HTTP API', () => {
     const res = await app.inject({
       url: '/v1/posts',
       query: { url: 'jane-doe', count: '5' },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual(posts);
@@ -183,6 +194,7 @@ describe('HTTP API', () => {
     const res = await app.inject({
       url: '/v1/posts',
       query: { url: 'jane-doe' },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
     expect(getPosts).toHaveBeenCalledWith('jane-doe', 10);
@@ -203,6 +215,7 @@ describe('HTTP API', () => {
       method: 'POST',
       url: '/v1/posts',
       payload: { url: 'jane-doe', count: 3 },
+      headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json<PostsResponse>().publicIdentifier).toBe('jane-doe');
@@ -251,16 +264,25 @@ describe('HTTP API', () => {
 
 describe('rate limiting', () => {
   it('returns 429 with our error envelope once the limit is hit', async () => {
+    const { auth, mailer } = testAuth();
     const app = await buildApp({
       services: {
         getProfile: vi.fn().mockResolvedValue(profile),
         getCompany: vi.fn().mockResolvedValue(company),
         getPosts: vi.fn().mockResolvedValue(posts),
       } as unknown as LinkedInService,
+      auth,
       rateLimitPerMinute: 2,
     });
+    await app.ready();
+    const cookie = await verifiedCookie(app, mailer);
     const hit = () =>
-      app.inject({ url: '/v1/profile', query: { url: 'jane-doe' }, remoteAddress: '10.0.0.1' });
+      app.inject({
+        url: '/v1/profile',
+        query: { url: 'jane-doe' },
+        remoteAddress: '10.0.0.1',
+        headers: { cookie },
+      });
     expect((await hit()).statusCode).toBe(200);
     expect((await hit()).statusCode).toBe(200);
     const third = await hit();
@@ -276,6 +298,7 @@ describe('rate limiting', () => {
   it('counts unknown routes against the budget too', async () => {
     const app = await buildApp({
       services: {} as unknown as LinkedInService,
+      auth: testAuth().auth,
       rateLimitPerMinute: 2,
     });
     await app.ready();
@@ -294,6 +317,7 @@ describe('rate limiting', () => {
   it('never limits the playground, /health or /openapi.json, query string included', async () => {
     const app = await buildApp({
       services: {} as unknown as LinkedInService,
+      auth: testAuth().auth,
       rateLimitPerMinute: 2,
     });
     await app.ready();
@@ -311,6 +335,7 @@ describe('helmet', () => {
   it('sets a CSP that allows LinkedIn media', async () => {
     const app = await buildApp({
       services: {} as unknown as LinkedInService,
+      auth: testAuth().auth,
       rateLimitPerMinute: 1000,
     });
     await app.ready();
@@ -325,6 +350,7 @@ describe('helmet', () => {
   it('still serves the docs UI', async () => {
     const app = await buildApp({
       services: {} as unknown as LinkedInService,
+      auth: testAuth().auth,
       rateLimitPerMinute: 1000,
     });
     await app.ready();

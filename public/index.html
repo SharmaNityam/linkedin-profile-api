@@ -25,8 +25,8 @@
     --text: #ededed;
     --muted: #a1a1a1;
     --faint: #6b6b6b;
-    --accent: #f5b942;
-    --accent-ink: #1a1300;
+    --accent: #3ecf8e;
+    --accent-ink: #06140d;
     --err: #f87171;
     --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -44,7 +44,7 @@
       --text: #171717;
       --muted: #666666;
       --faint: #999999;
-      --accent: #b7791f;
+      --accent: #1f9d61;
       --accent-ink: #ffffff;
       --err: #b91c1c;
     }
@@ -59,7 +59,7 @@
     --text: #171717;
     --muted: #666666;
     --faint: #999999;
-    --accent: #b7791f;
+    --accent: #1f9d61;
     --accent-ink: #ffffff;
     --err: #b91c1c;
   }
@@ -92,24 +92,38 @@
   header.top nav { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
 
   form.lookup { display: flex; gap: 8px; margin-top: 24px; }
-  form.lookup input {
-    flex: 1; min-width: 0; height: 40px; padding: 0 12px; font-size: 14px;
+  form.lookup input, form.auth input {
+    min-width: 0; height: 40px; padding: 0 12px; font-size: 14px;
     background: var(--bg); color: var(--text);
     border: 1px solid var(--border); border-radius: 8px;
   }
-  form.lookup input::placeholder { color: var(--faint); }
-  form.lookup input:focus { outline: none; border-color: var(--border-strong); }
+  form.lookup input { flex: 1; }
+  form.lookup input::placeholder, form.auth input::placeholder { color: var(--faint); }
+  form.lookup input:focus, form.auth input:focus { outline: none; border-color: var(--border-strong); }
   .btn {
     height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: 8px;
     font-size: 14px; font-weight: 500; cursor: pointer;
     background: var(--accent); color: var(--accent-ink);
   }
+  .btn.quiet { background: var(--surface-2); color: var(--text); border-color: var(--border); }
   .btn[disabled] { cursor: progress; }
   .btn-text {
     background: none; border: 0; padding: 0; cursor: pointer;
     font-size: 13px; color: var(--muted);
   }
   .btn-text:hover { color: var(--text); text-decoration: underline; }
+
+  /* sign-in row: only while signed out or mid-verification */
+  form.auth { margin: 16px 0 0; }
+  form.auth input { height: 36px; width: 240px; }
+  form.auth input[maxlength="6"] { width: 120px; }
+  form.auth .btn { height: 36px; }
+  .auth-row { display: flex; align-items: center; gap: 12px; }
+  .auth-note, .auth-err { margin: 8px 0 0; font-size: 13px; }
+  .auth-note { color: var(--muted); }
+  .auth-note + .auth-row { margin-top: 8px; }
+  .auth-err { color: var(--err); }
+  .me { color: var(--muted); }
 
   /* intro: plain lines under the search, no card */
   .intro { margin: 16px 0 0; font-size: 13px; color: var(--muted); }
@@ -242,6 +256,7 @@
   @media (max-width: 560px) {
     form.lookup { flex-wrap: wrap; }
     form.lookup input { flex-basis: 100%; }
+    .auth-row { flex-wrap: wrap; }
   }
 </style>
 </head>
@@ -252,6 +267,7 @@
     <nav aria-label="Resources">
       <a href="/docs">Docs</a>
       <a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
+      <span class="me" id="me" hidden></span>
     </nav>
   </header>
 
@@ -260,6 +276,8 @@
     <input id="url" name="url" type="text" placeholder="https://www.linkedin.com/in/username" spellcheck="false" inputmode="url" />
     <button class="btn" id="go" type="submit">Fetch</button>
   </form>
+
+  <form class="auth" id="auth" hidden></form>
 
   <div id="intro"></div>
 
@@ -284,8 +302,10 @@
 
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view'), intro = $('#intro');
   const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar');
+  const authForm = $('#auth'), meEl = $('#me');
 
   let data = null, kind = 'profile', tab = 'view', uid = 0;
+  let viewer = null, step = 'email', signInEmail = '', pendingUrl = null;
 
   // Shown as the bare path so all three fit one line; the full URL is what runs.
   const EXAMPLES = [
@@ -339,7 +359,7 @@
   // ---- renderers
   const initialOf = (name) => esc((name || '?').trim()[0] || '?');
   const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${esc(v.width)}w`).join(', ') : '';
-  // Wrapped image: skeleton until `load`, fallback on `error`. `fallback` is the HTML to show on error.
+  // Wrapped image: skeleton until load, `fallback` HTML on error.
   function img({ image, alt = '', cls, eager = false, sizes, fallback, style = '' }) {
     const box = style ? ` style="${esc(style)}"` : '';
     if (!image?.url) return `<span class="img-wrap ${cls}"${box}>${fallback}</span>`;
@@ -373,7 +393,7 @@
   const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
   const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
-  // Long free text is clamped to 4 lines behind a "Show more" toggle (see the delegated [data-clamp] handler).
+  // Long free text is clamped to 4 lines behind a "Show more" toggle.
   const CLAMP_AT = 280;
   function desc(text, cls = 'desc') {
     if (!text) return '';
@@ -596,7 +616,7 @@
     trimClamps(view);
   }
 
-  // Tokenise the raw JSON first, then escape each token, escaping first would turn quotes into &quot; and break string detection.
+  // Tokenise before escaping; escaping first would break string detection.
   function highlight(json) {
     const re = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
     let out = '', last = 0, m;
@@ -654,6 +674,118 @@
     view.innerHTML = `<div class="pad error"><p class="code">${esc(status)} · ${esc(e.code)}</p><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
   }
 
+  // ---- sign-in: an address, then the emailed code, then a line in the header
+  function renderAuth() {
+    meEl.hidden = !viewer;
+    if (viewer) {
+      meEl.innerHTML = `${esc(viewer.email)}<span class="sep">·</span><button class="btn-text" type="button" data-auth="logout">Sign out</button>`;
+      authForm.hidden = true;
+      authForm.innerHTML = '';
+      return;
+    }
+    authForm.hidden = false;
+    authForm.innerHTML = step === 'code' ? `
+      <p class="auth-note">Code sent to ${esc(signInEmail)}</p>
+      <div class="auth-row">
+        <label class="sr" for="code">Six-digit code</label>
+        <input id="code" name="code" type="text" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+        <button class="btn" type="submit">Verify</button>
+        <button class="btn-text" type="button" data-auth="resend">Resend</button>
+        <button class="btn-text" type="button" data-auth="restart">Change email</button>
+      </div>` : `
+      <div class="auth-row">
+        <label class="sr" for="email">Email address</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false" />
+        <button class="btn quiet" type="submit">Send code</button>
+      </div>
+      <p class="auth-note">We email a 6-digit code. No password, no account.</p>`;
+  }
+
+  const authInput = () => $('input', authForm);
+  function authError(text) {
+    $('.auth-err', authForm)?.remove();
+    if (!text) return;
+    const p = document.createElement('p');
+    p.className = 'auth-err';
+    p.textContent = text;
+    $('.auth-row', authForm).insertAdjacentElement('afterend', p);
+  }
+  function authFailed(res, body) {
+    const e = body?.error;
+    let msg = e?.message ?? `Request failed (${res.status}).`;
+    // The per-address message already names the wait; the per-IP one does not.
+    if (e?.code === 'RATE_LIMITED' && !/try again/i.test(msg)) {
+      const secs = Number(e.details?.retryAfterSeconds ?? res.headers.get('retry-after'));
+      if (Number.isFinite(secs) && secs > 0) msg += ` Try again in ${Math.ceil(secs / 60)} min.`;
+    }
+    authError(msg);
+  }
+  const postJson = (path, body) => fetch(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+  const readBody = async (res) => { try { return await res.json(); } catch { return null; } };
+
+  async function runAuth(work) {
+    const btn = $('button[type=submit]', authForm);
+    authError('');
+    btn.disabled = true;
+    try { await work(); } catch (err) { authError(String(err.message || err)); }
+    finally { if (btn.isConnected) btn.disabled = false; }
+  }
+
+  const requestCode = (email) => runAuth(async () => {
+    const res = await postJson('/auth/request-code', { email });
+    const body = await readBody(res);
+    if (!res.ok) return authFailed(res, body);
+    signInEmail = email;
+    step = 'code';
+    renderAuth();
+    authInput().focus();
+  });
+
+  const verifyCode = (code) => runAuth(async () => {
+    const res = await postJson('/auth/verify', { email: signInEmail, code });
+    const body = await readBody(res);
+    if (!res.ok) return authFailed(res, body);
+    viewer = body;
+    step = 'email';
+    signInEmail = '';
+    renderAuth();
+    const next = pendingUrl;
+    pendingUrl = null;
+    next ? lookup(next) : input.focus();
+  });
+
+  async function signOut() {
+    try { await fetch('/auth/logout', { method: 'POST', headers: { accept: 'application/json' }, credentials: 'same-origin' }); } catch {}
+    viewer = null; step = 'email'; signInEmail = ''; data = null;
+    view.hidden = true; view.innerHTML = '';
+    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true; intro.hidden = false;
+    renderAuth();
+    authInput().focus();
+  }
+
+  async function loadViewer() {
+    try {
+      const res = await fetch('/auth/me', { headers: { accept: 'application/json' }, credentials: 'same-origin' });
+      viewer = res.ok ? await res.json() : null;
+    } catch { viewer = null; }
+    renderAuth();
+  }
+
+  // A 401 from /v1/* is a prompt, not a failure: keep the URL and fetch it once verified.
+  function promptSignIn(url) {
+    viewer = null; pendingUrl = url; step = 'email';
+    view.hidden = true; view.innerHTML = '';
+    tabsEl.hidden = true; intro.hidden = false;
+    setStatus('', 'Verify your email to fetch');
+    renderAuth();
+    authInput().focus();
+  }
+
   // Which endpoint a pasted URL belongs to. Company, school and showcase pages
   // are one lookup; an activity feed is another; everything else is a member.
   function kindOf(raw) {
@@ -690,10 +822,11 @@
     showLoading();
     const t0 = performance.now();
     try {
-      const res = await fetch(ENDPOINT[kind](url), { headers: { accept: 'application/json' } });
+      const res = await fetch(ENDPOINT[kind](url), { headers: { accept: 'application/json' }, credentials: 'same-origin' });
       const text = await res.text();
       let body; try { body = JSON.parse(text); } catch { body = text; }
       const ms = Math.round(performance.now() - t0);
+      if (res.status === 401) { promptSignIn(url); return; }
       if (!res.ok) {
         setStatus('err', `${res.status} · ${took(ms)}`);
         showError(res.status, body);
@@ -711,6 +844,12 @@
 
   // ---- wiring
   form.addEventListener('submit', (e) => { e.preventDefault(); lookup(input.value); });
+  authForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const value = authInput().value.trim();
+    if (!value) { authInput().focus(); return; }
+    step === 'code' ? verifyCode(value) : requestCode(value);
+  });
   for (const b of tabsEl.children) b.addEventListener('click', () => {
     tab = b.dataset.tab;
     for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
@@ -723,9 +862,16 @@
       setTimeout(() => { btn.textContent = label; }, 1500);
     } catch {}
   }
-  // Delegated so re-rendered markup needs no re-binding: example links, clamp
-  // toggles, the skills overflow toggle, the copy buttons.
+  // Delegated so re-rendered markup needs no re-binding.
   document.addEventListener('click', (e) => {
+    const auth = e.target.closest('[data-auth]');
+    if (auth) {
+      const act = auth.dataset.auth;
+      if (act === 'logout') signOut();
+      else if (act === 'resend') requestCode(signInEmail);
+      else { step = 'email'; renderAuth(); authInput().focus(); }
+      return;
+    }
     const example = e.target.closest('[data-example]');
     if (example) { lookup(example.dataset.example); return; }
     const clamp = e.target.closest('[data-clamp]');
@@ -744,12 +890,19 @@
   document.addEventListener('keydown', (e) => {
     const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '');
     if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); input.focus(); input.select(); }
-    else if (e.key === 'Escape') { input.value = ''; }
+    else if (e.key === 'Escape') { (typing ? document.activeElement : input).value = ''; }
   });
 
   renderIntro();
   const initial = new URLSearchParams(location.search).get('url');
-  if (initial) lookup(initial); else input.focus();
+  if (initial) input.value = initial;
+  loadViewer().then(() => {
+    if (viewer) initial ? lookup(initial) : input.focus();
+    else {
+      if (initial) { pendingUrl = initial; setStatus('', 'Verify your email to fetch'); }
+      authInput().focus();
+    }
+  });
 })();
 </script>
 </body>

@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import pino from 'pino';
+import { LogMailer, SmtpMailer, type LogFn as MailLogFn, type MailSender } from './auth/mailer.js';
+import { OtpStore } from './auth/otp.js';
 import { loadConfig, redactConfig } from './config.js';
 import { TtlCache } from './linkedin/cache.js';
 import { Semaphore } from './linkedin/semaphore.js';
@@ -15,6 +17,7 @@ async function main(): Promise<void> {
     ...(process.stdout.isTTY ? { transport: { target: 'pino-pretty' } } : {}),
   });
   const log: LogFn = (level, msg, extra) => logger[level](extra ?? {}, msg);
+  const mailLog: MailLogFn = (level, msg, extra) => logger[level](extra ?? {}, msg);
   logger.info(redactConfig(config), 'starting');
 
   const services = new LinkedInService({
@@ -30,8 +33,34 @@ async function main(): Promise<void> {
     log,
   });
 
+  let mailer: MailSender;
+  if (config.SMTP_USER && config.SMTP_PASS) {
+    mailer = new SmtpMailer(
+      {
+        host: config.SMTP_HOST,
+        port: config.SMTP_PORT,
+        user: config.SMTP_USER,
+        pass: config.SMTP_PASS,
+        from: config.EMAIL_FROM ?? config.SMTP_USER,
+      },
+      undefined,
+      mailLog,
+    );
+  } else {
+    logger.warn('SMTP not configured; OTP codes will be logged instead of mailed');
+    mailer = new LogMailer(mailLog);
+  }
+
   const app = await buildApp({
     services,
+    auth: {
+      store: new OtpStore(config.OTP_PER_EMAIL_PER_HOUR),
+      mailer,
+      sessionKey: config.SESSION_KEY,
+      appOrigin: config.APP_ORIGIN,
+      secureCookies: config.NODE_ENV === 'production',
+      otpRateLimitPerHour: config.OTP_RATE_LIMIT_PER_HOUR,
+    },
     rateLimitPerMinute: config.RATE_LIMIT_PER_MINUTE,
     logger,
   });
