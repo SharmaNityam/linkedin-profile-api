@@ -42,6 +42,8 @@
 
     <p class="try" id="try"></p>
 
+    <section class="recent" id="recent" hidden></section>
+
     <form class="auth" id="auth" hidden></form>
 
     <div class="bar" id="bar" hidden>
@@ -65,7 +67,7 @@
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
   const mainEl = $('#main'), hero = $('#hero'), tryEl = $('#try');
   const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar');
-  const authForm = $('#auth'), meEl = $('#me');
+  const authForm = $('#auth'), meEl = $('#me'), recentEl = $('#recent');
 
   let data = null, kind = 'profile', tab = 'view', uid = 0;
   let viewer = null, step = 'email', signInEmail = '', pendingUrl = null, authOpen = false;
@@ -530,10 +532,9 @@
 
   async function signOut() {
     try { await fetch('/auth/logout', { method: 'POST', headers: { accept: 'application/json' }, credentials: 'same-origin' }); } catch {}
-    viewer = null; step = 'email'; signInEmail = ''; data = null; pendingUrl = null; authOpen = false;
-    view.hidden = true; view.innerHTML = '';
-    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
-    setState('landing');
+    viewer = null; step = 'email'; signInEmail = ''; pendingUrl = null; authOpen = false;
+    results.clear();
+    clearResults();
     renderAuth();
     input.focus();
   }
@@ -549,10 +550,8 @@
   // Needing an identity is a prompt, not a failure: the landing block stays put,
   // keeps the URL, and the card below it collects the address.
   function promptSignIn(url) {
-    viewer = null; pendingUrl = url; step = 'email'; authOpen = true; data = null;
-    view.hidden = true; view.innerHTML = '';
-    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
-    setState('landing');
+    viewer = null; pendingUrl = url; step = 'email'; authOpen = true;
+    clearResults();
     renderAuth();
     authInput().focus();
   }
@@ -578,17 +577,86 @@
     return min < 60 ? `cached ${min} min` : min < 1440 ? `cached ${Math.round(min / 60)} h` : `cached ${Math.round(min / 1440)} d`;
   };
 
-  async function lookup(raw) {
+  // One key per page: the same URL typed with or without the scheme, the www
+  // host or a trailing slash is one entry.
+  const normalise = (raw) => raw.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '').toLowerCase();
+
+  // Everything fetched this session, so Back and Forward re-render instead of refetching.
+  const results = new Map();
+
+  const RECENT_KEY = 'recent', RECENT_MAX = 20;
+  function readRecent() {
+    try {
+      const list = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
+      return Array.isArray(list) ? list.filter((r) => r && typeof r.url === 'string') : [];
+    } catch { return []; }
+  }
+  function writeRecent(list) {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+    renderRecent();
+  }
+  // A repost by someone else opens the list; the account itself is the first
+  // author who is not resharing.
+  const postsName = (r) => r.posts.find((p) => !p.isReshare)?.author.name ?? r.posts[0]?.author.name ?? r.publicIdentifier;
+  const LABEL_OF = {
+    profile: (d) => d.fullName,
+    company: (d) => d.name,
+    posts: (d) => `Posts · ${postsName(d)}`,
+  };
+  function remember(url, k, d) {
+    const entry = { url, kind: k, label: LABEL_OF[k](d) || url, at: new Date().toISOString() };
+    writeRecent([entry, ...readRecent().filter((r) => r.url !== url)].slice(0, RECENT_MAX));
+  }
+  function renderRecent() {
+    const list = readRecent();
+    recentEl.hidden = !list.length;
+    if (!list.length) { recentEl.innerHTML = ''; return; }
+    recentEl.innerHTML = `<h2 class="panel-h">Recent</h2>
+      <ul class="quiet">${list.map((r) => `<li>
+        <a href="?url=${encodeURIComponent(r.url)}" data-recent="${esc(r.url)}">${esc(r.label)}</a>
+        <span class="t">${esc(ago(r.at))}</span>
+      </li>`).join('')}</ul>
+      <p class="panel-foot"><button class="btn-text" type="button" data-recent-clear>Clear</button></p>`;
+  }
+
+  const statusLine = (hit) => dots([String(hit.status), took(hit.ms), hit.data.meta?.cached ? cacheAge(hit.data.meta.fetchedAt) : null]);
+
+  function showKind() {
+    tabView.textContent = KIND_LABEL[kind];
+    for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
+  }
+  // Back to the landing block: no result, no status, no tabs.
+  function clearResults() {
+    data = null;
+    view.hidden = true; view.innerHTML = ''; delete view.dataset.loading;
+    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
+    setState('landing');
+  }
+  // Puts a stored result back on screen, request free.
+  function restore(url, hit) {
+    input.value = url;
+    kind = hit.kind; data = hit.data; tab = 'view';
+    showKind();
+    setState('results'); tabsEl.hidden = false;
+    setStatus('', statusLine(hit));
+    renderView();
+  }
+
+  // `mode` is how the lookup enters the history: a submit pushes, the initial
+  // deep link replaces, and a Back that has to refetch touches nothing.
+  async function lookup(raw, mode = 'push') {
     const url = raw.trim();
     if (!url) { input.focus(); return; }
     input.value = url;
     if (!viewer) { promptSignIn(url); return; }
+    const key = normalise(url);
     kind = kindOf(url);
-    history.replaceState(null, '', `?url=${encodeURIComponent(url)}`);
+    const entry = `?url=${encodeURIComponent(url)}`;
+    if (mode === 'push') history.pushState({ url }, '', entry);
+    else if (mode === 'replace') history.replaceState({ url }, '', entry);
 
     data = null; tab = 'view'; go.disabled = true;
-    tabView.textContent = KIND_LABEL[kind];
-    for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
+    showKind();
     setState('results'); tabsEl.hidden = true;
     setStatus('', 'Fetching…');
     showLoading();
@@ -605,7 +673,10 @@
         return;
       }
       data = body;
-      setStatus('', dots(['200', took(ms), body.meta?.cached ? cacheAge(body.meta.fetchedAt) : null]));
+      const hit = { kind, data: body, status: res.status, ms, at: new Date().toISOString() };
+      results.set(key, hit);
+      remember(key, kind, body);
+      setStatus('', statusLine(hit));
       tabsEl.hidden = false;
       renderView();
     } catch (err) {
@@ -616,6 +687,14 @@
 
   // ---- wiring
   form.addEventListener('submit', (e) => { e.preventDefault(); lookup(input.value); });
+  // Back and Forward replay the map; only a URL this session never fetched
+  // goes to the network.
+  window.addEventListener('popstate', (e) => {
+    const url = e.state?.url ?? new URLSearchParams(location.search).get('url');
+    if (!url) { input.value = ''; clearResults(); return; }
+    const hit = results.get(normalise(url));
+    hit ? restore(url, hit) : lookup(url, 'none');
+  });
   authForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const value = authInput().value.trim();
@@ -644,6 +723,10 @@
       else { step = 'email'; renderAuth(); authInput().focus(); }
       return;
     }
+    const recent = e.target.closest('[data-recent]');
+    // A modified click is the browser's to handle: it opens the deep link.
+    if (recent && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); lookup(recent.dataset.recent); return; }
+    if (e.target.closest('[data-recent-clear]')) { writeRecent([]); return; }
     const example = e.target.closest('[data-example]');
     if (example) { lookup(example.dataset.example); return; }
     const clamp = e.target.closest('[data-clamp]');
@@ -666,10 +749,11 @@
   });
 
   renderTry();
+  renderRecent();
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) input.value = initial;
   loadViewer().then(() => {
-    if (initial) lookup(initial);
+    if (initial) lookup(initial, 'replace');
     else input.focus();
   });
 })();

@@ -146,6 +146,16 @@ form.auth[hidden] { display: none; }
 .ex { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; color: var(--text); }
 .ex:hover { text-decoration: underline; }
 
+/* recent lookups: a quiet list of links, newest first */
+.recent { margin: 24px 0 0; }
+.recent[hidden] { display: none; }
+.panel-h { font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+ul.quiet { list-style: none; margin: 0; padding: 0; }
+ul.quiet > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; }
+ul.quiet a { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ul.quiet .t { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.panel-foot { margin: 8px 0 0; }
+
 /* Fixed rows: the tabs, the status line and the loading card each keep
    their box when their contents change, so nothing below them moves. */
 .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 8px; min-height: 27px; }
