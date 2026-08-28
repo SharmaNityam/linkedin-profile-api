@@ -239,6 +239,14 @@ describe('HTTP API', () => {
       expect.arrayContaining(['/v1/profile', '/v1/company', '/v1/posts', '/health']),
     );
   });
+
+  it('OpenAPI description links to the playground', async () => {
+    const res = await app.inject({ url: '/openapi.json' });
+    const doc = res.json<{ info: { description: string } }>();
+    expect(doc.info.description).toContain(
+      'https://linkedin-profile-api-c925.onrender.com/?url=',
+    );
+  });
 });
 
 describe('rate limiting', () => {

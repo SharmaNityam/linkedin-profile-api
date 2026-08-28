@@ -59,7 +59,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         title: 'LinkedIn Profile API',
         version: '1.0.0',
         description:
-          "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API.",
+          "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API. Try it in the playground: https://linkedin-profile-api-c925.onrender.com/?url=https://www.linkedin.com/in/sharmanityam/ (the `url` query parameter pre-fills and runs a lookup; the same works for company and posts URLs).",
       },
       tags: [{ name: 'profile' }, { name: 'company' }, { name: 'posts' }, { name: 'ops' }],
     },
