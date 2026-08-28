@@ -32,7 +32,7 @@ const rawEnvSchema = z.object({
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
     ),
 
-  NODE_ENV: z.string().default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   // Email-OTP gate on /v1/*
   SESSION_KEY: z
