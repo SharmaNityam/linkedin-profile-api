@@ -424,6 +424,10 @@
   // is never rendered into the DOM, stored, or logged, and is dropped the
   // moment a session exists.
   let pendingEmail = '', pendingPassword = '', pendingPhone = '';
+  // What GET /auth/config says this instance does. `required` until it answers,
+  // which is the flow that has one more step rather than one fewer.
+  let authConfig = { emailVerification: 'required', phoneValidation: 'none' };
+  const skipsEmailCode = () => authConfig.emailVerification === 'off';
 
   const msgHtml = () => authMsg
     ? `<p class="auth-msg${authMsg.kind === 'note' ? ' note' : ''}" role="${authMsg.kind === 'note' ? 'status' : 'alert'}">${esc(authMsg.text)}</p>`
@@ -434,7 +438,9 @@
 
     'signed-out': () => `
       <p class="auth-title">Sign in to fetch profiles</p>
-      <p class="auth-help">Free, and one account per person keeps the demo up.</p>
+      <p class="auth-help">${skipsEmailCode()
+        ? 'No email verification on this instance; a phone number keeps it to one account per person.'
+        : 'Free, and one account per person keeps the demo up.'}</p>
       <form class="auth-form" data-form="signup">
         <label class="sr" for="auth-email">Email address</label>
         <input id="auth-email" type="email" autocomplete="email" placeholder="you@gmail.com" spellcheck="false" value="${esc(pendingEmail)}" data-focus />
@@ -518,7 +524,7 @@
     if (e.code === 'RATE_LIMITED' && typeof retry === 'number') text += ` Try again in ${retryIn(retry)}.`;
     // Two codes are really a change of step, not an error to sit on.
     // Unverified signups are not accounts, so a lost code step looks like a bad login; point the way back.
-    if (e.code === 'INVALID_CREDENTIALS') text += ' If you signed up but never entered the code, sign up again to get a new one.';
+    if (e.code === 'INVALID_CREDENTIALS' && !skipsEmailCode()) text += ' If you signed up but never entered the code, sign up again to get a new one.';
     if (e.code === 'UNAUTHENTICATED') return setAuth('signed-out', { msg: { text }, focus: true });
     setAuthMsg(text);
   }
@@ -545,7 +551,11 @@
       if (!email || !password) return setAuthMsg('Enter an email address and a password.');
       const { status, data } = await authPost('/auth/signup', { email, password });
       if (status !== 200) return authFail(status, data);
-      pendingEmail = email; pendingPassword = password;
+      pendingEmail = email;
+      // With verification off the account already exists and the cookie is set,
+      // so signup answers with the /auth/me shape and the next step is the phone.
+      if (skipsEmailCode()) return applyMe(data);
+      pendingPassword = password;
       setAuth('code', { msg: { text: 'Code sent. It expires in 10 minutes.', kind: 'note' }, focus: true });
     }),
 
@@ -602,6 +612,16 @@
     if (state === 'signed-out' && authState === 'code') return;
     collapsed = false;
     setAuth(state, { focus: true });
+  }
+
+  /** Read before the first panel is drawn: it decides which steps exist here. */
+  async function loadAuthConfig() {
+    try {
+      const res = await fetch('/auth/config', { headers: { accept: 'application/json' } });
+      if (res.status !== 200) return;
+      const data = await res.json();
+      if (data?.emailVerification === 'off' || data?.emailVerification === 'required') authConfig = data;
+    } catch {}
   }
 
   async function loadAuth() {
@@ -667,7 +687,7 @@
   });
 
   renderAuth('loading');
-  loadAuth();
+  loadAuthConfig().then(loadAuth);
 
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) lookup(initial); else input.focus();
