@@ -1,5 +1,7 @@
 # LinkedIn Profile API
 
+[![CI](https://github.com/SharmaNityam/linkedin-profile-api/actions/workflows/ci.yml/badge.svg)](https://github.com/SharmaNityam/linkedin-profile-api/actions/workflows/ci.yml)
+
 A small HTTPS service that takes a LinkedIn URL and returns structured JSON. Three entities: a **member profile** (name, headline, location, about, experience, education, skills, certifications, languages, volunteering and images), a **company or school page**, and a **member's newest posts**.
 
 It is a pure reverse-engineering of **Voyager**, the private JSON API that LinkedIn's own web app calls. Every request goes straight to LinkedIn's endpoints over HTTP; there is no browser, no HTML parsing and no third-party service involved.
@@ -14,6 +16,8 @@ There is no sign-up and no key: every endpoint is open, and the only thing stand
 
 - **Live docs:** `https://linkedin-profile-api-c925.onrender.com/docs` (Swagger UI, generated from the response schema)
 - **OpenAPI:** `https://linkedin-profile-api-c925.onrender.com/openapi.json`
+
+**Share a result:** append `?url=<linkedin-url>` to the playground URL and it pre-fills and runs the lookup, e.g. `https://linkedin-profile-api-c925.onrender.com/?url=https://www.linkedin.com/in/sharmanityam/`.
 
 ---
 
@@ -31,6 +35,7 @@ There is no sign-up and no key: every endpoint is open, and the only thing stand
   - [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid)
 - [Architecture](#architecture)
 - [Testing](#testing)
+  - [CI](#ci)
 - [Deployment](#deployment)
 - [Known limitations](#known-limitations)
 
@@ -508,6 +513,10 @@ pnpm typecheck && pnpm lint
 - **Recorded fixtures:** `pnpm record-fixture <slug>` saves real Voyager responses (tracking noise stripped) under `tests/fixtures/voyager/<slug>/`; `pnpm record-fixture company <name>` and `pnpm record-fixture posts <slug>` do the same under `tests/fixtures/voyager/company/<name>/` and `tests/fixtures/voyager/posts/<slug>/`. `normalize.recorded.test.ts` runs the matching normaliser over every recorded entity and checks the output against the schema, this is the schema-drift alarm. Checked in so far: `company/anthropicresearch`, `company/iithyderabad`, `posts/sharmanityam`.
 - **Integration:** the Fastify app via `app.inject`. `routes.test.ts` covers the entity routes, validation (including `count` 0 and 51 → 400), the error envelope and per-entity 404s, `Retry-After`, OpenAPI, the helmet CSP, and that the per-IP limit counts unknown routes while never counting the playground, `/health` or `/openapi.json`.
 - **Live:** env-gated smoke tests against LinkedIn for a real profile (all sections present, skills paged past 20, unknown slug → 404), a company and a school, and a member's posts.
+
+### CI
+
+Two GitHub Actions workflows. [`ci.yml`](.github/workflows/ci.yml) runs `pnpm test`, `typecheck`, `lint` and `build` on every push to `main`, every pull request, and nightly. [`live.yml`](.github/workflows/live.yml) runs `pnpm test:live` against real LinkedIn, on `workflow_dispatch` and weekly; it's opt-in via the `LI_AT` repository secret and skips entirely when that secret is unset. Weekly rather than nightly because each run spends a handful of real LinkedIn requests against the account behind `LI_AT`.
 
 ---
 
