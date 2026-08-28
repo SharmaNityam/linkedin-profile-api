@@ -108,7 +108,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         version: packageVersion,
         description:
           "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API.\n\n" +
-          "Sign in at / with an email code; the `sid` cookie authorises `/v1/*`. In Swagger UI \"Try it out\" works once you have signed in on this origin.\n\n" +
+          "Sign in at /login with an email code or the shared admin credential; the `sid` cookie authorises `/v1/*`. In Swagger UI \"Try it out\" works once you have signed in on this origin.\n\n" +
           'Playground: https://linkedin-profile-api-c925.onrender.com/?url=https://www.linkedin.com/in/sharmanityam/ · Repo: https://github.com/SharmaNityam/linkedin-profile-api',
       },
       servers: [

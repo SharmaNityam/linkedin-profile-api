@@ -152,7 +152,7 @@ In development, leaving all of the above unset is fine: the server logs the code
 - **Gmail's own cap**: a personal Gmail account can send roughly 500 messages a day; this service does not track that separately, so a burst of sign-ins can exhaust it.
 - **CSRF**: a mutating request whose `Origin` header is present and doesn't match `APP_ORIGIN` is rejected with `403 FORBIDDEN_ORIGIN`; a mutating request with a body must declare `application/json`.
 - **What it proves**: the caller can read mail sent to the address they typed. **What it doesn't prove**: identity, that the address is theirs long-term, or anything beyond that one inbox at that one moment. It keeps casual, anonymous use off the LinkedIn-backed endpoints; it is not account security.
-- The playground at `/` has the same flow inline: enter an email, type the code, then fetch; the cookie it sets is the one `curl` callers get from `/auth/verify`.
+- The playground sends you to `/login` (email code, or the shared admin credential) and returns to the lookup you started; the cookie it sets is the one `curl` callers get from `/auth/verify` or `/auth/login`.
 
 ### Email domain allowlist
 
