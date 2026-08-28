@@ -69,6 +69,16 @@ const auth: FastifyPluginAsync<AuthPluginOptions> = async (app, options) => {
   // Resolving here rather than in a preHandler means the rate limiter, which
   // runs on onRequest, can already see who is asking.
   app.addHook('onRequest', async (request) => {
+    // Only the routes that can do something with an account pay for one. The
+    // playground, the docs, `/openapi.json` and `/health` are public and would
+    // otherwise spend a database round trip per request — and, because the
+    // session is rolling, hand back a refreshed cookie on every asset the page
+    // loads.
+    if (!isAccountRoute(request.url)) {
+      request.currentUser = null;
+      return;
+    }
+
     const claims = readClaims(request.session);
     if (!claims) {
       request.currentUser = null;
@@ -153,6 +163,16 @@ function readClaims(session: Session): SessionClaims | undefined {
   if (typeof raw.sessionVersion !== 'number') return undefined;
   if (raw.issuedAt !== undefined && !Number.isFinite(raw.issuedAt)) return undefined;
   return { userId: raw.userId, sessionVersion: raw.sessionVersion, issuedAt: raw.issuedAt ?? 0 };
+}
+
+/**
+ * The routes where a session means anything. Matched on the path alone, since
+ * `request.url` carries the query string, and on the prefix with its slash so
+ * that a `/v1something` route added later is not quietly included.
+ */
+function isAccountRoute(url: string): boolean {
+  const path = url.split('?', 1)[0] ?? '';
+  return path.startsWith('/v1/') || path.startsWith('/auth/');
 }
 
 /** Trailing slashes are not significant in an `Origin`; treat them as equal. */

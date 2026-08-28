@@ -352,6 +352,41 @@ describe('CSRF guards', () => {
   });
 });
 
+describe('public routes', () => {
+  /**
+   * A cookie on a request for the playground is not a reason to go to the
+   * database, and the rolling session must not re-issue a cookie on every
+   * asset the page pulls.
+   */
+  it.each(['/', '/health', '/openapi.json'])(
+    'resolves no session for %s, even with a valid cookie',
+    async (url) => {
+      const { app, auth } = await harness();
+      const cookie = await signedInCookie(app, auth, { email: EMAIL, phone: PHONE });
+      const findById = vi.spyOn(auth.repos.users, 'findById');
+
+      const res = await app.inject({ url, headers: { cookie } });
+
+      expect(res.statusCode).toBe(200);
+      expect(findById).not.toHaveBeenCalled();
+      expect(res.headers['set-cookie']).toBeUndefined();
+    },
+  );
+
+  it('still resolves the session on /auth/* and /v1/*', async () => {
+    const { app, auth } = await harness();
+    const cookie = await signedInCookie(app, auth, { email: EMAIL, phone: PHONE });
+    const findById = vi.spyOn(auth.repos.users, 'findById');
+
+    expect((await app.inject({ url: '/auth/me', headers: { cookie } })).statusCode).toBe(200);
+    expect(
+      (await app.inject({ url: '/v1/profile', query: { url: 'jane-doe' }, headers: { cookie } }))
+        .statusCode,
+    ).toBe(200);
+    expect(findById).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('session lifecycle', () => {
   it('reports the account through /auth/me only when signed in', async () => {
     const { app, auth } = await harness();
