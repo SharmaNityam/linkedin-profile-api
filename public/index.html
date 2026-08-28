@@ -13,81 +13,55 @@
 <meta name="twitter:card" content="summary" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
 <style>
   :root {
     color-scheme: dark;
-    --bg: #0b0d10;
-    --surface: #12151a;
-    --surface-2: #171b21;
-    --border: #232830;
-    --border-strong: #2f3641;
-    --text: #e6e8eb;
-    --text-2: #cfd3d9;
-    --text-3: #b9bec6;
-    --muted: #8b93a1;
-    --faint: #5c6470;
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface-2: #171717;
+    --border: #262626;
+    --border-strong: #3d3d3d;
+    --text: #ededed;
+    --muted: #a1a1a1;
+    --faint: #6b6b6b;
     --accent: #f5b942;
     --accent-ink: #1a1300;
-    --accent-text: #f5b942;
-    --accent-dim: rgba(245, 185, 66, 0.14);
-    --ok: #5fd39a;
-    --err: #ff6b6b;
-    --j-key: #9fb7ff;
-    --j-str: #cde5b3;
-    --j-bool: #f2a2ff;
-    --display: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --err: #f87171;
     --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-    --radius: 10px;
   }
   /* Light palette, once for the OS preference and once for the explicit
      override; CSS cannot share one block between a media query and a selector. */
   @media (prefers-color-scheme: light) {
     :root:not([data-theme="dark"]) {
       color-scheme: light;
-      --bg: #faf9f7;
-      --surface: #ffffff;
-      --surface-2: #f2f0ec;
-      --border: #e2ded7;
-      --border-strong: #c9c4ba;
-      --text: #16181c;
-      --text-2: #33373d;
-      --text-3: #44484f;
-      --muted: #5b6069;
-      --faint: #666b74;
-      --accent: #d99a1f;
-      --accent-ink: #1a1300;
-      --accent-text: #855100;
-      --accent-dim: rgba(217, 154, 31, 0.18);
-      --ok: #10794c;
-      --err: #b3261e;
-      --j-key: #2f4fa8;
-      --j-str: #3f6212;
-      --j-bool: #8b2fa0;
+      --bg: #ffffff;
+      --surface: #fafafa;
+      --surface-2: #f0f0f0;
+      --border: #e5e5e5;
+      --border-strong: #b8b8b8;
+      --text: #171717;
+      --muted: #666666;
+      --faint: #999999;
+      --accent: #b7791f;
+      --accent-ink: #ffffff;
+      --err: #b91c1c;
     }
   }
   :root[data-theme="light"] {
     color-scheme: light;
-    --bg: #faf9f7;
-    --surface: #ffffff;
-    --surface-2: #f2f0ec;
-    --border: #e2ded7;
-    --border-strong: #c9c4ba;
-    --text: #16181c;
-    --text-2: #33373d;
-    --text-3: #44484f;
-    --muted: #5b6069;
-    --faint: #666b74;
-    --accent: #d99a1f;
-    --accent-ink: #1a1300;
-    --accent-text: #855100;
-    --accent-dim: rgba(217, 154, 31, 0.18);
-    --ok: #10794c;
-    --err: #b3261e;
-    --j-key: #2f4fa8;
-    --j-str: #3f6212;
-    --j-bool: #8b2fa0;
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --surface-2: #f0f0f0;
+    --border: #e5e5e5;
+    --border-strong: #b8b8b8;
+    --text: #171717;
+    --muted: #666666;
+    --faint: #999999;
+    --accent: #b7791f;
+    --accent-ink: #ffffff;
+    --err: #b91c1c;
   }
 
   * { box-sizing: border-box; }
@@ -95,248 +69,179 @@
   body {
     margin: 0;
     font-family: var(--body);
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.5;
     color: var(--text);
     background: var(--bg);
     -webkit-font-smoothing: antialiased;
   }
-  a { color: inherit; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { color: var(--accent); text-decoration: underline; }
   button, input { font: inherit; color: inherit; }
-  code, pre, .mono { font-family: var(--mono); font-size: 12.5px; }
-  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+  :focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  h1, h2, h3 { font-weight: 600; margin: 0; }
 
-  /* ---- shell ---- */
-  .wrap { max-width: 800px; margin: 0 auto; padding: 0 24px 80px; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 0 24px 64px; }
+
   header.top {
     display: flex; align-items: center; justify-content: space-between;
-    height: 60px; border-bottom: 1px solid var(--border);
+    height: 56px; border-bottom: 1px solid var(--border);
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
-  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
-  nav.links { display: flex; gap: 6px; }
-  nav.links a {
-    text-decoration: none; color: var(--muted); font-size: 13.5px; padding: 6px 10px; border-radius: 6px;
-  }
-  nav.links a:hover { color: var(--text); background: var(--surface-2); }
+  header.top .brand { font-size: 14px; font-weight: 600; }
+  header.top nav { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
 
-  form.lookup {
-    margin-top: 32px; display: flex; gap: 10px;
-    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 6px;
-    transition: border-color .15s;
-  }
-  form.lookup:focus-within { border-color: var(--faint); }
-  form.lookup .prefix { display: flex; align-items: center; padding-left: 12px; color: var(--faint); font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  form.lookup { display: flex; gap: 8px; margin-top: 24px; }
   form.lookup input {
-    flex: 1; min-width: 0; background: transparent; border: 0; padding: 10px 6px; font-family: var(--mono); font-size: 14px;
+    flex: 1; min-width: 0; height: 40px; padding: 0 12px; font-size: 14px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
   }
   form.lookup input::placeholder { color: var(--faint); }
-  form.lookup input:focus { outline: none; }
+  form.lookup input:focus { outline: none; border-color: var(--border-strong); }
   .btn {
-    border: 1px solid transparent; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer;
-    background: var(--accent); color: var(--accent-ink); white-space: nowrap; transition: transform .08s, filter .15s;
+    height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: 8px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink);
   }
-  .btn:hover { filter: brightness(1.06); }
-  .btn:active { transform: translateY(1px); }
-  .btn[disabled] { opacity: .6; cursor: progress; }
+  .btn[disabled] { cursor: progress; }
+  .btn-text {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font-size: 13px; color: var(--muted);
+  }
+  .btn-text:hover { color: var(--text); text-decoration: underline; }
 
-  .bar { display: flex; justify-content: space-between; align-items: center; margin: 14px 0; min-height: 30px; }
+  /* intro: plain lines under the search, no card */
+  .intro { margin: 16px 0 0; font-size: 13px; color: var(--muted); }
+  .intro + .intro { margin-top: 8px; }
+  .intro a { color: var(--muted); }
+  .intro a:hover { color: var(--text); text-decoration: underline; }
+  .sep { color: var(--faint); margin: 0 8px; }
+  .ex { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; color: var(--text); }
+  .ex:hover { text-decoration: underline; }
+
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 8px; }
   .bar[hidden] { display: none; }
+  .tabs { display: flex; gap: 16px; }
+  .tabs[hidden] { display: none; }
+  .tabs button {
+    background: none; border: 0; padding: 0 0 6px; margin-bottom: -1px; cursor: pointer;
+    font-size: 13px; color: var(--muted); border-bottom: 1px solid transparent;
+  }
+  .tabs button:hover { color: var(--text); }
+  .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
+  .status { font-size: 12px; color: var(--muted); }
+  .status[hidden] { display: none; }
+  .status.err { color: var(--err); }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .card.is-landing { margin-top: 26px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .card > * + * { border-top: 1px solid var(--border); }
+  .pad { padding: 20px; }
 
-  /* images: wrap = skeleton until load, then fade in; fallback on error */
+  /* images: skeleton until load, fallback initial on error */
   .img-wrap { position: relative; overflow: hidden; background: var(--surface-2); display: block; }
-  .img-wrap > .skel { position: absolute; inset: 0; border-radius: 0; }
-  .img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .15s ease-out; }
-  .img-wrap.is-loaded > .skel { display: none; }
-  .img-wrap.is-loaded > img { opacity: 1; }
-  .img-wrap > .initial { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-family: var(--display); font-weight: 600; }
-
-  /* top card */
-  .banner { aspect-ratio: 4 / 1; border-bottom: 1px solid var(--border); }
-  .banner.is-fallback { background: var(--surface-2); }
-  .identity { padding: 0 24px 22px; position: relative; }
-  .avatar { width: 88px; height: 88px; border-radius: 50%; border: 4px solid var(--surface); margin-top: -44px; font-size: 32px; }
-  .avatar > img { object-fit: cover; }
-  .logo { width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--border); }
-  .logo > img { object-fit: contain; }
-  .logo > .initial { font-size: 16px; }
-  .identity h2 { font-family: var(--display); font-weight: 600; font-size: 26px; letter-spacing: -0.02em; margin: 12px 0 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .identity h2 small { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); }
-  .name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-  .name-row h2 { flex: 1; min-width: 0; }
-  .id-actions { display: flex; gap: 6px; flex: none; padding-top: 16px; }
-  .icon-btn {
-    display: inline-grid; place-items: center; width: 30px; height: 30px; flex: none;
-    border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-2);
-    color: var(--muted); cursor: pointer; text-decoration: none;
+  .img-wrap > .skel { position: absolute; inset: 0; }
+  .img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .img-wrap > .initial {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: var(--faint); font-weight: 500; font-size: 14px;
   }
-  .icon-btn:hover { color: var(--text); border-color: var(--faint); }
-  .icon-btn[data-done="true"] { color: var(--ok); border-color: var(--ok); }
-  .icon-btn svg { width: 15px; height: 15px; }
-  .headline { margin: 0; font-size: 15.5px; }
-  .facts { margin: 8px 0 0; color: var(--muted); font-size: 13.5px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .facts span + span::before { content: "·"; margin-right: 6px; color: var(--faint); }
-  .about { margin: 18px 0 0; padding-top: 18px; border-top: 1px solid var(--border); white-space: pre-wrap; color: var(--text-2); font-size: 14.5px; }
+  .avatar { width: 48px; height: 48px; border-radius: 50%; flex: none; font-size: 16px; }
+  .logo { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); flex: none; }
+  .logo > img, .org > img { object-fit: contain; }
+  .org { border-radius: 6px; border: 1px solid var(--border); }
+
+  /* identity */
+  .identity { display: flex; gap: 12px; align-items: flex-start; }
+  .identity .who { flex: 1; min-width: 0; }
+  .identity h1 { font-size: 20px; }
+  .identity .pronouns { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+  .headline { margin: 4px 0 0; font-size: 14px; }
+  .facts { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+  .links { margin: 12px 0 0; font-size: 13px; }
+  .links a { color: var(--muted); }
+  .links a:hover { color: var(--text); text-decoration: underline; }
+  .kind { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+
+  .body { margin: 0; font-size: 14px; white-space: pre-wrap; }
   [data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-  .more { background: none; border: 0; color: var(--accent-text); cursor: pointer; padding: 6px 0 0; font-size: 13px; font-weight: 500; }
+  .more { background: none; border: 0; padding: 8px 0 0; cursor: pointer; font-size: 13px; color: var(--muted); }
+  .more:hover { color: var(--text); text-decoration: underline; }
 
-  /* landing / empty state */
-  .empty { padding: 26px 24px 24px; }
-  .empty .lead { margin: 0; font-size: 15px; color: var(--text-2); max-width: 62ch; }
-  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; }
-  .ex {
-    background: none; border: 1px solid var(--border-strong); border-radius: 999px;
-    color: var(--muted); font-family: var(--mono); font-size: 12.5px; padding: 5px 12px; cursor: pointer;
-  }
-  .ex:hover { color: var(--text); border-color: var(--faint); }
-  .endpoints { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12.5px; }
-  .endpoints a { color: var(--muted); font-family: var(--mono); text-decoration: none; }
-  .endpoints a:hover { color: var(--text); }
-
-  /* section nav */
-  .secnav { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 10px; background: var(--bg); scrollbar-width: none; }
-  .secnav::-webkit-scrollbar { display: none; }
-  .secnav[hidden] { display: none; }
-  .secnav a {
-    text-decoration: none; white-space: nowrap; color: var(--muted); font-size: 12.5px; font-weight: 500;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px;
-  }
-  .secnav a:hover { color: var(--text); border-color: var(--border-strong); }
-  .secnav a[aria-current="true"] { color: var(--accent-text); border-color: var(--border-strong); }
-
-  /* sections */
-  section.block { padding: 20px 24px; border-top: 1px solid var(--border); scroll-margin-top: 56px; }
-  section.block > h3 {
-    margin: 0 0 14px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-    font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: -0.01em;
-  }
-  section.block > h3 .count { color: var(--muted); font-weight: 500; font-size: 13px; margin-left: 8px; font-family: var(--body); }
+  section.block > h2 { font-size: 15px; margin-bottom: 16px; }
+  section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
 
   .timeline { list-style: none; margin: 0; padding: 0; }
-  .timeline > li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 12px 0; position: relative; }
-  .timeline > li + li { border-top: 1px solid var(--border); }
-  .timeline .t { font-weight: 600; font-size: 15px; margin: 0; }
-  .timeline .o { color: var(--text-2); margin: 1px 0 0; font-size: 14px; }
-  .timeline .t a, .timeline .o a { color: inherit; text-decoration: none; }
-  .timeline .t a:hover, .timeline .o a:hover { color: var(--accent-text); }
-  .timeline .d { color: var(--muted); font-size: 13px; margin: 3px 0 0; font-family: var(--mono); }
-  .timeline .desc { margin: 8px 0 0; color: var(--text-3); font-size: 14px; white-space: pre-wrap; }
-  .now { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); background: var(--accent-dim); border-radius: 4px; padding: 2px 6px; margin-left: 8px; vertical-align: middle; font-family: var(--body); }
+  .timeline > li { display: flex; gap: 12px; }
+  .timeline > li + li { margin-top: 20px; }
+  .timeline .col { flex: 1; min-width: 0; }
+  .timeline .t { margin: 0; font-size: 14px; font-weight: 500; }
+  .timeline .o { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+  .timeline .d { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+  .timeline .desc { margin: 8px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+  .now { color: var(--accent); font-weight: 500; margin-left: 8px; }
 
-  /* grouped positions at one company: connector line with a dot per role */
-  .roles { list-style: none; margin: 12px 0 0; padding: 0 0 0 18px; position: relative; }
-  .roles::before { content: ""; position: absolute; left: 3px; top: 7px; bottom: 7px; width: 2px; background: var(--border-strong); }
-  .roles > li { position: relative; padding: 0 0 12px; }
-  .roles > li:last-child { padding-bottom: 0; }
+  /* several roles at one company: a 1px connector with a dot per role */
+  .roles { list-style: none; margin: 12px 0 0; padding: 0 0 0 16px; position: relative; }
+  .roles::before { content: ""; position: absolute; left: 2px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
+  .roles > li + li { margin-top: 16px; }
   .roles > li::before {
-    content: ""; position: absolute; left: -18px; top: 5px; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--border-strong);
+    content: ""; position: absolute; left: 0; margin-top: 6px; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--border-strong);
   }
-  .roles .t { font-size: 14.5px; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chips span { border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; }
-  .chips button { border: 1px dashed var(--border-strong); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; background: none; color: var(--muted); cursor: pointer; }
-  .chips button:hover { color: var(--text); border-color: var(--faint); }
+  .chips span { border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 13px; }
 
-  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
-  .kv dt { color: var(--muted); font-size: 13.5px; }
-  .kv dd { margin: 0; font-size: 13.5px; }
-  .level { display: inline-block; height: 6px; width: 60px; border-radius: 3px; background: var(--border-strong); vertical-align: middle; margin-left: 10px; overflow: hidden; }
-  .level i { display: block; height: 100%; background: var(--accent); }
-
-  /* company */
-  .org-logo { width: 72px; height: 72px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); margin-top: -36px; font-size: 26px; }
-  .org-logo > img { object-fit: contain; }
-  .kind { font-family: var(--body); font-weight: 500; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 4px; padding: 2px 7px; }
-  .tagline { margin: 6px 0 0; font-size: 15px; color: var(--text-2); }
-  .about-body { margin: 0; white-space: pre-wrap; color: var(--text-2); font-size: 14.5px; }
-  .outlinks { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
-  .outlinks a { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; font-size: 13px; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 8px; padding: 5px 11px; }
-  .outlinks a:hover { color: var(--text); border-color: var(--faint); }
-  .outlinks svg { width: 13px; height: 13px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 24px; margin: 0; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
 
   /* posts */
-  .activity { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 24px; }
-  .activity a { font-family: var(--mono); font-size: 13px; text-decoration: none; color: var(--text-2); }
-  .activity a:hover { color: var(--accent-text); }
-  .activity .count { color: var(--muted); font-size: 13px; }
-  .posts { list-style: none; margin: 0; padding: 0; }
-  .posts > li { padding: 18px 24px; border-top: 1px solid var(--border); }
-  .who { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: start; }
-  .who .avatar-sm { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-2); display: grid; place-items: center; color: var(--faint); font-family: var(--display); font-weight: 600; font-size: 14px; }
-  .who .n { margin: 0; font-weight: 600; font-size: 14.5px; }
-  .who .n a { text-decoration: none; }
-  .who .n a:hover { color: var(--accent-text); }
-  .who .h { margin: 1px 0 0; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .when { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
-  .tag { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
-  .ptext { margin: 12px 0 0; white-space: pre-wrap; font-size: 14.5px; color: var(--text-2); }
-  .pimgs { display: grid; gap: 4px; margin: 12px 0 0; border-radius: 8px; overflow: hidden; }
-  .pimgs[data-n="1"] { grid-template-columns: 1fr; }
-  .pimgs[data-many="2"] { grid-template-columns: repeat(2, 1fr); }
-  .pimgs[data-many="3"] { grid-template-columns: repeat(3, 1fr); }
+  .activity { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-size: 13px; }
+  .activity .count { color: var(--muted); }
+  .post + .post { border-top: 1px solid var(--border); }
+  .author { display: flex; gap: 16px; align-items: baseline; }
+  .author .col { flex: 1; min-width: 0; }
+  .author .n { margin: 0; font-size: 14px; font-weight: 500; }
+  .author .h { margin: 2px 0 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .when { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .label { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+  .ptext { margin: 12px 0 0; font-size: 14px; white-space: pre-wrap; }
+  .pimgs { display: grid; gap: 4px; margin: 12px 0 0; border-radius: 6px; overflow: hidden; }
+  .pimgs[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
+  .pimgs[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
   .pimgs .cell { aspect-ratio: 4 / 3; }
-  .pimgs[data-n="1"] .cell { aspect-ratio: auto; max-height: 420px; }
-  .pimgs[data-n="1"] .cell > img { object-fit: contain; background: var(--surface-2); }
-  .article-card { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 12px 0 0; padding: 11px 13px; border: 1px solid var(--border-strong); border-radius: 8px; text-decoration: none; }
-  .article-card:hover { border-color: var(--faint); }
-  .article-card .a-t { font-weight: 500; font-size: 14px; }
-  .article-card .a-h { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
-  .quote { margin: 12px 0 0; padding: 13px 15px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
-  .stats { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; color: var(--muted); font-size: 12.5px; }
-  .stats .nums span + span::before { content: "·"; margin: 0 6px; color: var(--faint); }
-  .stats .open { text-decoration: none; color: var(--muted); }
-  .stats .open:hover { color: var(--accent-text); }
+  .pimgs[data-n="1"] .cell { max-height: 400px; }
+  .pimgs[data-n="1"] .cell > img { object-fit: contain; }
+  .article-card {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    margin: 12px 0 0; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
+  }
+  .article-card:hover { border-color: var(--border-strong); color: inherit; text-decoration: none; }
+  .article-card .a-h { color: var(--muted); white-space: nowrap; }
+  .quote { margin: 12px 0 0; padding: 12px; border-left: 1px solid var(--border); }
+  .stats { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+  .stats .open:hover { color: var(--accent); }
 
-  /* status pill */
-  .pill { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 12.5px; border-radius: 999px; padding: 4px 10px 4px 8px; border: 1px solid var(--border-strong); }
-  /* `display` on .pill would otherwise beat the UA's [hidden] rule, leaving an empty pill floating there. */
-  .pill[hidden] { display: none; }
-  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-  .pill.ok::before { background: var(--ok); }
-  .pill.err::before { background: var(--err); }
-  .pill.busy::before { background: var(--faint); }
-
-  pre.snippet { margin: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; white-space: pre; line-height: 1.55; }
-  .copy { background: none; border: 1px solid var(--border-strong); color: var(--muted); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; }
-  .copy:hover { color: var(--text); border-color: var(--faint); }
-  .copy[data-done="true"] { color: var(--ok); border-color: var(--ok); }
-  .copy.ghost { border-color: var(--border); }
-
-  .tabs { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
-  .tabs[hidden] { display: none; }
-  .tabs button { background: none; border: 0; border-radius: 6px; padding: 5px 12px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; }
-  .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
-
-  /* json view */
-  .json { padding: 16px 20px; margin: 0; background: var(--surface); overflow: auto; max-height: 78vh; line-height: 1.55; font-size: 12.5px; }
-  .j-k { color: var(--j-key); } .j-s { color: var(--j-str); } .j-n { color: var(--accent-text); } .j-b { color: var(--j-bool); } .j-null { color: var(--muted); }
-  .json-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
-  .json-head .acts { display: flex; gap: 6px; }
+  /* json */
+  .json-actions { display: flex; justify-content: flex-end; gap: 16px; padding: 12px 20px 0; }
+  .card > .json-actions + .json { border-top: 0; }
+  pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+  .json { margin: 0; padding: 12px 20px 20px; overflow: auto; max-height: 70vh; }
+  .snippet { margin: 12px 0 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; }
+  .j-k { color: var(--text); } .j-s { color: var(--muted); } .j-n, .j-b, .j-null { color: var(--faint); }
 
   /* states */
-  .error { padding: 20px 24px; }
-  .error p { margin: 10px 0 0; color: var(--text-2); }
-  .skel { background: var(--surface-2); border-radius: 6px; }
-  .skel-banner { aspect-ratio: 4 / 1; border-radius: 0; }
-  .skel-wrap { padding: 0 24px 24px; display: grid; gap: 12px; }
-  .skel-avatar { width: 88px; height: 88px; border-radius: 50%; margin-top: -44px; border: 4px solid var(--surface); }
-  .cold { padding: 0 24px 20px; color: var(--muted); font-size: 13px; }
-  .hidden { display: none !important; }
+  .skel { background: var(--surface-2); border-radius: 4px; }
+  .skel-line { height: 12px; }
+  .cold { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+  .error .code { font-size: 13px; color: var(--err); }
+  .error p { margin: 8px 0 0; font-size: 14px; }
 
-  @media (prefers-reduced-motion: reduce) {
-    .img-wrap > img { transition: none; }
-    .btn { transition: none; }
-  }
-  @media (max-width: 640px) {
-    form.lookup { flex-direction: column; }
-    form.lookup .prefix { display: none; }
-    .identity, section.block, .empty, .activity, .posts > li { padding-left: 18px; padding-right: 18px; }
+  @media (max-width: 560px) {
+    form.lookup { flex-wrap: wrap; }
+    form.lookup input { flex-basis: 100%; }
   }
 </style>
 </head>
@@ -344,7 +249,7 @@
 <div class="wrap">
   <header class="top">
     <a class="brand" href="/">LinkedIn Profile API</a>
-    <nav class="links" aria-label="Resources">
+    <nav aria-label="Resources">
       <a href="/docs">Docs</a>
       <a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
     </nav>
@@ -356,18 +261,18 @@
     <button class="btn" id="go" type="submit">Fetch</button>
   </form>
 
+  <div id="intro"></div>
+
   <div class="bar" id="bar" hidden>
-    <span class="pill" id="status" hidden></span>
     <div class="tabs" role="tablist" id="tabs" hidden>
       <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
       <button role="tab" aria-selected="false" data-tab="json">JSON</button>
     </div>
+    <span class="status" id="status" hidden></span>
   </div>
 
-  <nav class="secnav" id="secnav" aria-label="Sections" hidden></nav>
-
   <main id="main">
-    <div class="card is-landing" id="view"></div>
+    <div class="card" id="view" hidden></div>
   </main>
 </div>
 
@@ -377,17 +282,17 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
-  const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar'), secnav = $('#secnav');
-  const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view'), intro = $('#intro');
+  const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar');
 
-  let data = null, kind = 'profile', tab = 'view', secObserver = null, uid = 0;
+  let data = null, kind = 'profile', tab = 'view', uid = 0;
 
+  // Shown as the bare path so all three fit one line; the full URL is what runs.
   const EXAMPLES = [
     'linkedin.com/in/sharmanityam',
     'linkedin.com/company/anthropicresearch',
     'linkedin.com/in/sharmanityam/recent-activity/all/',
-  ];
+  ].map((u) => [u, u.replace('linkedin.com', '')]);
   const KIND_LABEL = { profile: 'Profile', company: 'Company', posts: 'Posts' };
 
   // ---- dates
@@ -422,20 +327,22 @@
     return step ? `${Math.round(s / step[1])} ${step[2]} ago` : `${Math.round(s / 31536000)} yr ago`;
   }
   const exactDate = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
-  const PROF = { ELEMENTARY: [1, 'Elementary'], LIMITED_WORKING: [2, 'Limited working'], PROFESSIONAL_WORKING: [3, 'Professional working'], FULL_PROFESSIONAL: [4, 'Full professional'], NATIVE_OR_BILINGUAL: [5, 'Native / bilingual'] };
+  const PROF = { ELEMENTARY: 'Elementary', LIMITED_WORKING: 'Limited working', PROFESSIONAL_WORKING: 'Professional working', FULL_PROFESSIONAL: 'Full professional', NATIVE_OR_BILINGUAL: 'Native / bilingual' };
 
   // ---- numbers
   const num = (n) => n.toLocaleString('en-US');
   const compact = (n) => new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
   const plural = (n, word) => n ? `${num(n)} ${word}${n === 1 ? '' : 's'}` : null;
+  const dots = (parts) => parts.filter(Boolean).map(esc).join(' · ');
+  const dotsHtml = (parts) => parts.filter(Boolean).join(' · ');
 
   // ---- renderers
   const initialOf = (name) => esc((name || '?').trim()[0] || '?');
   const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${esc(v.width)}w`).join(', ') : '';
-  // Wrapped image: skeleton until `load`, fade in, fallback on `error`. `fallback` is the HTML to show on error.
+  // Wrapped image: skeleton until `load`, fallback on `error`. `fallback` is the HTML to show on error.
   function img({ image, alt = '', cls, eager = false, sizes, fallback, style = '' }) {
     const box = style ? ` style="${esc(style)}"` : '';
-    if (!image?.url) return `<span class="img-wrap ${cls} is-loaded"${box}>${fallback}</span>`;
+    if (!image?.url) return `<span class="img-wrap ${cls}"${box}>${fallback}</span>`;
     const ss = srcset(image);
     return `<span class="img-wrap ${cls}"${box} data-fallback="${esc(fallback)}"><span class="skel"></span><img data-img src="${esc(image.url)}"${ss ? ` srcset="${ss}" sizes="${esc(sizes)}"` : ''} alt="${esc(alt)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer" /></span>`;
   }
@@ -443,28 +350,28 @@
   // is hidden from assistive tech; the avatar has no such neighbour, so passing
   // `label` keeps it an image with an accessible name.
   const initialHtml = (name, label) => `<span class="initial" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${initialOf(name)}</span>`;
-  const logo = (org, name) => img({ image: org?.logoUrl ? { url: org.logoUrl, variants: [] } : null, cls: 'logo', sizes: '44px', fallback: initialHtml(name) });
+  const logo = (org, name) => img({ image: org?.logoUrl ? { url: org.logoUrl, variants: [] } : null, cls: 'logo', sizes: '40px', fallback: initialHtml(name) });
 
   function bindImages(root) {
     for (const el of root.querySelectorAll('img[data-img]:not([data-bound])')) {
       el.dataset.bound = '1';
       const wrap = el.parentElement;
-      const loaded = () => wrap.classList.add('is-loaded');
-      const failed = () => { wrap.innerHTML = wrap.dataset.fallback || ''; wrap.classList.add('is-loaded', 'is-fallback'); };
+      const loaded = () => wrap.querySelector('.skel')?.remove();
+      const failed = () => { wrap.innerHTML = wrap.dataset.fallback || ''; };
       if (el.complete) { el.naturalWidth > 0 ? loaded() : failed(); continue; }
       el.addEventListener('load', loaded, { once: true });
       el.addEventListener('error', failed, { once: true });
     }
   }
+  // The clamp is a line count, so text under 4 lines needs no toggle at all.
+  function trimClamps(root) {
+    for (const btn of root.querySelectorAll('[data-clamp]')) {
+      const t = $(btn.dataset.clamp);
+      if (t && t.scrollHeight <= t.clientHeight + 1) { t.dataset.clamped = 'false'; btn.remove(); }
+    }
+  }
   const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
-
-  const ICON = {
-    link: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/>',
-    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-    check: '<path d="M20 6 9 17l-5-5"/>',
-    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/>',
-  };
-  const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
+  const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
   // Long free text is clamped to 4 lines behind a "Show more" toggle (see the delegated [data-clamp] handler).
   const CLAMP_AT = 280;
@@ -475,7 +382,7 @@
     return `<p class="${cls}" id="${id}" data-clamped="true">${esc(text)}</p><button class="more" type="button" data-clamp="#${id}">Show more</button>`;
   }
 
-  // ---- grouping: consecutive positions at one company collapse into a single card
+  // ---- grouping: consecutive positions at one company collapse into a single entry
   const expKey = (e) => e.company?.universalName ?? e.company?.linkedinUrl ?? (e.companyName ?? '').toLowerCase();
   function groupRuns(items, key) {
     const runs = [];
@@ -504,108 +411,92 @@
     return values.size === 1 && only ? only : null;
   }
 
-  function block(key, title, items, body) {
+  function block(title, items, body) {
     if (!items?.length) return '';
-    return `<section class="block" id="sec-${key}" data-label="${esc(title)}"><h3>${title}<span class="count">${items.length}</span></h3>${body}</section>`;
+    return `<section class="block pad"><h2>${title}<span class="count">${items.length}</span></h2>${body}</section>`;
   }
 
-  function renderLanding() {
-    uid = 0;
-    view.classList.add('is-landing');
-    view.innerHTML = `
-      <div class="empty">
-        <p class="lead">Paste a LinkedIn profile, company or activity URL. Returns structured JSON from LinkedIn's own API.</p>
-        <div class="examples">${EXAMPLES.map((e) => `<button class="ex" type="button" data-example="${esc(e)}">${esc(e)}</button>`).join('')}</div>
-        <p class="endpoints"><a href="/docs">GET /v1/profile · /v1/company · /v1/posts</a></p>
-      </div>`;
+  function renderIntro() {
+    intro.innerHTML = `
+      <p class="intro">Paste a LinkedIn profile, company or activity URL. Returns structured JSON from LinkedIn's own API.</p>
+      <p class="intro">${EXAMPLES.map(([url, label]) => `<button class="ex" type="button" data-example="${esc(url)}">${esc(label)}</button>`).join('<span class="sep">·</span>')}</p>
+      <p class="intro"><a href="/docs">GET /v1/profile · /v1/company · /v1/posts</a></p>`;
   }
 
   function renderProfile(p) {
     uid = 0;
-    const name = esc(p.fullName);
-    const facts = [p.location?.name, p.industry, p.isPremium ? 'Premium' : null].filter(Boolean);
-    const about = p.about ? desc(p.about, 'about') : '';
+    const facts = dots([p.location?.name, p.industry, p.isPremium ? 'Premium' : null]);
 
-    // One position → a plain row; several at the same company → a company card with a role timeline.
+    // One position → a plain row; several at the same company → one entry with a role timeline.
     const position = (g) => {
       const first = g.items[0];
       if (g.items.length === 1) return `
-      <li>${logo(first.company, first.companyName)}<div>
+      <li>${logo(first.company, first.companyName)}<div class="col">
         <p class="t">${esc(first.title)}${first.isCurrent ? '<span class="now">Now</span>' : ''}</p>
-        <p class="o">${orgLink(first.company, first.companyName ?? '')}${first.employmentType ? ` · ${esc(first.employmentType)}` : ''}</p>
-        <p class="d">${esc(range(first.startDate, first.endDate))}${first.location ? ` · ${esc(first.location)}` : ''}</p>
+        <p class="o">${dotsHtml([orgLink(first.company, first.companyName ?? ''), esc(first.employmentType)])}</p>
+        <p class="d">${dots([range(first.startDate, first.endDate), first.location])}</p>
         ${desc(first.description)}
       </div></li>`;
       const type = shared(g.items, (i) => i.employmentType), place = shared(g.items, (i) => i.location);
-      const sub = [type, totalDuration(g.items), place].filter(Boolean);
+      const sub = dots([type, totalDuration(g.items), place]);
       return `
-      <li>${logo(first.company, first.companyName)}<div>
+      <li>${logo(first.company, first.companyName)}<div class="col">
         <p class="t">${orgLink(first.company, first.companyName ?? '')}</p>
-        ${sub.length ? `<p class="d">${sub.map(esc).join(' · ')}</p>` : ''}
+        ${sub ? `<p class="d">${sub}</p>` : ''}
         <ol class="roles">${g.items.map((e) => `
           <li>
             <p class="t">${esc(e.title)}${e.isCurrent ? '<span class="now">Now</span>' : ''}</p>
             ${!type && e.employmentType ? `<p class="o">${esc(e.employmentType)}</p>` : ''}
-            <p class="d">${esc(range(e.startDate, e.endDate))}${!place && e.location ? ` · ${esc(e.location)}` : ''}</p>
+            <p class="d">${dots([range(e.startDate, e.endDate), place ? null : e.location])}</p>
             ${desc(e.description)}
           </li>`).join('')}</ol>
       </div></li>`;
     };
-    const experience = block('experience', 'Experience', p.experience, `<ul class="timeline">${groupRuns(p.experience, expKey).map(position).join('')}</ul>`);
-
-    const education = block('education', 'Education', p.education, `<ul class="timeline">${p.education.map((e) => `
-      <li>${logo(e.school, e.schoolName)}<div>
-        <p class="t">${orgLink(e.school, e.schoolName ?? '')}</p>
-        <p class="o">${esc([e.degree, e.fieldOfStudy].filter(Boolean).join(', '))}</p>
-        <p class="d">${esc(range(e.startDate, e.endDate).replace(/ · .*$/, ''))}${e.grade ? ` · Grade ${esc(e.grade)}` : ''}</p>
-        ${desc(e.activities)}
-        ${desc(e.description)}
-      </div></li>`).join('')}</ul>`);
 
     const SKILL_CAP = 24, extra = p.skills.length - SKILL_CAP;
-    const skills = block('skills', 'Skills', p.skills, `<div class="chips">${p.skills.map((s, i) => `<span${i >= SKILL_CAP ? ' hidden' : ''}>${esc(s.name)}</span>`).join('')}${extra > 0 ? `<button type="button" data-skills-more>+${extra} more</button>` : ''}</div>`);
-
-    const certs = block('certifications', 'Licenses & certifications', p.certifications, `<ul class="timeline">${p.certifications.map((c) => `
-      <li>${logo(c.organization, c.authority)}<div>
-        <p class="t">${c.url ? `<a href="${esc(c.url)}" rel="noopener" target="_blank" style="text-decoration:none">${esc(c.name)} ↗</a>` : esc(c.name)}</p>
-        <p class="o">${esc(c.authority ?? '')}</p>
-        <p class="d">${[c.issuedAt ? `Issued ${fmt(c.issuedAt)}` : '', c.expiresAt ? `Expires ${fmt(c.expiresAt)}` : '', c.licenseNumber ? `No. ${c.licenseNumber}` : ''].filter(Boolean).map(esc).join(' · ')}</p>
-      </div></li>`).join('')}</ul>`);
-
-    const languages = block('languages', 'Languages', p.languages, `<dl class="kv">${p.languages.map((l) => {
-      const [n, label] = PROF[l.proficiency] ?? [0, l.proficiency ?? '-'];
-      return `<dt>${esc(l.name)}</dt><dd>${esc(label)}<span class="level" aria-hidden="true"><i style="width:${n * 20}%"></i></span></dd>`;
-    }).join('')}</dl>`);
-
-    const vol = block('volunteering', 'Volunteering', p.volunteering, `<ul class="timeline">${p.volunteering.map((v) => `
-      <li>${logo(v.organization, v.organizationName)}<div>
-        <p class="t">${esc(v.role)}</p>
-        <p class="o">${orgLink(v.organization, v.organizationName ?? '')}${v.cause ? ` · ${esc(v.cause.toLowerCase().replace(/_/g, ' '))}` : ''}</p>
-        <p class="d">${esc(range(v.startDate, v.endDate))}</p>
-        ${desc(v.description)}
-      </div></li>`).join('')}</ul>`);
-
-    const simple = (key, title, rows) => block(key, title, rows, `<ul class="timeline">${rows.map((r) => `<li>${logo(null, '·')}<div><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${desc(r.description)}</div></li>`).join('')}</ul>`);
+    const simple = (title, rows) => block(title, rows, `<ul class="timeline">${rows.map((r) => `
+      <li><div class="col"><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${desc(r.description)}</div></li>`).join('')}</ul>`);
 
     view.innerHTML = `
-      ${img({ image: p.backgroundImage, cls: 'banner', eager: true, sizes: '(max-width: 800px) 100vw, 800px', fallback: '' })}
-      <div class="identity">
-        ${img({ image: p.profileImage, alt: p.fullName, cls: 'avatar', eager: true, sizes: '88px', fallback: initialHtml(p.fullName, p.fullName) })}
-        <div class="name-row">
-          <h2>${name}${p.pronouns ? `<small>${esc(p.pronouns)}</small>` : ''}</h2>
-          <div class="id-actions">
-            <a class="icon-btn" href="${esc(p.url)}" rel="noopener" target="_blank" title="Open on LinkedIn" aria-label="Open on LinkedIn">${icon('link')}</a>
-            <button class="icon-btn" type="button" data-copy-url="${esc(p.url)}" title="Copy profile URL" aria-label="Copy profile URL">${icon('copy')}</button>
+      <div class="pad">
+        <div class="identity">
+          ${img({ image: p.profileImage, alt: p.fullName, cls: 'avatar', eager: true, sizes: '48px', fallback: initialHtml(p.fullName, p.fullName) })}
+          <div class="who">
+            <h1>${esc(p.fullName)}${p.pronouns ? `<span class="pronouns">${esc(p.pronouns)}</span>` : ''}</h1>
+            ${p.headline ? `<p class="headline">${esc(p.headline)}</p>` : ''}
+            ${facts ? `<p class="facts">${facts}</p>` : ''}
           </div>
         </div>
-        ${p.headline ? `<p class="headline">${esc(p.headline)}</p>` : ''}
-        ${facts.length ? `<p class="facts">${facts.map((f) => `<span>${esc(f)}</span>`).join('')}</p>` : ''}
-        ${about}
+        <p class="links"><a href="${esc(p.url)}" rel="noopener" target="_blank">View on LinkedIn</a><span class="sep">·</span><button class="btn-text" type="button" data-copy-url="${esc(p.url)}">Copy link</button></p>
       </div>
-      ${experience}${education}${skills}${certs}${languages}${vol}
-      ${simple('projects', 'Projects', p.projects)}${simple('honors', 'Honors & awards', p.honors)}${simple('publications', 'Publications', p.publications)}${simple('courses', 'Courses', p.courses)}
+      ${p.about ? `<section class="block pad"><h2>About</h2>${desc(p.about, 'body')}</section>` : ''}
+      ${block('Experience', p.experience, `<ul class="timeline">${groupRuns(p.experience, expKey).map(position).join('')}</ul>`)}
+      ${block('Education', p.education, `<ul class="timeline">${p.education.map((e) => `
+        <li>${logo(e.school, e.schoolName)}<div class="col">
+          <p class="t">${orgLink(e.school, e.schoolName ?? '')}</p>
+          <p class="o">${esc([e.degree, e.fieldOfStudy].filter(Boolean).join(', '))}</p>
+          <p class="d">${dots([range(e.startDate, e.endDate).replace(/ · .*$/, ''), e.grade ? `Grade ${e.grade}` : null])}</p>
+          ${desc(e.activities)}${desc(e.description)}
+        </div></li>`).join('')}</ul>`)}
+      ${block('Skills', p.skills, `<div class="chips">${p.skills.map((s, i) => `<span${i >= SKILL_CAP ? ' hidden' : ''}>${esc(s.name)}</span>`).join('')}</div>${extra > 0 ? `<button class="more" type="button" data-skills-more>Show ${extra} more</button>` : ''}`)}
+      ${block('Licenses &amp; certifications', p.certifications, `<ul class="timeline">${p.certifications.map((c) => `
+        <li>${logo(c.organization, c.authority)}<div class="col">
+          <p class="t">${c.url ? `<a href="${esc(c.url)}" rel="noopener" target="_blank">${esc(c.name)}</a>` : esc(c.name)}</p>
+          <p class="o">${esc(c.authority ?? '')}</p>
+          <p class="d">${dots([c.issuedAt ? `Issued ${fmt(c.issuedAt)}` : null, c.expiresAt ? `Expires ${fmt(c.expiresAt)}` : null, c.licenseNumber ? `No. ${c.licenseNumber}` : null])}</p>
+        </div></li>`).join('')}</ul>`)}
+      ${block('Languages', p.languages, `<dl class="kv">${p.languages.map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(PROF[l.proficiency] ?? l.proficiency ?? '—')}</dd>`).join('')}</dl>`)}
+      ${block('Volunteering', p.volunteering, `<ul class="timeline">${p.volunteering.map((v) => `
+        <li>${logo(v.organization, v.organizationName)}<div class="col">
+          <p class="t">${esc(v.role)}</p>
+          <p class="o">${dotsHtml([orgLink(v.organization, v.organizationName ?? ''), v.cause ? esc(v.cause.toLowerCase().replace(/_/g, ' ')) : null])}</p>
+          <p class="d">${esc(range(v.startDate, v.endDate))}</p>
+          ${desc(v.description)}
+        </div></li>`).join('')}</ul>`)}
+      ${simple('Projects', p.projects)}${simple('Honors &amp; awards', p.honors)}${simple('Publications', p.publications)}${simple('Courses', p.courses)}
     `;
     bindImages(view);
+    trimClamps(view);
   }
 
   // ---- company
@@ -614,78 +505,73 @@
     if (r) return `${num(r.start)}${r.end ? ` to ${num(r.end)}` : '+'} employees`;
     return c.staffCount != null ? `${num(c.staffCount)} employees` : null;
   }
-  const place = (h) => h ? [h.city, h.region, h.country].filter(Boolean).join(', ') : '';
+  const place = (h) => h ? [h.city, h.region, h.country].filter(Boolean).join(', ') : null;
 
   function renderCompany(c) {
     uid = 0;
-    const facts = [
+    const facts = dots([
       c.industries.join(', ') || null,
       c.companyType,
       staffLine(c),
       c.followerCount != null ? `${compact(c.followerCount)} followers` : null,
-      place(c.headquarters) || null,
+      place(c.headquarters),
       c.foundedYear ? `Founded ${c.foundedYear}` : null,
-    ].filter(Boolean);
-    const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+    ]);
 
     view.innerHTML = `
-      ${img({ image: c.backgroundImage, cls: 'banner', eager: true, sizes: '(max-width: 800px) 100vw, 800px', fallback: '' })}
-      <div class="identity">
-        ${img({ image: c.logo, alt: c.name, cls: 'org-logo', eager: true, sizes: '72px', fallback: initialHtml(c.name, c.name) })}
-        <div class="name-row">
-          <h2>${esc(c.name)}<span class="kind">${esc(c.kind)}</span></h2>
-          <div class="id-actions">
-            <button class="icon-btn" type="button" data-copy-url="${esc(c.url)}" title="Copy page URL" aria-label="Copy page URL">${icon('copy')}</button>
+      <div class="pad">
+        <div class="identity">
+          ${img({ image: c.logo, alt: c.name, cls: 'avatar org', eager: true, sizes: '48px', fallback: initialHtml(c.name, c.name) })}
+          <div class="who">
+            <h1>${esc(c.name)}<span class="kind">${esc(c.kind)}</span></h1>
+            ${c.tagline ? `<p class="headline">${esc(c.tagline)}</p>` : ''}
+            ${facts ? `<p class="facts">${facts}</p>` : ''}
           </div>
         </div>
-        ${c.tagline ? `<p class="tagline">${esc(c.tagline)}</p>` : ''}
-        ${facts.length ? `<p class="facts">${facts.map((f) => `<span>${esc(f)}</span>`).join('')}</p>` : ''}
-        <div class="outlinks">
-          ${c.websiteUrl ? `<a href="${esc(c.websiteUrl)}" rel="noopener nofollow" target="_blank">${icon('globe')}${esc(host(c.websiteUrl))}</a>` : ''}
-          <a href="${esc(c.url)}" rel="noopener" target="_blank">${icon('link')}LinkedIn</a>
-        </div>
+        <p class="links">${c.websiteUrl ? `<a href="${esc(c.websiteUrl)}" rel="noopener nofollow" target="_blank">${esc(host(c.websiteUrl))}</a><span class="sep">·</span>` : ''}<a href="${esc(c.url)}" rel="noopener" target="_blank">View on LinkedIn</a></p>
       </div>
-      ${c.description ? `<section class="block" id="sec-about" data-label="About"><h3>About</h3>${desc(c.description, 'about-body')}</section>` : ''}
-      ${block('specialities', 'Specialities', c.specialities, `<div class="chips">${c.specialities.map((s) => `<span>${esc(s)}</span>`).join('')}</div>`)}
+      ${c.description ? `<section class="block pad"><h2>About</h2>${desc(c.description, 'body')}</section>` : ''}
+      ${block('Specialities', c.specialities, `<div class="chips">${c.specialities.map((s) => `<span>${esc(s)}</span>`).join('')}</div>`)}
     `;
     bindImages(view);
+    trimClamps(view);
   }
 
   // ---- posts
   const REACTION = { LIKE: 'Like', PRAISE: 'Celebrate', EMPATHY: 'Support', APPRECIATION: 'Insightful', INTEREST: 'Curious', ENTERTAINMENT: 'Funny', MAYBE: 'Maybe' };
   function statsRow(p) {
-    if (!p.stats) return p.url ? `<div class="stats"><span></span><a class="open" href="${esc(p.url)}" rel="noopener" target="_blank">View post ↗</a></div>` : '';
+    const open = p.url ? `<a class="open" href="${esc(p.url)}" rel="noopener" target="_blank">View post</a>` : '';
+    if (!p.stats) return open ? `<div class="stats"><span></span>${open}</div>` : '';
     const s = p.stats;
-    const nums = [plural(s.likes, 'like'), plural(s.comments, 'comment'), plural(s.shares, 'share')].filter(Boolean);
     const breakdown = Object.entries(s.reactions).map(([k, v]) => `${REACTION[k] ?? k} ${num(v)}`).join(' · ');
     return `<div class="stats">
-      <span class="nums"${breakdown ? ` title="${esc(breakdown)}"` : ''}>${nums.map((n) => `<span>${esc(n)}</span>`).join('')}</span>
-      ${p.url ? `<a class="open" href="${esc(p.url)}" rel="noopener" target="_blank">View post ↗</a>` : ''}
+      <span${breakdown ? ` title="${esc(breakdown)}"` : ''}>${dots([plural(s.likes, 'like'), plural(s.comments, 'comment'), plural(s.shares, 'share')])}</span>
+      ${open}
     </div>`;
   }
-  const cellSizes = (n) => n === 1 ? '(max-width: 800px) 100vw, 750px' : n <= 4 ? '(max-width: 800px) 50vw, 375px' : '(max-width: 800px) 33vw, 250px';
+  const cellSizes = (n) => n === 1 ? '(max-width: 680px) 100vw, 640px' : n <= 4 ? '(max-width: 680px) 50vw, 320px' : '(max-width: 680px) 33vw, 213px';
   function media(p) {
     const n = p.images.length;
     // A lone image keeps its own proportions; a set is cropped into an even grid.
     const single = n === 1 ? p.images[0].variants.at(-1) : null;
-    const grid = n ? `<div class="pimgs" data-n="${n}" data-many="${n === 1 ? 1 : n <= 4 ? 2 : 3}">${p.images.map((im, i) => img({
+    const grid = n ? `<div class="pimgs" data-n="${n}" data-cols="${n === 1 ? 1 : n <= 4 ? 2 : 3}">${p.images.map((im, i) => img({
       image: im, cls: 'cell', alt: `Post image ${i + 1}`, sizes: cellSizes(n),
       style: single ? `aspect-ratio:${single.width}/${single.height}` : '', fallback: '',
     })).join('')}</div>` : '';
     const art = p.article ? `<a class="article-card" href="${esc(p.article.url ?? '#')}" rel="noopener nofollow" target="_blank">
-      <span class="a-t">${esc(p.article.title ?? p.article.url ?? 'Article')}</span>
-      ${p.article.url ? `<span class="a-h">${esc((() => { try { return new URL(p.article.url).hostname.replace(/^www\./, ''); } catch { return ''; } })())}</span>` : ''}
+      <span>${esc(p.article.title ?? p.article.url ?? 'Article')}</span>
+      ${p.article.url ? `<span class="a-h">${esc(host(p.article.url))}</span>` : ''}
     </a>` : '';
     return grid + art;
   }
   // A bare repost carries the original author in `author`; a repost with commentary
   // keeps the resharer there and nests the original under `reshared`.
-  function author(p, showTag) {
+  function author(p, reposted) {
     const a = p.author;
-    return `<div class="who">
-      <span class="avatar-sm" aria-hidden="true">${initialOf(a.name)}</span>
-      <div>
-        <p class="n">${a.linkedinUrl ? `<a href="${esc(a.linkedinUrl)}" rel="noopener" target="_blank">${esc(a.name)}</a>` : esc(a.name)}${showTag ? '<span class="tag">reposted</span>' : ''}${p.video ? '<span class="tag">video</span>' : ''}</p>
+    const labels = [reposted ? 'reposted' : null, p.video ? 'video' : null].filter(Boolean);
+    return `<div class="author">
+      <div class="col">
+        <p class="n">${a.linkedinUrl ? `<a href="${esc(a.linkedinUrl)}" rel="noopener" target="_blank">${esc(a.name)}</a>` : esc(a.name)}${labels.map((l) => `<span class="label">${l}</span>`).join('')}</p>
         ${a.headline ? `<p class="h">${esc(a.headline)}</p>` : ''}
       </div>
       <span class="when" title="${esc(exactDate(p.createdAt))}">${esc(ago(p.createdAt))}</span>
@@ -694,39 +580,20 @@
   function renderPosts(r) {
     uid = 0;
     view.innerHTML = `
-      <div class="activity">
+      <div class="pad activity">
         <a href="${esc(r.url)}" rel="noopener" target="_blank">${esc(r.url.replace(/^https:\/\/www\./, ''))}</a>
         <span class="count">${r.posts.length} of ${r.count} requested</span>
       </div>
-      <ul class="posts">${r.posts.map((p) => `
-        <li>
+      ${r.posts.map((p) => `
+        <div class="post pad">
           ${author(p, p.isReshare && !p.reshared)}
           ${desc(p.text, 'ptext')}
           ${media(p)}
           ${p.reshared ? `<div class="quote">${author(p.reshared, false)}${desc(p.reshared.text, 'ptext')}${media(p.reshared)}</div>` : ''}
           ${statsRow(p)}
-        </li>`).join('')}</ul>`;
+        </div>`).join('')}`;
     bindImages(view);
-  }
-
-  // ---- section nav: one pill per rendered section, active pill follows the scroll
-  // Profiles always get pills; the shorter views only earn them once they scroll.
-  function buildSecNav() {
-    secObserver?.disconnect();
-    secObserver = null;
-    const secs = tab === 'view' ? [...view.querySelectorAll('section.block[id]')] : [];
-    const enough = secs.length >= (kind === 'profile' ? 1 : 3);
-    secnav.hidden = !enough;
-    secnav.innerHTML = enough ? secs.map((s) => `<a href="#${esc(s.id)}" data-sec="${esc(s.id)}">${esc(s.dataset.label)}</a>`).join('') : '';
-    if (!enough) return;
-    const visible = new Set();
-    secObserver = new IntersectionObserver((entries) => {
-      for (const en of entries) en.isIntersecting ? visible.add(en.target.id) : visible.delete(en.target.id);
-      // The last section crossing the band under the nav is the one being read.
-      const active = secs.map((s) => s.id).findLast((id) => visible.has(id));
-      for (const a of secnav.children) a.setAttribute('aria-current', String(a.dataset.sec === active));
-    }, { rootMargin: '-56px 0px -70% 0px' });
-    for (const s of secs) secObserver.observe(s);
+    trimClamps(view);
   }
 
   // Tokenise the raw JSON first, then escape each token, escaping first would turn quotes into &quot; and break string detection.
@@ -754,42 +621,37 @@
     return value;
   }
   function renderJson(d) {
-    const text = JSON.stringify(d, null, 2);
-    view.innerHTML = `<div class="json-head">
-      <span>${esc(num(text.length))} bytes · application/json</span>
-      <span class="acts">
-        <button class="copy" type="button" data-copy-json="trimmed">Copy JSON</button>
-        <button class="copy ghost" type="button" data-copy-json="full">Copy full JSON</button>
-      </span>
-    </div><pre class="json" id="json-src">${highlight(text)}</pre>`;
+    view.innerHTML = `<div class="json-actions">
+      <button class="btn-text" type="button" data-copy-json="trimmed">Copy</button>
+      <button class="btn-text" type="button" data-copy-json="full">Copy full</button>
+    </div><pre class="json">${highlight(JSON.stringify(d, null, 2))}</pre>`;
   }
 
   const RENDER = { profile: renderProfile, company: renderCompany, posts: renderPosts };
   function renderView() {
     if (!data) return;
-    view.classList.remove('is-landing');
+    view.hidden = false;
     tab === 'json' ? renderJson(data) : RENDER[kind](data);
-    buildSecNav();
   }
 
-  function hideSecNav() {
-    secObserver?.disconnect();
-    secObserver = null;
-    secnav.hidden = true;
-    secnav.innerHTML = '';
-  }
-
-  function setStatus(cls, text) { bar.hidden = false; statusEl.hidden = false; statusEl.className = `pill ${cls}`; statusEl.textContent = text; }
+  function setStatus(cls, text) { bar.hidden = false; statusEl.hidden = false; statusEl.className = `status ${cls}`; statusEl.textContent = text; }
 
   function showLoading() {
-    view.classList.remove('is-landing');
-    view.innerHTML = `<div class="skel skel-banner"></div><div class="skel-wrap"><div class="skel skel-avatar"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
+    view.hidden = false;
+    view.innerHTML = `<div class="pad">
+      <div class="identity"><span class="skel avatar"></span><div class="who">
+        <div class="skel skel-line" style="width:40%;height:20px"></div>
+        <div class="skel skel-line" style="width:70%;margin-top:8px"></div>
+        <div class="skel skel-line" style="width:30%;margin-top:8px"></div>
+      </div></div>
+      <p class="cold" id="cold" hidden>Still working. This runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>
+    </div>`;
     setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
   }
   function showError(status, body) {
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
-    view.classList.remove('is-landing');
-    view.innerHTML = `<div class="error"><span class="pill err">${esc(status)} · ${esc(e.code)}</span><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet" style="margin-top:12px">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
+    view.hidden = false;
+    view.innerHTML = `<div class="pad error"><p class="code">${esc(status)} · ${esc(e.code)}</p><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
   }
 
   // Which endpoint a pasted URL belongs to. Company, school and showcase pages
@@ -806,10 +668,11 @@
     posts: (u) => `/v1/posts?url=${encodeURIComponent(u)}&count=10`,
   };
 
+  const took = (ms) => ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
   const cacheAge = (iso) => {
     const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
-    if (!Number.isFinite(min) || min < 1) return '<1 min';
-    return min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`;
+    if (!Number.isFinite(min) || min < 1) return 'cached';
+    return min < 60 ? `cached ${min} min` : min < 1440 ? `cached ${Math.round(min / 60)} h` : `cached ${Math.round(min / 1440)} d`;
   };
 
   async function lookup(raw) {
@@ -822,7 +685,9 @@
     data = null; tab = 'view'; go.disabled = true;
     tabView.textContent = KIND_LABEL[kind];
     for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
-    setStatus('busy', 'fetching'); tabsEl.hidden = true; hideSecNav(); showLoading();
+    intro.hidden = true; tabsEl.hidden = true;
+    setStatus('', 'Fetching…');
+    showLoading();
     const t0 = performance.now();
     try {
       const res = await fetch(ENDPOINT[kind](url), { headers: { accept: 'application/json' } });
@@ -830,17 +695,17 @@
       let body; try { body = JSON.parse(text); } catch { body = text; }
       const ms = Math.round(performance.now() - t0);
       if (!res.ok) {
-        setStatus('err', `${res.status} · ${ms} ms`);
+        setStatus('err', `${res.status} · ${took(ms)}`);
         showError(res.status, body);
         return;
       }
       data = body;
-      const cached = body.meta?.cached ? ` · cached · ${cacheAge(body.meta.fetchedAt)}` : '';
-      setStatus('ok', `200 · ${ms} ms${cached}`);
+      setStatus('', dots(['200', took(ms), body.meta?.cached ? cacheAge(body.meta.fetchedAt) : null]));
       tabsEl.hidden = false;
       renderView();
     } catch (err) {
-      setStatus('err', 'network error'); showError('-', { error: { code: 'NETWORK', message: String(err.message || err) } });
+      setStatus('err', 'Network error');
+      showError('—', { error: { code: 'NETWORK', message: String(err.message || err) } });
     } finally { go.disabled = false; }
   }
 
@@ -851,41 +716,30 @@
     for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
     renderView();
   });
-  // Delegated so re-rendered markup needs no re-binding: example chips, clamp
-  // toggles, the skills overflow chip, the copy buttons.
-  document.addEventListener('click', async (e) => {
+  async function flash(btn, text, label) {
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = label; }, 1500);
+    } catch {}
+  }
+  // Delegated so re-rendered markup needs no re-binding: example links, clamp
+  // toggles, the skills overflow toggle, the copy buttons.
+  document.addEventListener('click', (e) => {
     const example = e.target.closest('[data-example]');
     if (example) { lookup(example.dataset.example); return; }
     const clamp = e.target.closest('[data-clamp]');
     if (clamp) { const t = $(clamp.dataset.clamp); if (t) t.dataset.clamped = 'false'; clamp.remove(); return; }
     const more = e.target.closest('[data-skills-more]');
-    if (more) { for (const chip of more.parentElement.querySelectorAll('span[hidden]')) chip.hidden = false; more.remove(); return; }
+    if (more) { for (const chip of more.previousElementSibling.querySelectorAll('span[hidden]')) chip.hidden = false; more.remove(); return; }
     const json = e.target.closest('[data-copy-json]');
     if (json) {
       const full = json.dataset.copyJson === 'full';
-      flash(json, JSON.stringify(full ? data : withoutVariants(data), null, 2), full ? 'Copy full JSON' : 'Copy JSON');
+      flash(json, JSON.stringify(full ? data : withoutVariants(data), null, 2), full ? 'Copy full' : 'Copy');
       return;
     }
     const copyUrl = e.target.closest('[data-copy-url]');
-    if (copyUrl) {
-      try {
-        await navigator.clipboard.writeText(copyUrl.dataset.copyUrl);
-        copyUrl.dataset.done = 'true'; copyUrl.innerHTML = icon('check');
-        setTimeout(() => { copyUrl.dataset.done = 'false'; copyUrl.innerHTML = icon('copy'); }, 1500);
-      } catch {}
-    }
-  });
-  async function flash(btn, text, label) {
-    try {
-      await navigator.clipboard.writeText(text);
-      btn.dataset.done = 'true'; btn.textContent = 'Copied';
-      setTimeout(() => { btn.dataset.done = 'false'; btn.textContent = label; }, 1500);
-    } catch {}
-  }
-  secnav.addEventListener('click', (e) => {
-    const a = e.target.closest('a[data-sec]'); if (!a) return;
-    e.preventDefault();
-    document.getElementById(a.dataset.sec)?.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' });
+    if (copyUrl) flash(copyUrl, copyUrl.dataset.copyUrl, 'Copy link');
   });
   document.addEventListener('keydown', (e) => {
     const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '');
@@ -893,7 +747,7 @@
     else if (e.key === 'Escape') { input.value = ''; }
   });
 
-  renderLanding();
+  renderIntro();
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) lookup(initial); else input.focus();
 })();
