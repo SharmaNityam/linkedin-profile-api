@@ -207,6 +207,30 @@ describe('email OTP gate', () => {
     void mailer;
   });
 
+  it('rate-limit key follows X-Forwarded-For behind the Render proxy', async () => {
+    const { auth } = testAuth({ otpRateLimitPerHour: 1 });
+    app = await buildApp({ services, auth, rateLimitPerMinute: 1000 });
+    await app.ready();
+
+    const requestFrom = (forwardedFor: string) =>
+      app!.inject({
+        method: 'POST',
+        url: '/auth/request-code',
+        payload: { email: `${forwardedFor}@example.com` },
+        headers: { 'x-forwarded-for': forwardedFor },
+        remoteAddress: '10.0.0.1',
+      });
+
+    // Budget is 1/hour. Same forwarded address, same proxy hop: second call
+    // is limited.
+    expect((await requestFrom('203.0.113.9')).statusCode).toBe(200);
+    expect((await requestFrom('203.0.113.9')).statusCode).toBe(429);
+
+    // A different forwarded address behind the same proxy (`remoteAddress`)
+    // gets its own budget.
+    expect((await requestFrom('203.0.113.10')).statusCode).toBe(200);
+  });
+
   it('logout clears the cookie', async () => {
     const { auth, mailer } = testAuth();
     app = await buildApp({ services, auth, rateLimitPerMinute: 1000 });

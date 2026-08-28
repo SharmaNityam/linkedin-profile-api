@@ -49,6 +49,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const app = Fastify({
     ...(options.logger ? { loggerInstance: options.logger } : { logger: false }),
     requestIdHeader: 'x-request-id',
+    // Render terminates TLS and proxies through exactly one hop. This
+    // Fastify disables bare hop-count trust (`trustProxy: <number>` always
+    // fails closed — see @fastify/proxy-addr) because it can't validate the
+    // immediate peer, so hop-count trust is expressed as a function instead:
+    // trust only the socket peer (hop 0, i.e. Render's edge) as a proxy, so
+    // its single `X-Forwarded-For` entry is honoured, but nothing a client
+    // prepends beyond that is — `req.ip` becomes the real client address
+    // without letting a caller spoof further hops.
+    trustProxy: (_address: string, hop: number) => hop === 0,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
