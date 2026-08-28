@@ -109,10 +109,11 @@ Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY` and `SM
 
 `/v1/*` is behind an email one-time-code gate: no password, no phone number, no database. Proving control of an inbox is the only credential.
 
-1. `POST /auth/request-code {"email"}` mails a 6-digit code to that address and always answers `200 {"status":"code_sent"}` (except when the per-address rate limit is hit, see below — the response never otherwise reveals whether the address has been seen before).
-2. `POST /auth/verify {"email","code"}` checks the code and, on success, sets a signed and encrypted `sid` cookie (`httpOnly`, `sameSite=lax`, 30-day expiry) and returns `{"email"}`.
-3. Every `/v1/*` request needs that cookie; a request without one, or with an expired/invalid one, gets `401 UNAUTHENTICATED`.
-4. `GET /auth/me` reports the signed-in address or `401`; `POST /auth/logout` clears the cookie.
+1. `GET /auth/config` reports the gate this deployment uses (`{"gate":"email"}`), unlimited — a client probes this before deciding whether to show a sign-in step.
+2. `POST /auth/request-code {"email"}` mails a 6-digit code to that address and always answers `200 {"status":"code_sent"}` (except when the per-address rate limit is hit, see below — the response never otherwise reveals whether the address has been seen before).
+3. `POST /auth/verify {"email","code"}` checks the code and, on success, sets a signed and encrypted `sid` cookie (`httpOnly`, `sameSite=lax`, 30-day expiry, and `Secure` when `NODE_ENV=production` — off in development, where there's no TLS) and returns `{"email"}`.
+4. Every `/v1/*` request needs that cookie; a request without one, or with an expired/invalid one, gets `401 UNAUTHENTICATED`.
+5. `GET /auth/me` reports the signed-in address or `401`; it counts against the global `RATE_LIMIT_PER_MINUTE` budget like a `/v1/*` call, not the per-hour OTP limits. `POST /auth/logout` clears the cookie and is unlimited.
 
 Codes are 6 digits, expire in 10 minutes, allow 5 attempts, and are single-use. They live in memory only: a server restart invalidates every *pending* code (an in-flight sign-in has to start over), but it does **not** invalidate already-issued cookies — a session survives a restart. The only way to revoke every session at once is to rotate `SESSION_KEY`, which invalidates every cookie in existence.
 
@@ -127,7 +128,7 @@ In development, leaving `SMTP_USER`/`SMTP_PASS` unset is fine: the server logs t
 ### Limits, and what this does and doesn't prove
 
 - **Per-IP**: `OTP_RATE_LIMIT_PER_HOUR` (default 10) on `/auth/request-code` and `/auth/verify`.
-- **Per-address**: `OTP_PER_EMAIL_PER_HOUR` (default 5) on code issuance, independent of IP, so one address can't be hammered from many IPs.
+- **Per-address**: `OTP_PER_EMAIL_PER_HOUR` (default 5) on code issuance, independent of IP, so one address can't be hammered from many IPs. The cap applies to the *canonical* address (see [`canonicalEmail`](src/auth/email.ts)): Gmail addresses fold dots and a trailing `+tag` (`j.o.h.n+promo@gmail.com` and `john@googlemail.com` share one budget with `john@gmail.com`), but a `+tag` on any other provider counts as a distinct address (`john+work@outlook.com` has its own budget, separate from `john@outlook.com`).
 - **Gmail's own cap**: a personal Gmail account can send roughly 500 messages a day; this service does not track that separately, so a burst of sign-ins can exhaust it.
 - **CSRF**: a mutating request whose `Origin` header is present and doesn't match `APP_ORIGIN` is rejected with `403 FORBIDDEN_ORIGIN`; a mutating request with a body must declare `application/json`.
 - **What it proves**: the caller can read mail sent to the address they typed. **What it doesn't prove**: identity, that the address is theirs long-term, or anything beyond that one inbox at that one moment. It keeps casual, anonymous use off the LinkedIn-backed endpoints; it is not account security.
@@ -137,7 +138,7 @@ In development, leaving `SMTP_USER`/`SMTP_PASS` unset is fine: the server logs t
 
 ## API
 
-`GET /`, `GET /docs`, `GET /openapi.json`, `GET /health` and the `/auth/*` endpoints noted above are exempt from the rate limit or budgeted separately (see [Access](#access)); every `/v1/*` request needs the session cookie and is counted against `RATE_LIMIT_PER_MINUTE` (default 10) — per verified email once signed in, per IP otherwise — and answers `429 RATE_LIMITED` with `Retry-After` once it is spent. Every request to a path that matches no route is counted against the same budget too.
+`GET /`, `GET /docs`, `GET /openapi.json`, `GET /health`, `GET /auth/config` and `POST /auth/logout` are exempt from the rate limit entirely; `POST /auth/request-code` and `POST /auth/verify` are budgeted separately per `OTP_RATE_LIMIT_PER_HOUR`/`OTP_PER_EMAIL_PER_HOUR` (see [Access](#access)). Everything else — every `/v1/*` request and `GET /auth/me` — needs the session cookie where applicable and is counted against `RATE_LIMIT_PER_MINUTE` (default 10) — per verified email once signed in, per IP otherwise — and answers `429 RATE_LIMITED` with `Retry-After` once it is spent. Every request to a path that matches no route is counted against the same budget too.
 
 Every endpoint is in the Swagger UI at `/docs`, generated from the same zod schemas that validate the responses.
 
