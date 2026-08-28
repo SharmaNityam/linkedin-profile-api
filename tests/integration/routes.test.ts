@@ -91,6 +91,7 @@ describe('HTTP API', () => {
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.body).toContain('LinkedIn Profile API');
     expect(res.body).toContain('/v1/profile');
+    expect(res.body).toContain('/auth/me');
     expect(res.body).toContain('bindImages');
   });
 

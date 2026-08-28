@@ -82,6 +82,34 @@
 
   .bar { display: flex; justify-content: space-between; align-items: center; margin: 14px 0; min-height: 30px; }
 
+  /* ---- account panel ---- */
+  aside.auth { margin-top: 24px; padding: 14px 16px; }
+  .auth-title { font-family: var(--display); font-weight: 600; font-size: 14.5px; margin: 0; }
+  .auth-help { color: var(--muted); font-size: 13px; margin: 2px 0 12px; }
+  .auth-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .auth-form input {
+    flex: 1 1 190px; min-width: 0; background: var(--bg); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 9px 12px; font-size: 14px;
+  }
+  .auth-form input::placeholder { color: var(--faint); }
+  .auth-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .auth-form input.code { flex: 0 1 150px; font-family: var(--mono); letter-spacing: .26em; }
+  .btn.ghost { background: none; border-color: var(--border-strong); color: var(--text); font-weight: 500; }
+  .btn.ghost:hover { filter: none; border-color: var(--faint); }
+  .auth-msg { margin: 10px 0 0; font-size: 13px; color: var(--err); }
+  .auth-msg.note { color: var(--ok); }
+  .auth-skel { display: block; height: 18px; width: 240px; }
+  .auth-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .auth-line .auth-email { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+  .auth-line .spacer { flex: 1; }
+  .auth-link, .auth-toggle { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+  .auth-link { text-decoration: underline; text-underline-offset: 3px; }
+  .auth-link:hover, .auth-toggle:hover { color: var(--text); }
+  aside.auth button[disabled] { opacity: .6; cursor: progress; }
+  .auth-more { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .18s ease; }
+  aside.auth.is-collapsed .auth-more { grid-template-rows: 0fr; }
+  .auth-more > div { overflow: hidden; }
+
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 
   /* images: wrap = skeleton until load, then fade in; fallback on error */
@@ -177,12 +205,13 @@
 
   @media (prefers-reduced-motion: reduce) {
     .skel, .pill.busy::before { animation: none; }
-    .img-wrap > img { transition: none; }
+    .img-wrap > img, .auth-more { transition: none; }
   }
   @media (max-width: 640px) {
     form.lookup { flex-direction: column; }
     form.lookup .prefix { display: none; }
     .identity, section.block { padding-left: 18px; padding-right: 18px; }
+    .auth-form input, .auth-form input.code { flex-basis: 100%; }
   }
 </style>
 </head>
@@ -195,6 +224,8 @@
       <a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
     </nav>
   </header>
+
+  <aside class="card auth" id="auth" aria-label="Account"></aside>
 
   <form class="lookup" id="form" autocomplete="off">
     <label class="sr" for="url">LinkedIn profile URL</label>
@@ -222,7 +253,7 @@
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
-  const statusEl = $('#status'), tabsEl = $('#tabs');
+  const statusEl = $('#status'), tabsEl = $('#tabs'), authEl = $('#auth');
 
   let profile = null, tab = 'profile';
 
@@ -375,6 +406,219 @@
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
     view.innerHTML = `<div class="error"><code>${esc(status)} ${esc(e.code)}</code><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet" style="margin-top:12px">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
   }
+  /** A gate the account panel above can clear, in place of the generic error. */
+  function showGate(status, code, text) {
+    view.innerHTML = `<div class="error"><code>${esc(status)} ${esc(code ?? '')}</code><p>${esc(text)}</p><p style="color:var(--muted)">Use the account panel above, then try again.</p></div>`;
+  }
+
+  // ---- account panel
+  // One `<aside>` re-rendered from a tiny state machine: loading → signed-out →
+  // code → phone → signed-in. Every POST is same-origin JSON, which is what the
+  // server's CSRF guard accepts; the session travels in an httpOnly cookie, so
+  // there is nothing to keep here but the state name.
+  let authState = 'loading', me = null, authMsg = null, authBusy = false, collapsed = false;
+  // Remembered so "Resend code" can re-post signup, and so a failed attempt
+  // does not wipe what was typed. The password lives in this closure only: it
+  // is never rendered into the DOM, stored, or logged, and is dropped the
+  // moment a session exists.
+  let pendingEmail = '', pendingPassword = '', pendingPhone = '';
+
+  const msgHtml = () => authMsg
+    ? `<p class="auth-msg${authMsg.kind === 'note' ? ' note' : ''}" role="${authMsg.kind === 'note' ? 'status' : 'alert'}">${esc(authMsg.text)}</p>`
+    : '';
+
+  const AUTH_VIEWS = {
+    loading: () => `<span class="skel auth-skel" role="status" aria-label="Checking your session"></span>`,
+
+    'signed-out': () => `
+      <p class="auth-title">Sign in to fetch profiles</p>
+      <p class="auth-help">Free, and one account per person keeps the demo up.</p>
+      <form class="auth-form" data-form="signup">
+        <label class="sr" for="auth-email">Email address</label>
+        <input id="auth-email" type="email" autocomplete="email" placeholder="you@gmail.com" spellcheck="false" value="${esc(pendingEmail)}" data-focus />
+        <label class="sr" for="auth-password">Password</label>
+        <input id="auth-password" type="password" autocomplete="current-password" placeholder="Password (10+ characters)" />
+        <button class="btn" type="submit">Sign up</button>
+        <button class="btn ghost" type="button" data-action="login">Log in</button>
+      </form>${msgHtml()}`,
+
+    code: () => `
+      <p class="auth-title">Enter your verification code</p>
+      <p class="auth-help">We sent six digits to ${esc(pendingEmail)}. It expires in 10 minutes.</p>
+      <form class="auth-form" data-form="verify">
+        <label class="sr" for="auth-code">Verification code</label>
+        <input id="auth-code" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" data-focus />
+        <button class="btn" type="submit">Verify</button>
+        <button class="btn ghost" type="button" data-action="resend">Resend code</button>
+      </form>${msgHtml()}`,
+
+    phone: () => `
+      <p class="auth-title">Add a phone number</p>
+      <p class="auth-help">Used only to keep the demo to one account per person.</p>
+      <form class="auth-form" data-form="phone">
+        <label class="sr" for="auth-phone">Mobile number</label>
+        <input id="auth-phone" type="tel" autocomplete="tel" placeholder="+91 98765 43210" value="${esc(pendingPhone)}" data-focus />
+        <button class="btn" type="submit">Add phone</button>
+        <button class="btn ghost" type="button" data-action="logout">Log out</button>
+      </form>${msgHtml()}`,
+
+    'signed-in': () => `
+      <div class="auth-line">
+        <span class="pill ok">signed in</span>
+        <span class="auth-email">${esc(me?.email ?? '')}</span>
+        <span class="spacer"></span>
+        <button class="auth-link" type="button" data-action="logout">Log out</button>
+        <button class="auth-toggle" type="button" data-action="toggle" aria-expanded="${!collapsed}" aria-controls="auth-detail">
+          <span class="sr">Account details</span><span aria-hidden="true">${collapsed ? '▾' : '▴'}</span>
+        </button>
+      </div>
+      <div class="auth-more" id="auth-detail"><div>
+        <p class="auth-help" style="margin-bottom:0">Phone linked${me?.createdAt ? ` · member since ${esc(me.createdAt.slice(0, 10))}` : ''}.</p>
+      </div></div>${msgHtml()}`,
+  };
+
+  function renderAuth(state) {
+    if (state) authState = state;
+    authEl.classList.toggle('is-collapsed', authState === 'signed-in' && collapsed);
+    authEl.innerHTML = AUTH_VIEWS[authState]();
+  }
+  function setAuth(state, { msg = null, focus = false } = {}) {
+    authMsg = msg;
+    renderAuth(state);
+    if (focus) authEl.querySelector('[data-focus]')?.focus();
+  }
+  function setAuthMsg(text, kind = 'err') { setAuth(authState, { msg: { text, kind } }); }
+  function setAuthBusy(on) {
+    authBusy = on;
+    for (const b of authEl.querySelectorAll('button')) b.disabled = on;
+  }
+
+  /** Every state-changing account call: same-origin JSON, cookie included. */
+  async function authPost(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    const text = await res.text();
+    let data = null; try { data = JSON.parse(text); } catch {}
+    return { status: res.status, data };
+  }
+
+  const retryIn = (s) => s < 90 ? `${s} second${s === 1 ? '' : 's'}` : `${Math.ceil(s / 60)} minutes`;
+
+  /** The server's own wording, escaped on the way in, plus the retry hint. */
+  function authFail(status, data) {
+    const e = data?.error ?? {};
+    let text = e.message || `The request failed (HTTP ${status}).`;
+    const retry = e.details?.retryAfterSeconds;
+    if (e.code === 'RATE_LIMITED' && typeof retry === 'number') text += ` Try again in ${retryIn(retry)}.`;
+    // Two codes are really a change of step, not an error to sit on.
+    if (e.code === 'EMAIL_UNVERIFIED' && pendingEmail) return setAuth('code', { msg: { text }, focus: true });
+    if (e.code === 'UNAUTHENTICATED') return setAuth('signed-out', { msg: { text }, focus: true });
+    setAuthMsg(text);
+  }
+
+  /** Where an account lands once the server has told us about it. */
+  function applyMe(next, { fromLoad = false } = {}) {
+    me = next;
+    pendingPassword = '';
+    if (next.phoneVerified) { collapsed = fromLoad; setAuth('signed-in'); return; }
+    setAuth('phone', { focus: !fromLoad });
+  }
+
+  async function authAction(fn) {
+    if (authBusy) return;
+    setAuthBusy(true);
+    try { await fn(); }
+    catch { setAuthMsg('Could not reach the server. Check your connection and try again.'); }
+    finally { setAuthBusy(false); }
+  }
+
+  const ACTIONS = {
+    signup: () => authAction(async () => {
+      const email = $('#auth-email').value.trim(), password = $('#auth-password').value;
+      if (!email || !password) return setAuthMsg('Enter an email address and a password.');
+      const { status, data } = await authPost('/auth/signup', { email, password });
+      if (status !== 200) return authFail(status, data);
+      pendingEmail = email; pendingPassword = password;
+      setAuth('code', { msg: { text: 'Code sent. It expires in 10 minutes.', kind: 'note' }, focus: true });
+    }),
+
+    login: () => authAction(async () => {
+      const email = $('#auth-email').value.trim(), password = $('#auth-password').value;
+      if (!email || !password) return setAuthMsg('Enter an email address and a password.');
+      pendingEmail = email; pendingPassword = password;
+      const { status, data } = await authPost('/auth/login', { email, password });
+      if (status !== 200) return authFail(status, data);
+      applyMe(data);
+    }),
+
+    verify: () => authAction(async () => {
+      const code = $('#auth-code').value.trim();
+      if (!code) return setAuthMsg('Enter the six-digit code from your email.');
+      const { status, data } = await authPost('/auth/verify-email', { email: pendingEmail, code });
+      if (status !== 200) return authFail(status, data);
+      applyMe(data);
+    }),
+
+    resend: () => authAction(async () => {
+      if (!pendingEmail || !pendingPassword) {
+        return setAuth('signed-out', { msg: { text: 'Enter your email and password again to get a new code.' }, focus: true });
+      }
+      const { status, data } = await authPost('/auth/signup', { email: pendingEmail, password: pendingPassword });
+      if (status !== 200) return authFail(status, data);
+      setAuthMsg('New code sent. The older one no longer works.', 'note');
+    }),
+
+    phone: () => authAction(async () => {
+      const phone = $('#auth-phone').value.trim();
+      if (!phone) return setAuthMsg('Enter a mobile number, including the country code.');
+      pendingPhone = phone;
+      const { status, data } = await authPost('/auth/phone', { phone });
+      if (status !== 200) return authFail(status, data);
+      pendingPhone = '';
+      applyMe(data);
+    }),
+
+    logout: () => authAction(async () => {
+      const { status, data } = await authPost('/auth/logout', {});
+      if (status !== 200) return authFail(status, data);
+      me = null; pendingPassword = ''; pendingPhone = '';
+      setAuth('signed-out', { msg: { text: 'Signed out.', kind: 'note' } });
+    }),
+
+    toggle: () => { collapsed = !collapsed; renderAuth(); },
+  };
+
+  /** Opens the panel where a rejected API call says the caller has to act. */
+  function openAuth(state) {
+    // Someone part-way through the code step keeps their place: dropping them
+    // back to the sign-up form would throw away the address the code went to.
+    if (state === 'signed-out' && authState === 'code') return;
+    collapsed = false;
+    setAuth(state, { focus: true });
+  }
+
+  async function loadAuth() {
+    try {
+      const res = await fetch('/auth/me', { headers: { accept: 'application/json' }, credentials: 'same-origin' });
+      if (res.status === 200) return applyMe(await res.json(), { fromLoad: true });
+      if (res.status === 401) return setAuth('signed-out');
+      const data = await res.json().catch(() => null);
+      setAuth('signed-out');
+      authFail(res.status, data);
+    } catch {
+      setAuth('signed-out');
+    }
+  }
+
+  authEl.addEventListener('submit', (e) => { e.preventDefault(); ACTIONS[e.target.dataset.form]?.(); });
+  authEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (btn) ACTIONS[btn.dataset.action]?.();
+  });
 
   async function lookup(url) {
     url = url.trim();
@@ -390,7 +634,16 @@
       const text = await res.text();
       let body; try { body = JSON.parse(text); } catch { body = text; }
       const ms = Math.round(performance.now() - t0);
-      if (!res.ok) { setStatus('err', `${res.status} · ${ms} ms`); showError(res.status, body); return; }
+      if (!res.ok) {
+        setStatus('err', `${res.status} · ${ms} ms`);
+        const code = body?.error?.code;
+        // The two gates the account panel can clear are shown as a next step,
+        // not as a failure: say what to do, and open the panel on that step.
+        if (res.status === 401) { showGate(res.status, code, 'Sign in to fetch profiles'); openAuth('signed-out'); return; }
+        if (res.status === 403 && code === 'PHONE_REQUIRED') { showGate(res.status, code, 'Add a phone number to fetch profiles'); openAuth('phone'); return; }
+        showError(res.status, body);
+        return;
+      }
       profile = body; setStatus('ok', `200 · ${ms} ms${body.meta?.cached ? ' · cached' : ''}`); tabsEl.hidden = false; renderView();
     } catch (err) {
       setStatus('err', 'network error'); showError('-', { error: { code: 'NETWORK', message: String(err.message || err) } });
@@ -409,6 +662,9 @@
     const src = $(btn.dataset.copy); if (!src) return;
     try { await navigator.clipboard.writeText(src.innerText); btn.dataset.done = 'true'; btn.textContent = 'Copied'; setTimeout(() => { btn.dataset.done = 'false'; btn.textContent = btn.dataset.copy === '#json-src' ? 'Copy JSON' : 'Copy'; }, 1500); } catch {}
   });
+
+  renderAuth('loading');
+  loadAuth();
 
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) lookup(initial); else input.focus();
