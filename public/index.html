@@ -234,6 +234,50 @@
   .level { display: inline-block; height: 6px; width: 60px; border-radius: 3px; background: var(--border-strong); vertical-align: middle; margin-left: 10px; overflow: hidden; }
   .level i { display: block; height: 100%; background: var(--accent); }
 
+  /* company */
+  .org-logo { width: 72px; height: 72px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); margin-top: -36px; font-size: 26px; }
+  .org-logo > img { object-fit: contain; }
+  .kind { font-family: var(--body); font-weight: 500; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 4px; padding: 2px 7px; }
+  .tagline { margin: 6px 0 0; font-size: 15px; color: var(--text-2); }
+  .about-body { margin: 0; white-space: pre-wrap; color: var(--text-2); font-size: 14.5px; }
+  .outlinks { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+  .outlinks a { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; font-size: 13px; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 8px; padding: 5px 11px; }
+  .outlinks a:hover { color: var(--text); border-color: var(--faint); }
+  .outlinks svg { width: 13px; height: 13px; }
+
+  /* posts */
+  .activity { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 24px; }
+  .activity a { font-family: var(--mono); font-size: 13px; text-decoration: none; color: var(--text-2); }
+  .activity a:hover { color: var(--accent-text); }
+  .activity .count { color: var(--muted); font-size: 13px; }
+  .posts { list-style: none; margin: 0; padding: 0; }
+  .posts > li { padding: 18px 24px; border-top: 1px solid var(--border); }
+  .who { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+  .who .avatar-sm { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-2); display: grid; place-items: center; color: var(--faint); font-family: var(--display); font-weight: 600; font-size: 14px; }
+  .who .n { margin: 0; font-weight: 600; font-size: 14.5px; }
+  .who .n a { text-decoration: none; }
+  .who .n a:hover { color: var(--accent-text); }
+  .who .h { margin: 1px 0 0; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .when { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--border-strong); border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
+  .ptext { margin: 12px 0 0; white-space: pre-wrap; font-size: 14.5px; color: var(--text-2); }
+  .pimgs { display: grid; gap: 4px; margin: 12px 0 0; border-radius: 8px; overflow: hidden; }
+  .pimgs[data-n="1"] { grid-template-columns: 1fr; }
+  .pimgs[data-many="2"] { grid-template-columns: repeat(2, 1fr); }
+  .pimgs[data-many="3"] { grid-template-columns: repeat(3, 1fr); }
+  .pimgs .cell { aspect-ratio: 4 / 3; }
+  .pimgs[data-n="1"] .cell { aspect-ratio: auto; max-height: 420px; }
+  .pimgs[data-n="1"] .cell > img { object-fit: contain; background: var(--surface-2); }
+  .article-card { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 12px 0 0; padding: 11px 13px; border: 1px solid var(--border-strong); border-radius: 8px; text-decoration: none; }
+  .article-card:hover { border-color: var(--faint); }
+  .article-card .a-t { font-weight: 500; font-size: 14px; }
+  .article-card .a-h { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .quote { margin: 12px 0 0; padding: 13px 15px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .stats { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; color: var(--muted); font-size: 12.5px; }
+  .stats .nums span + span::before { content: "·"; margin: 0 6px; color: var(--faint); }
+  .stats .open { text-decoration: none; color: var(--muted); }
+  .stats .open:hover { color: var(--accent-text); }
+
   /* status pill */
   .pill { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 12.5px; border-radius: 999px; padding: 4px 10px 4px 8px; border: 1px solid var(--border-strong); }
   /* `display` on .pill would otherwise beat the UA's [hidden] rule, leaving an empty pill floating there. */
@@ -250,13 +294,14 @@
   .copy[data-done="true"] { color: var(--ok); border-color: var(--ok); }
 
   .tabs { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
+  .tabs[hidden] { display: none; }
   .tabs button { background: none; border: 0; border-radius: 6px; padding: 5px 12px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500; }
   .tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--text); }
 
   /* json view */
   .json { padding: 16px 20px; margin: 0; background: var(--surface); overflow: auto; max-height: 78vh; line-height: 1.55; font-size: 12.5px; }
   .j-k { color: var(--j-key); } .j-s { color: var(--j-str); } .j-n { color: var(--accent-text); } .j-b { color: var(--j-bool); } .j-null { color: var(--muted); }
-  .json-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  .json-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
 
   /* states */
   .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
@@ -277,7 +322,7 @@
   @media (max-width: 640px) {
     form.lookup { flex-direction: column; }
     form.lookup .prefix { display: none; }
-    .identity, section.block { padding-left: 18px; padding-right: 18px; }
+    .identity, section.block, .empty, .activity, .posts > li { padding-left: 18px; padding-right: 18px; }
   }
 </style>
 </head>
@@ -300,12 +345,12 @@
   <div class="bar">
     <span class="pill" id="status" hidden></span>
     <div class="tabs" role="tablist" id="tabs" hidden>
-      <button role="tab" aria-selected="true" data-tab="profile">Profile</button>
+      <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
       <button role="tab" aria-selected="false" data-tab="json">JSON</button>
     </div>
   </div>
 
-  <nav class="secnav" id="secnav" aria-label="Profile sections" hidden></nav>
+  <nav class="secnav" id="secnav" aria-label="Sections" hidden></nav>
 
   <main id="main">
     <div class="card" id="view"><div class="empty">Enter a LinkedIn profile URL.</div></div>
@@ -319,10 +364,12 @@
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
-  const statusEl = $('#status'), tabsEl = $('#tabs'), secnav = $('#secnav');
+  const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), secnav = $('#secnav');
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let profile = null, tab = 'profile', secObserver = null, uid = 0;
+  let data = null, kind = 'profile', tab = 'view', secObserver = null, uid = 0;
+
+  const KIND_LABEL = { profile: 'Profile', company: 'Company', posts: 'Posts' };
 
   // ---- dates
   const fmt = (d) => d ? (d.month ? `${MONTHS[d.month - 1]} ${d.year}` : String(d.year)) : null;
@@ -348,16 +395,30 @@
     const s = spanDuration(a, b);
     return s ? ` · ${s}` : '';
   }
+  const AGO = [[60, 1, 's'], [3600, 60, 'min'], [86400, 3600, 'h'], [604800, 86400, 'd'], [2592000, 604800, 'w'], [31536000, 2592000, 'mo']];
+  function ago(iso) {
+    const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
+    if (s < 45) return 'just now';
+    const step = AGO.find(([limit]) => s < limit);
+    return step ? `${Math.round(s / step[1])} ${step[2]} ago` : `${Math.round(s / 31536000)} yr ago`;
+  }
+  const exactDate = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
   const PROF = { ELEMENTARY: [1, 'Elementary'], LIMITED_WORKING: [2, 'Limited working'], PROFESSIONAL_WORKING: [3, 'Professional working'], FULL_PROFESSIONAL: [4, 'Full professional'], NATIVE_OR_BILINGUAL: [5, 'Native / bilingual'] };
+
+  // ---- numbers
+  const num = (n) => n.toLocaleString('en-US');
+  const compact = (n) => new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+  const plural = (n, word) => n ? `${num(n)} ${word}${n === 1 ? '' : 's'}` : null;
 
   // ---- renderers
   const initialOf = (name) => esc((name || '?').trim()[0] || '?');
   const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${esc(v.width)}w`).join(', ') : '';
   // Wrapped image: skeleton until `load`, fade in, fallback on `error`. `fallback` is the HTML to show on error.
-  function img({ image, alt = '', cls, eager = false, sizes, fallback }) {
-    if (!image?.url) return `<span class="img-wrap ${cls} is-loaded">${fallback}</span>`;
+  function img({ image, alt = '', cls, eager = false, sizes, fallback, style = '' }) {
+    const box = style ? ` style="${esc(style)}"` : '';
+    if (!image?.url) return `<span class="img-wrap ${cls} is-loaded"${box}>${fallback}</span>`;
     const ss = srcset(image);
-    return `<span class="img-wrap ${cls}" data-fallback="${esc(fallback)}"><span class="skel"></span><img data-img src="${esc(image.url)}"${ss ? ` srcset="${ss}" sizes="${esc(sizes)}"` : ''} alt="${esc(alt)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer" /></span>`;
+    return `<span class="img-wrap ${cls}"${box} data-fallback="${esc(fallback)}"><span class="skel"></span><img data-img src="${esc(image.url)}"${ss ? ` srcset="${ss}" sizes="${esc(sizes)}"` : ''} alt="${esc(alt)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer" /></span>`;
   }
   // A decorative initial (logos, whose name is already in the text beside them)
   // is hidden from assistive tech; the avatar has no such neighbour, so passing
@@ -382,6 +443,7 @@
     link: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/>',
   };
   const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
 
@@ -516,14 +578,117 @@
     bindImages(view);
   }
 
+  // ---- company
+  function staffLine(c) {
+    const r = c.staffCountRange;
+    if (r) return `${num(r.start)}${r.end ? ` to ${num(r.end)}` : '+'} employees`;
+    return c.staffCount != null ? `${num(c.staffCount)} employees` : null;
+  }
+  const place = (h) => h ? [h.city, h.region, h.country].filter(Boolean).join(', ') : '';
+
+  function renderCompany(c) {
+    uid = 0;
+    const facts = [
+      c.industries.join(', ') || null,
+      c.companyType,
+      staffLine(c),
+      c.followerCount != null ? `${compact(c.followerCount)} followers` : null,
+      place(c.headquarters) || null,
+      c.foundedYear ? `Founded ${c.foundedYear}` : null,
+    ].filter(Boolean);
+    const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+
+    view.innerHTML = `
+      ${img({ image: c.backgroundImage, cls: 'banner', eager: true, sizes: '(max-width: 800px) 100vw, 800px', fallback: '' })}
+      <div class="identity">
+        ${img({ image: c.logo, alt: c.name, cls: 'org-logo', eager: true, sizes: '72px', fallback: initialHtml(c.name, c.name) })}
+        <div class="name-row">
+          <h2>${esc(c.name)}<span class="kind">${esc(c.kind)}</span></h2>
+          <div class="id-actions">
+            <button class="icon-btn" type="button" data-copy-url="${esc(c.url)}" title="Copy page URL" aria-label="Copy page URL">${icon('copy')}</button>
+          </div>
+        </div>
+        ${c.tagline ? `<p class="tagline">${esc(c.tagline)}</p>` : ''}
+        ${facts.length ? `<p class="facts">${facts.map((f) => `<span>${esc(f)}</span>`).join('')}</p>` : ''}
+        <div class="outlinks">
+          ${c.websiteUrl ? `<a href="${esc(c.websiteUrl)}" rel="noopener nofollow" target="_blank">${icon('globe')}${esc(host(c.websiteUrl))}</a>` : ''}
+          <a href="${esc(c.url)}" rel="noopener" target="_blank">${icon('link')}LinkedIn</a>
+        </div>
+      </div>
+      ${c.description ? `<section class="block" id="sec-about" data-label="About"><h3>About</h3>${desc(c.description, 'about-body')}</section>` : ''}
+      ${block('specialities', 'Specialities', c.specialities, `<div class="chips">${c.specialities.map((s) => `<span>${esc(s)}</span>`).join('')}</div>`)}
+    `;
+    bindImages(view);
+  }
+
+  // ---- posts
+  const REACTION = { LIKE: 'Like', PRAISE: 'Celebrate', EMPATHY: 'Support', APPRECIATION: 'Insightful', INTEREST: 'Curious', ENTERTAINMENT: 'Funny', MAYBE: 'Maybe' };
+  function statsRow(p) {
+    if (!p.stats) return p.url ? `<div class="stats"><span></span><a class="open" href="${esc(p.url)}" rel="noopener" target="_blank">View post ↗</a></div>` : '';
+    const s = p.stats;
+    const nums = [plural(s.likes, 'like'), plural(s.comments, 'comment'), plural(s.shares, 'share')].filter(Boolean);
+    const breakdown = Object.entries(s.reactions).map(([k, v]) => `${REACTION[k] ?? k} ${num(v)}`).join(' · ');
+    return `<div class="stats">
+      <span class="nums"${breakdown ? ` title="${esc(breakdown)}"` : ''}>${nums.map((n) => `<span>${esc(n)}</span>`).join('')}</span>
+      ${p.url ? `<a class="open" href="${esc(p.url)}" rel="noopener" target="_blank">View post ↗</a>` : ''}
+    </div>`;
+  }
+  const cellSizes = (n) => n === 1 ? '(max-width: 800px) 100vw, 750px' : n <= 4 ? '(max-width: 800px) 50vw, 375px' : '(max-width: 800px) 33vw, 250px';
+  function media(p) {
+    const n = p.images.length;
+    // A lone image keeps its own proportions; a set is cropped into an even grid.
+    const single = n === 1 ? p.images[0].variants.at(-1) : null;
+    const grid = n ? `<div class="pimgs" data-n="${n}" data-many="${n === 1 ? 1 : n <= 4 ? 2 : 3}">${p.images.map((im, i) => img({
+      image: im, cls: 'cell', alt: `Post image ${i + 1}`, sizes: cellSizes(n),
+      style: single ? `aspect-ratio:${single.width}/${single.height}` : '', fallback: '',
+    })).join('')}</div>` : '';
+    const art = p.article ? `<a class="article-card" href="${esc(p.article.url ?? '#')}" rel="noopener nofollow" target="_blank">
+      <span class="a-t">${esc(p.article.title ?? p.article.url ?? 'Article')}</span>
+      ${p.article.url ? `<span class="a-h">${esc((() => { try { return new URL(p.article.url).hostname.replace(/^www\./, ''); } catch { return ''; } })())}</span>` : ''}
+    </a>` : '';
+    return grid + art;
+  }
+  // A bare repost carries the original author in `author`; a repost with commentary
+  // keeps the resharer there and nests the original under `reshared`.
+  function author(p, showTag) {
+    const a = p.author;
+    return `<div class="who">
+      <span class="avatar-sm" aria-hidden="true">${initialOf(a.name)}</span>
+      <div>
+        <p class="n">${a.linkedinUrl ? `<a href="${esc(a.linkedinUrl)}" rel="noopener" target="_blank">${esc(a.name)}</a>` : esc(a.name)}${showTag ? '<span class="tag">reposted</span>' : ''}${p.video ? '<span class="tag">video</span>' : ''}</p>
+        ${a.headline ? `<p class="h">${esc(a.headline)}</p>` : ''}
+      </div>
+      <span class="when" title="${esc(exactDate(p.createdAt))}">${esc(ago(p.createdAt))}</span>
+    </div>`;
+  }
+  function renderPosts(r) {
+    uid = 0;
+    view.innerHTML = `
+      <div class="activity">
+        <a href="${esc(r.url)}" rel="noopener" target="_blank">${esc(r.url.replace(/^https:\/\/www\./, ''))}</a>
+        <span class="count">${r.posts.length} of ${r.count} requested</span>
+      </div>
+      <ul class="posts">${r.posts.map((p) => `
+        <li>
+          ${author(p, p.isReshare && !p.reshared)}
+          ${desc(p.text, 'ptext')}
+          ${media(p)}
+          ${p.reshared ? `<div class="quote">${author(p.reshared, false)}${desc(p.reshared.text, 'ptext')}${media(p.reshared)}</div>` : ''}
+          ${statsRow(p)}
+        </li>`).join('')}</ul>`;
+    bindImages(view);
+  }
+
   // ---- section nav: one pill per rendered section, active pill follows the scroll
+  // Profiles always get pills; the shorter views only earn them once they scroll.
   function buildSecNav() {
     secObserver?.disconnect();
     secObserver = null;
-    const secs = tab === 'profile' ? [...view.querySelectorAll('section.block[id]')] : [];
-    secnav.hidden = !secs.length;
-    secnav.innerHTML = secs.map((s) => `<a href="#${esc(s.id)}" data-sec="${esc(s.id)}">${esc(s.dataset.label)}</a>`).join('');
-    if (!secs.length) return;
+    const secs = tab === 'view' ? [...view.querySelectorAll('section.block[id]')] : [];
+    const enough = secs.length >= (kind === 'profile' ? 1 : 3);
+    secnav.hidden = !enough;
+    secnav.innerHTML = enough ? secs.map((s) => `<a href="#${esc(s.id)}" data-sec="${esc(s.id)}">${esc(s.dataset.label)}</a>`).join('') : '';
+    if (!enough) return;
     const visible = new Set();
     secObserver = new IntersectionObserver((entries) => {
       for (const en of entries) en.isIntersecting ? visible.add(en.target.id) : visible.delete(en.target.id);
@@ -549,14 +714,15 @@
     }
     return out + esc(json.slice(last));
   }
-  function renderJson(data) {
-    const text = JSON.stringify(data, null, 2);
+  function renderJson(d) {
+    const text = JSON.stringify(d, null, 2);
     view.innerHTML = `<div class="json-head"><span>${esc(text.length.toLocaleString())} bytes · application/json</span><button class="copy" type="button" data-copy="#json-src">Copy JSON</button></div><pre class="json" id="json-src">${highlight(text)}</pre>`;
   }
 
+  const RENDER = { profile: renderProfile, company: renderCompany, posts: renderPosts };
   function renderView() {
-    if (!profile) return;
-    tab === 'json' ? renderJson(profile) : renderProfile(profile);
+    if (!data) return;
+    tab === 'json' ? renderJson(data) : RENDER[kind](data);
     buildSecNav();
   }
 
@@ -567,7 +733,7 @@
     secnav.innerHTML = '';
   }
 
-  function setStatus(kind, text) { statusEl.hidden = false; statusEl.className = `pill ${kind}`; statusEl.textContent = text; }
+  function setStatus(cls, text) { statusEl.hidden = false; statusEl.className = `pill ${cls}`; statusEl.textContent = text; }
 
   function showLoading() {
     view.innerHTML = `<div class="skel skel-banner"></div><div class="skel-wrap"><div class="skel skel-avatar"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
@@ -577,17 +743,35 @@
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
     view.innerHTML = `<div class="error"><span class="pill err">${esc(status)} · ${esc(e.code)}</span><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet" style="margin-top:12px">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
   }
-  async function lookup(url) {
-    url = url.trim();
+  // Which endpoint a pasted URL belongs to. Company, school and showcase pages
+  // are one lookup; an activity feed is another; everything else is a member.
+  function kindOf(raw) {
+    const s = raw.trim().toLowerCase();
+    if (/\/(company|school|showcase)\/[^/\s]/.test(s)) return 'company';
+    if (/\/in\/[^/\s]+\/recent-activity/.test(s) || /(^|\/)posts(\/|$)/.test(s)) return 'posts';
+    return 'profile';
+  }
+  const ENDPOINT = {
+    profile: (u) => `/v1/profile?url=${encodeURIComponent(u)}`,
+    company: (u) => `/v1/company?url=${encodeURIComponent(u)}`,
+    posts: (u) => `/v1/posts?url=${encodeURIComponent(u)}&count=10`,
+  };
+
+
+  async function lookup(raw) {
+    const url = raw.trim();
     if (!url) { input.focus(); return; }
     input.value = url;
-    const q = `/v1/profile?url=${encodeURIComponent(url)}`;
+    kind = kindOf(url);
     history.replaceState(null, '', `?url=${encodeURIComponent(url)}`);
 
-    profile = null; go.disabled = true; setStatus('busy', 'fetching'); tabsEl.hidden = true; hideSecNav(); showLoading();
+    data = null; tab = 'view'; go.disabled = true;
+    tabView.textContent = KIND_LABEL[kind];
+    for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
+    setStatus('busy', 'fetching'); tabsEl.hidden = true; hideSecNav(); showLoading();
     const t0 = performance.now();
     try {
-      const res = await fetch(q, { headers: { accept: 'application/json' } });
+      const res = await fetch(ENDPOINT[kind](url), { headers: { accept: 'application/json' } });
       const text = await res.text();
       let body; try { body = JSON.parse(text); } catch { body = text; }
       const ms = Math.round(performance.now() - t0);
@@ -596,7 +780,7 @@
         showError(res.status, body);
         return;
       }
-      profile = body; setStatus('ok', `200 · ${ms} ms${body.meta?.cached ? ' · cached' : ''}`); tabsEl.hidden = false; renderView();
+      data = body; setStatus('ok', `200 · ${ms} ms${body.meta?.cached ? ' · cached' : ''}`); tabsEl.hidden = false; renderView();
     } catch (err) {
       setStatus('err', 'network error'); showError('-', { error: { code: 'NETWORK', message: String(err.message || err) } });
     } finally { go.disabled = false; }
@@ -604,11 +788,11 @@
 
   // ---- wiring
   form.addEventListener('submit', (e) => { e.preventDefault(); lookup(input.value); });
-  document.querySelectorAll('[role=tab]').forEach((b) => b.addEventListener('click', () => {
+  for (const b of tabsEl.children) b.addEventListener('click', () => {
     tab = b.dataset.tab;
-    document.querySelectorAll('[role=tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
     renderView();
-  }));
+  });
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-copy]'); if (!btn) return;
     const src = $(btn.dataset.copy); if (!src) return;
