@@ -55,6 +55,40 @@ describe('email OTP gate', () => {
     expect(mailer.codes.get('a@example.com')).toMatch(/^\d{6}$/);
   });
 
+  it.each([
+    'victim,evil@example.com',
+    'a\r\nBcc:evil@example.com',
+    'a b@x.com',
+    '<script>@x.com',
+    `${'a'.repeat(300)}@x.com`,
+  ])('rejects %s as INVALID_REQUEST on /auth/request-code', async (email) => {
+    const { auth } = testAuth();
+    app = await buildApp({ services, auth, rateLimitPerMinute: 1000 });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/request-code',
+      payload: { email },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
+  });
+
+  it('folds a gmail address to its canonical form before mailing', async () => {
+    const { auth, mailer } = testAuth();
+    app = await buildApp({ services, auth, rateLimitPerMinute: 1000 });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/request-code',
+      payload: { email: 'First.Last+tag@Gmail.com' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(mailer.codes.get('firstlast@gmail.com')).toMatch(/^\d{6}$/);
+  });
+
   it('verify sets an httpOnly, sameSite=lax, ~30-day cookie', async () => {
     const { auth, mailer } = testAuth();
     app = await buildApp({ services, auth, rateLimitPerMinute: 1000 });
@@ -205,6 +239,30 @@ describe('email OTP gate', () => {
     expect(sixth.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
     expect(sixth.headers['retry-after']).toBeDefined();
     void mailer;
+  });
+
+  it('rate-limit key follows X-Forwarded-For behind the Render proxy', async () => {
+    const { auth } = testAuth({ otpRateLimitPerHour: 1 });
+    app = await buildApp({ services, auth, rateLimitPerMinute: 1000 });
+    await app.ready();
+
+    const requestFrom = (forwardedFor: string) =>
+      app!.inject({
+        method: 'POST',
+        url: '/auth/request-code',
+        payload: { email: `${forwardedFor}@example.com` },
+        headers: { 'x-forwarded-for': forwardedFor },
+        remoteAddress: '10.0.0.1',
+      });
+
+    // Budget is 1/hour. Same forwarded address, same proxy hop: second call
+    // is limited.
+    expect((await requestFrom('203.0.113.9')).statusCode).toBe(200);
+    expect((await requestFrom('203.0.113.9')).statusCode).toBe(429);
+
+    // A different forwarded address behind the same proxy (`remoteAddress`)
+    // gets its own budget.
+    expect((await requestFrom('203.0.113.10')).statusCode).toBe(200);
   });
 
   it('logout clears the cookie', async () => {

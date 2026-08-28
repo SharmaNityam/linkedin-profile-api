@@ -49,6 +49,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const app = Fastify({
     ...(options.logger ? { loggerInstance: options.logger } : { logger: false }),
     requestIdHeader: 'x-request-id',
+    // Render terminates TLS and proxies through exactly one hop. This
+    // Fastify disables bare hop-count trust (`trustProxy: <number>` always
+    // fails closed — see @fastify/proxy-addr) because it can't validate the
+    // immediate peer, so hop-count trust is expressed as a function instead:
+    // trust only the socket peer (hop 0, i.e. Render's edge) as a proxy, so
+    // its single `X-Forwarded-For` entry is honoured, but nothing a client
+    // prepends beyond that is — `req.ip` becomes the real client address
+    // without letting a caller spoof further hops.
+    trustProxy: (_address: string, hop: number) => hop === 0,
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
@@ -83,6 +92,46 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     },
     transform: jsonSchemaTransform,
   });
+  // authPlugin and rateLimit are registered before every other route —
+  // including the docs UI, /health, /openapi.json and the static playground
+  // — because Fastify hooks only apply to routes declared after the hook is
+  // added. Registering the limiter first means it sees every request, and
+  // the public paths below are exempted explicitly via its `allowList`
+  // rather than by accidents of registration order.
+  await app.register(authPlugin, {
+    sessionKey: options.auth.sessionKey,
+    appOrigin: options.auth.appOrigin,
+    secureCookies: options.auth.secureCookies,
+  });
+
+  await app.register(rateLimit, {
+    max: options.rateLimitPerMinute,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => req.viewer?.email ?? req.ip,
+    // Path matched alone, query string excluded, so `/health?x=1` is exempt
+    // just like `/health`. Covers everything `@fastify/static` serves too
+    // (just `/` and `/index.html`: the playground is a single file).
+    allowList: (req) => {
+      const path = req.url.split('?', 1)[0] ?? '';
+      return (
+        path === '/' ||
+        path === '/index.html' ||
+        path === '/health' ||
+        path === '/openapi.json' ||
+        path === '/docs' ||
+        path.startsWith('/docs/')
+      );
+    },
+    errorResponseBuilder: (_req, ctx) => ({
+      statusCode: 429,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many requests. Limit is ${ctx.max} per minute per IP.`,
+        details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
+      },
+    }),
+  });
+
   // Registered before helmet so the docs UI keeps its own, looser CSP; helmet's
   // hooks only apply to routes registered after it.
   await app.register(swaggerUi, { routePrefix: '/docs', staticCSP: true });
@@ -129,38 +178,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     // folder is a single file baked into the image, so globbing it once at
     // boot costs nothing and nothing is ever added at runtime.
     wildcard: false,
-  });
-
-  // Registered before rate-limit so its onRequest hook (which resolves
-  // request.viewer) runs first, letting the limiter key by verified email.
-  await app.register(authPlugin, {
-    sessionKey: options.auth.sessionKey,
-    appOrigin: options.auth.appOrigin,
-    secureCookies: options.auth.secureCookies,
-  });
-
-  await app.register(rateLimit, {
-    max: options.rateLimitPerMinute,
-    timeWindow: '1 minute',
-    keyGenerator: (req) => req.viewer?.email ?? req.ip,
-    // Path matched alone; query string excluded from rate limit
-    allowList: (req) => {
-      const path = req.url.split('?', 1)[0] ?? '';
-      return (
-        path === '/health' ||
-        path === '/openapi.json' ||
-        path === '/docs' ||
-        path.startsWith('/docs/')
-      );
-    },
-    errorResponseBuilder: (_req, ctx) => ({
-      statusCode: 429,
-      error: {
-        code: 'RATE_LIMITED',
-        message: `Too many requests. Limit is ${ctx.max} per minute per IP.`,
-        details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
-      },
-    }),
   });
 
   app.setNotFoundHandler({ preHandler: app.rateLimit() }, async (request) => {

@@ -65,6 +65,10 @@ describe('loadConfig', () => {
     expect(loadConfig(base).EMAIL_FROM).toBeUndefined();
   });
 
+  it('rejects a NODE_ENV that only differs by case', () => {
+    expect(() => loadConfig({ ...base, NODE_ENV: 'Production' })).toThrow(/NODE_ENV/);
+  });
+
   it('requires SMTP_USER and SMTP_PASS in production', () => {
     expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).toThrow(/SMTP_USER/);
     expect(() =>
