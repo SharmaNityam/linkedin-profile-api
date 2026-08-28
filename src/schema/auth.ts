@@ -1,7 +1,16 @@
 import { z } from 'zod';
 
+/**
+ * Trimmed, lowercased, and shaped like an email before it ever reaches
+ * `canonicalEmail` (which does the Gmail-specific folding and the stricter,
+ * defense-in-depth character checks). `z.email().max(254)` rather than
+ * `.pipe(z.email()).max(254)`: `ZodPipe` doesn't expose `.max`, so the length
+ * cap is applied on the email schema itself.
+ */
+const EmailAddress = z.string().trim().toLowerCase().pipe(z.email().max(254));
+
 export const RequestCodeBody = z.object({
-  email: z.string().min(3).max(320).describe('Address to send the one-time code to'),
+  email: EmailAddress.describe('Address to send the one-time code to'),
 });
 export type RequestCodeBody = z.infer<typeof RequestCodeBody>;
 
@@ -9,7 +18,7 @@ export const RequestCodeResponse = z.object({ status: z.literal('code_sent') });
 export type RequestCodeResponse = z.infer<typeof RequestCodeResponse>;
 
 export const VerifyBody = z.object({
-  email: z.string().min(3).max(320),
+  email: EmailAddress,
   code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
 });
 export type VerifyBody = z.infer<typeof VerifyBody>;
