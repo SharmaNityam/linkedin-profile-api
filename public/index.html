@@ -14,278 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
-<style>
-  :root {
-    color-scheme: dark;
-    --bg: #0a0a0a;
-    --surface: #111111;
-    --surface-2: #171717;
-    --border: #262626;
-    --border-strong: #3d3d3d;
-    --text: #ededed;
-    --muted: #a1a1a1;
-    --faint: #6b6b6b;
-    --accent: #3ecf8e;
-    --accent-ink: #06140d;
-    --err: #f87171;
-    --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  /* Light palette, once for the OS preference and once for the explicit
-     override; CSS cannot share one block between a media query and a selector. */
-  @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-      color-scheme: light;
-      --bg: #ffffff;
-      --surface: #fafafa;
-      --surface-2: #f0f0f0;
-      --border: #e5e5e5;
-      --border-strong: #b8b8b8;
-      --text: #171717;
-      --muted: #666666;
-      --faint: #999999;
-      --accent: #1f9d61;
-      --accent-ink: #ffffff;
-      --err: #b91c1c;
-    }
-  }
-  :root[data-theme="light"] {
-    color-scheme: light;
-    --bg: #ffffff;
-    --surface: #fafafa;
-    --surface-2: #f0f0f0;
-    --border: #e5e5e5;
-    --border-strong: #b8b8b8;
-    --text: #171717;
-    --muted: #666666;
-    --faint: #999999;
-    --accent: #1f9d61;
-    --accent-ink: #ffffff;
-    --err: #b91c1c;
-  }
-
-  * { box-sizing: border-box; }
-  html { background: var(--bg); }
-  body {
-    margin: 0;
-    font-family: var(--body);
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--text);
-    background: var(--bg);
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: inherit; text-decoration: none; }
-  a:hover { color: var(--accent); text-decoration: underline; }
-  button, input { font: inherit; color: inherit; }
-  :focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  h1, h2, h3 { font-weight: 600; margin: 0; }
-
-  header.top { border-bottom: 1px solid var(--border); }
-  header.top .hdr {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    max-width: 680px; margin: 0 auto; padding: 0 24px; height: 64px;
-  }
-  header.top .brand { font-size: 14px; font-weight: 600; white-space: nowrap; }
-  header.top nav {
-    display: flex; align-items: center; min-width: 0;
-    font-size: 13px; color: var(--muted); white-space: nowrap;
-  }
-
-  /* One column, centred in the viewport until there is something to show. */
-  main {
-    display: flex; flex-direction: column; align-items: center;
-    min-height: calc(100vh - 64px);
-  }
-  main > .shell { width: 100%; max-width: 560px; padding: 24px; }
-  main[data-state="landing"] { justify-content: center; }
-  main[data-state="results"] { justify-content: flex-start; }
-  main[data-state="results"] > .shell { max-width: 680px; padding: 0 24px 64px; }
-
-  .hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; }
-  .hero p { margin: 0; font-size: 15px; color: var(--muted); }
-
-  /* the URL row: one bordered box holding the input and the button */
-  form.lookup {
-    display: flex; align-items: center; margin: 24px 0 0;
-    height: 44px; padding-right: 4px;
-    background: var(--bg);
-    border: 1px solid var(--border); border-radius: 8px;
-  }
-  form.lookup:focus-within { border-color: var(--border-strong); }
-  form.lookup input {
-    flex: 1; min-width: 0; height: 100%; padding: 0 12px;
-    font-size: 14px; background: none; border: 0; border-radius: 8px 0 0 8px;
-  }
-  form.lookup .btn { height: 36px; }
-  form.auth input {
-    flex: 1; min-width: 0; height: 40px; padding: 0 12px; font-size: 14px;
-    background: var(--bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 8px;
-  }
-  form.lookup input::placeholder, form.auth input::placeholder { color: var(--faint); }
-  form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
-  form.auth input:focus { outline: none; border-color: var(--border-strong); }
-  .btn {
-    height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: 8px;
-    font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
-    background: var(--accent); color: var(--accent-ink);
-  }
-  .btn.quiet { background: var(--surface-2); color: var(--text); border-color: var(--border); }
-  .btn[disabled] { cursor: progress; }
-  .btn-text {
-    background: none; border: 0; padding: 0; cursor: pointer;
-    font-size: 13px; color: var(--muted);
-  }
-  .btn-text:hover { color: var(--text); text-decoration: underline; }
-
-  /* sign-in card: only once a lookup actually needs an identity */
-  form.auth {
-    margin: 24px 0 0; padding: 20px;
-    border: 1px solid var(--border); border-radius: 8px;
-  }
-  form.auth[hidden] { display: none; }
-  .auth-title { font-size: 15px; }
-  .auth-note, .auth-err { font-size: 13px; }
-  .auth-note { margin: 8px 0 0; color: var(--muted); }
-  .auth-err { margin: 8px 0 0; color: var(--err); }
-  .auth-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-  .auth-links { margin: 12px 0 0; font-size: 13px; }
-  .me { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
-
-  /* the example line under the URL row */
-  .try { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
-  .try[hidden], .hero[hidden] { display: none; }
-  .sep { color: var(--faint); margin: 0 8px; }
-  .ex { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; color: var(--text); }
-  .ex:hover { text-decoration: underline; }
-
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 24px 0 8px; }
-  .bar[hidden] { display: none; }
-  .tabs { display: flex; gap: 16px; }
-  .tabs[hidden] { display: none; }
-  .tabs button {
-    background: none; border: 0; padding: 0 0 6px; margin-bottom: -1px; cursor: pointer;
-    font-size: 13px; color: var(--muted); border-bottom: 1px solid transparent;
-  }
-  .tabs button:hover { color: var(--text); }
-  .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--text); }
-  .status { font-size: 12px; color: var(--muted); }
-  .status[hidden] { display: none; }
-  .status.err { color: var(--err); }
-
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .card > * + * { border-top: 1px solid var(--border); }
-  .pad { padding: 20px; }
-
-  /* images: skeleton until load, fallback initial on error */
-  .img-wrap { position: relative; overflow: hidden; background: var(--surface-2); display: block; }
-  .img-wrap > .skel { position: absolute; inset: 0; }
-  .img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .img-wrap > .initial {
-    position: absolute; inset: 0; display: grid; place-items: center;
-    color: var(--faint); font-weight: 500; font-size: 14px;
-  }
-  .avatar { width: 48px; height: 48px; border-radius: 50%; flex: none; font-size: 16px; }
-  .logo { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); flex: none; }
-  .logo > img, .org > img { object-fit: contain; }
-  .org { border-radius: 6px; border: 1px solid var(--border); }
-
-  /* identity */
-  .identity { display: flex; gap: 12px; align-items: flex-start; }
-  .identity .who { flex: 1; min-width: 0; }
-  .identity h1 { font-size: 20px; }
-  .identity .pronouns { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
-  .headline { margin: 4px 0 0; font-size: 14px; }
-  .facts { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
-  .links { margin: 12px 0 0; font-size: 13px; }
-  .links a { color: var(--muted); }
-  .links a:hover { color: var(--text); text-decoration: underline; }
-  .kind { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
-
-  .body { margin: 0; font-size: 14px; white-space: pre-wrap; }
-  [data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-  .more { background: none; border: 0; padding: 8px 0 0; cursor: pointer; font-size: 13px; color: var(--muted); }
-  .more:hover { color: var(--text); text-decoration: underline; }
-
-  section.block > h2 { font-size: 15px; margin-bottom: 16px; }
-  section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
-
-  .timeline { list-style: none; margin: 0; padding: 0; }
-  .timeline > li { display: flex; gap: 12px; }
-  .timeline > li + li { margin-top: 20px; }
-  .timeline .col { flex: 1; min-width: 0; }
-  .timeline .t { margin: 0; font-size: 14px; font-weight: 500; }
-  .timeline .o { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
-  .timeline .d { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
-  .timeline .desc { margin: 8px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
-  .now { color: var(--accent); font-weight: 500; margin-left: 8px; }
-
-  /* several roles at one company: a 1px connector with a dot per role */
-  .roles { list-style: none; margin: 12px 0 0; padding: 0 0 0 16px; position: relative; }
-  .roles::before { content: ""; position: absolute; left: 2px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
-  .roles > li + li { margin-top: 16px; }
-  .roles > li::before {
-    content: ""; position: absolute; left: 0; margin-top: 6px; width: 6px; height: 6px;
-    border-radius: 50%; background: var(--border-strong);
-  }
-
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chips span { border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 13px; }
-
-  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 24px; margin: 0; font-size: 14px; }
-  .kv dt { color: var(--muted); }
-  .kv dd { margin: 0; }
-
-  /* posts */
-  .activity { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-size: 13px; }
-  .activity .count { color: var(--muted); }
-  .post + .post { border-top: 1px solid var(--border); }
-  .author { display: flex; gap: 16px; align-items: baseline; }
-  .author .col { flex: 1; min-width: 0; }
-  .author .n { margin: 0; font-size: 14px; font-weight: 500; }
-  .author .h { margin: 2px 0 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .when { font-size: 13px; color: var(--muted); white-space: nowrap; }
-  .label { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
-  .ptext { margin: 12px 0 0; font-size: 14px; white-space: pre-wrap; }
-  .pimgs { display: grid; gap: 4px; margin: 12px 0 0; border-radius: 6px; overflow: hidden; }
-  .pimgs[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
-  .pimgs[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
-  .pimgs .cell { aspect-ratio: 4 / 3; }
-  .pimgs[data-n="1"] .cell { max-height: 400px; }
-  .pimgs[data-n="1"] .cell > img { object-fit: contain; }
-  .article-card {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
-    margin: 12px 0 0; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;
-  }
-  .article-card:hover { border-color: var(--border-strong); color: inherit; text-decoration: none; }
-  .article-card .a-h { color: var(--muted); white-space: nowrap; }
-  .quote { margin: 12px 0 0; padding: 12px; border-left: 1px solid var(--border); }
-  .stats { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
-  .stats .open:hover { color: var(--accent); }
-
-  /* json */
-  .json-actions { display: flex; justify-content: flex-end; gap: 16px; padding: 12px 20px 0; }
-  .card > .json-actions + .json { border-top: 0; }
-  pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
-  .json { margin: 0; padding: 12px 20px 20px; overflow: auto; max-height: 70vh; }
-  .snippet { margin: 12px 0 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; }
-  .j-k { color: var(--text); } .j-s { color: var(--muted); } .j-n, .j-b, .j-null { color: var(--faint); }
-
-  /* states */
-  .skel { background: var(--surface-2); border-radius: 4px; }
-  .skel-line { height: 12px; }
-  .cold { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
-  .error .code { font-size: 13px; color: var(--err); }
-  .error p { margin: 8px 0 0; font-size: 14px; }
-
-  @media (max-width: 480px) {
-    header.top .hdr { padding: 0 16px; }
-    main > .shell { padding: 16px; }
-    main[data-state="results"] > .shell { padding: 0 16px 64px; }
-  }
-</style>
+<link rel="stylesheet" href="/app.css" />
 </head>
 <body>
 <header class="top">
@@ -300,30 +29,43 @@
 
 <main id="main" data-state="landing">
   <div class="shell">
-    <div class="hero" id="hero">
-      <h1>LinkedIn Profile API</h1>
-      <p>Turn a LinkedIn profile, company or activity URL into JSON.</p>
+    <div class="rail rail-left">
+      <nav class="sections" id="sections" aria-label="Sections" hidden></nav>
+      <section class="recent" id="recent" hidden></section>
     </div>
 
-    <form class="lookup" id="form" autocomplete="off">
-      <label class="sr" for="url">LinkedIn profile, company or activity URL</label>
-      <input id="url" name="url" type="text" placeholder="linkedin.com/in/username" spellcheck="false" inputmode="url" />
-      <button class="btn" id="go" type="submit">Fetch</button>
-    </form>
-
-    <p class="try" id="try"></p>
-
-    <form class="auth" id="auth" hidden></form>
-
-    <div class="bar" id="bar" hidden>
-      <div class="tabs" role="tablist" id="tabs" hidden>
-        <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
-        <button role="tab" aria-selected="false" data-tab="json">JSON</button>
+    <div class="mid">
+      <div class="hero" id="hero">
+        <h1>LinkedIn Profile API</h1>
+        <p>Turn a LinkedIn profile, company or activity URL into JSON.</p>
       </div>
-      <span class="status" id="status" hidden></span>
+
+      <form class="lookup" id="form" autocomplete="off">
+        <label class="sr" for="url">LinkedIn profile, company or activity URL</label>
+        <input id="url" name="url" type="text" placeholder="linkedin.com/in/username" spellcheck="false" inputmode="url" />
+        <button class="btn" id="go" type="submit">Fetch</button>
+      </form>
+
+      <p class="try" id="try"></p>
+
+      <p class="recent-row" id="recent-row" hidden></p>
+
+      <form class="auth" id="auth" hidden></form>
+
+      <div class="bar" id="bar" hidden>
+        <div class="tabs" role="tablist" id="tabs" hidden>
+          <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
+          <button role="tab" aria-selected="false" data-tab="json">JSON</button>
+        </div>
+        <span class="status" id="status" hidden></span>
+      </div>
+
+      <div class="card" id="view" hidden></div>
     </div>
 
-    <div class="card" id="view" hidden></div>
+    <div class="rail rail-right">
+      <section class="statusbox" id="statusbox" hidden></section>
+    </div>
   </div>
 </main>
 
@@ -337,6 +79,8 @@
   const mainEl = $('#main'), hero = $('#hero'), tryEl = $('#try');
   const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar');
   const authForm = $('#auth'), meEl = $('#me');
+  const recentEl = $('#recent'), recentRow = $('#recent-row');
+  const sectionsEl = $('#sections'), statusBox = $('#statusbox');
 
   let data = null, kind = 'profile', tab = 'view', uid = 0;
   let viewer = null, step = 'email', signInEmail = '', pendingUrl = null, authOpen = false;
@@ -465,9 +209,9 @@
     return values.size === 1 && only ? only : null;
   }
 
-  function block(title, items, body) {
+  function block(title, items, body, id) {
     if (!items?.length) return '';
-    return `<section class="block pad"><h2>${title}<span class="count">${items.length}</span></h2>${body}</section>`;
+    return `<section class="block pad"${id ? ` id="${id}"` : ''}><h2>${title}<span class="count">${items.length}</span></h2>${body}</section>`;
   }
 
   function renderTry() {
@@ -515,7 +259,7 @@
       <li><div class="col"><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${desc(r.description)}</div></li>`).join('')}</ul>`);
 
     view.innerHTML = `
-      <div class="pad">
+      <div class="pad" id="personal">
         <div class="identity">
           ${img({ image: p.profileImage, alt: p.fullName, cls: 'avatar', eager: true, sizes: '48px', fallback: initialHtml(p.fullName, p.fullName) })}
           <div class="who">
@@ -526,23 +270,23 @@
         </div>
         <p class="links"><a href="${esc(p.url)}" rel="noopener" target="_blank">View on LinkedIn</a><span class="sep">·</span><button class="btn-text" type="button" data-copy-url="${esc(p.url)}">Copy link</button></p>
       </div>
-      ${p.about ? `<section class="block pad"><h2>About</h2>${desc(p.about, 'body')}</section>` : ''}
-      ${block('Experience', p.experience, `<ul class="timeline">${groupRuns(p.experience, expKey).map(position).join('')}</ul>`)}
+      ${p.about ? `<section class="block pad" id="about"><h2>About</h2>${desc(p.about, 'body')}</section>` : ''}
+      ${block('Experience', p.experience, `<ul class="timeline">${groupRuns(p.experience, expKey).map(position).join('')}</ul>`, 'experience')}
       ${block('Education', p.education, `<ul class="timeline">${p.education.map((e) => `
         <li>${logo(e.school, e.schoolName)}<div class="col">
           <p class="t">${orgLink(e.school, e.schoolName ?? '')}</p>
           <p class="o">${esc([e.degree, e.fieldOfStudy].filter(Boolean).join(', '))}</p>
           <p class="d">${dots([range(e.startDate, e.endDate).replace(/ · .*$/, ''), e.grade ? `Grade ${e.grade}` : null])}</p>
           ${desc(e.activities)}${desc(e.description)}
-        </div></li>`).join('')}</ul>`)}
-      ${block('Skills', p.skills, `<div class="chips">${p.skills.map((s, i) => `<span${i >= SKILL_CAP ? ' hidden' : ''}>${esc(s.name)}</span>`).join('')}</div>${extra > 0 ? `<button class="more" type="button" data-skills-more>Show ${extra} more</button>` : ''}`)}
+        </div></li>`).join('')}</ul>`, 'education')}
+      ${block('Skills', p.skills, `<div class="chips">${p.skills.map((s, i) => `<span${i >= SKILL_CAP ? ' hidden' : ''}>${esc(s.name)}</span>`).join('')}</div>${extra > 0 ? `<button class="more" type="button" data-skills-more>Show ${extra} more</button>` : ''}`, 'skills')}
       ${block('Licenses &amp; certifications', p.certifications, `<ul class="timeline">${p.certifications.map((c) => `
         <li>${logo(c.organization, c.authority)}<div class="col">
           <p class="t">${c.url ? `<a href="${esc(c.url)}" rel="noopener" target="_blank">${esc(c.name)}</a>` : esc(c.name)}</p>
           <p class="o">${esc(c.authority ?? '')}</p>
           <p class="d">${dots([c.issuedAt ? `Issued ${fmt(c.issuedAt)}` : null, c.expiresAt ? `Expires ${fmt(c.expiresAt)}` : null, c.licenseNumber ? `No. ${c.licenseNumber}` : null])}</p>
-        </div></li>`).join('')}</ul>`)}
-      ${block('Languages', p.languages, `<dl class="kv">${p.languages.map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(PROF[l.proficiency] ?? l.proficiency ?? '—')}</dd>`).join('')}</dl>`)}
+        </div></li>`).join('')}</ul>`, 'certifications')}
+      ${block('Languages', p.languages, `<dl class="kv">${p.languages.map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(PROF[l.proficiency] ?? l.proficiency ?? '—')}</dd>`).join('')}</dl>`, 'languages')}
       ${block('Volunteering', p.volunteering, `<ul class="timeline">${p.volunteering.map((v) => `
         <li>${logo(v.organization, v.organizationName)}<div class="col">
           <p class="t">${esc(v.role)}</p>
@@ -576,7 +320,7 @@
     ]);
 
     view.innerHTML = `
-      <div class="pad">
+      <div class="pad" id="personal">
         <div class="identity">
           ${img({ image: c.logo, alt: c.name, cls: 'avatar org', eager: true, sizes: '48px', fallback: initialHtml(c.name, c.name) })}
           <div class="who">
@@ -587,8 +331,8 @@
         </div>
         <p class="links">${c.websiteUrl ? `<a href="${esc(c.websiteUrl)}" rel="noopener nofollow" target="_blank">${esc(host(c.websiteUrl))}</a><span class="sep">·</span>` : ''}<a href="${esc(c.url)}" rel="noopener" target="_blank">View on LinkedIn</a></p>
       </div>
-      ${c.description ? `<section class="block pad"><h2>About</h2>${desc(c.description, 'body')}</section>` : ''}
-      ${block('Specialities', c.specialities, `<div class="chips">${c.specialities.map((s) => `<span>${esc(s)}</span>`).join('')}</div>`)}
+      ${c.description ? `<section class="block pad" id="about"><h2>About</h2>${desc(c.description, 'body')}</section>` : ''}
+      ${block('Specialities', c.specialities, `<div class="chips">${c.specialities.map((s) => `<span>${esc(s)}</span>`).join('')}</div>`, 'details')}
     `;
     bindImages(view);
     trimClamps(view);
@@ -637,18 +381,18 @@
   function renderPosts(r) {
     uid = 0;
     view.innerHTML = `
-      <div class="pad activity">
+      <div class="pad activity" id="personal">
         <a href="${esc(r.url)}" rel="noopener" target="_blank">${esc(r.url.replace(/^https:\/\/www\./, ''))}</a>
         <span class="count">${r.posts.length} of ${r.count} requested</span>
       </div>
-      ${r.posts.map((p) => `
+      <div id="posts">${r.posts.map((p) => `
         <div class="post pad">
           ${author(p, p.isReshare && !p.reshared)}
           ${desc(p.text, 'ptext')}
           ${media(p)}
           ${p.reshared ? `<div class="quote">${author(p.reshared, false)}${desc(p.reshared.text, 'ptext')}${media(p.reshared)}</div>` : ''}
           ${statsRow(p)}
-        </div>`).join('')}`;
+        </div>`).join('')}</div>`;
     bindImages(view);
     trimClamps(view);
   }
@@ -688,13 +432,18 @@
   function renderView() {
     if (!data) return;
     view.hidden = false;
+    delete view.dataset.loading;
     tab === 'json' ? renderJson(data) : RENDER[kind](data);
+    renderSections();
   }
 
   function setStatus(cls, text) { bar.hidden = false; statusEl.hidden = false; statusEl.className = `status ${cls}`; statusEl.textContent = text; }
 
+  // The reserved height belongs to the loading state only, so the card does not
+  // jump when the skeleton is swapped for the real thing.
   function showLoading() {
     view.hidden = false;
+    view.dataset.loading = 'true';
     view.innerHTML = `<div class="pad">
       <div class="identity"><span class="skel avatar"></span><div class="who">
         <div class="skel skel-line" style="width:40%;height:20px"></div>
@@ -704,11 +453,14 @@
       <p class="cold" id="cold" hidden>Still working. This runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>
     </div>`;
     setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
+    renderSections();
   }
   function showError(status, body) {
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
     view.hidden = false;
+    delete view.dataset.loading;
     view.innerHTML = `<div class="pad error"><p class="code">${esc(status)} · ${esc(e.code)}</p><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
+    renderSections();
   }
 
   // ---- sign-in: an address, then the emailed code, then a line in the header
@@ -796,10 +548,9 @@
 
   async function signOut() {
     try { await fetch('/auth/logout', { method: 'POST', headers: { accept: 'application/json' }, credentials: 'same-origin' }); } catch {}
-    viewer = null; step = 'email'; signInEmail = ''; data = null; pendingUrl = null; authOpen = false;
-    view.hidden = true; view.innerHTML = '';
-    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
-    setState('landing');
+    viewer = null; step = 'email'; signInEmail = ''; pendingUrl = null; authOpen = false;
+    results.clear();
+    clearResults();
     renderAuth();
     input.focus();
   }
@@ -815,10 +566,8 @@
   // Needing an identity is a prompt, not a failure: the landing block stays put,
   // keeps the URL, and the card below it collects the address.
   function promptSignIn(url) {
-    viewer = null; pendingUrl = url; step = 'email'; authOpen = true; data = null;
-    view.hidden = true; view.innerHTML = '';
-    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
-    setState('landing');
+    viewer = null; pendingUrl = url; step = 'email'; authOpen = true;
+    clearResults();
     renderAuth();
     authInput().focus();
   }
@@ -838,25 +587,156 @@
   };
 
   const took = (ms) => ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
-  const cacheAge = (iso) => {
-    const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  // "cached", or "cached<sep>4 min" once the entry has an age worth naming.
+  function cachedFor(meta, sep = ' ') {
+    if (!meta?.cached) return null;
+    const min = Math.round((Date.now() - Date.parse(meta.fetchedAt)) / 60000);
     if (!Number.isFinite(min) || min < 1) return 'cached';
-    return min < 60 ? `cached ${min} min` : min < 1440 ? `cached ${Math.round(min / 60)} h` : `cached ${Math.round(min / 1440)} d`;
-  };
+    const age = min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`;
+    return `cached${sep}${age}`;
+  }
 
-  async function lookup(raw) {
+  // One key per page: the same URL typed with or without the scheme, the www
+  // host or a trailing slash is one entry.
+  const normalise = (raw) => raw.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '').toLowerCase();
+
+  // Everything fetched this session, so Back and Forward re-render instead of refetching.
+  const results = new Map();
+
+  const RECENT_KEY = 'recent', RECENT_MAX = 20;
+  function readRecent() {
+    try {
+      const list = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
+      return Array.isArray(list) ? list.filter((r) => r && typeof r.url === 'string') : [];
+    } catch { return []; }
+  }
+  function writeRecent(list) {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+    renderRecent();
+  }
+  // A repost by someone else opens the list; the account itself is the first
+  // author who is not resharing.
+  const postsName = (r) => r.posts.find((p) => !p.isReshare)?.author.name ?? r.posts[0]?.author.name ?? r.publicIdentifier;
+  const LABEL_OF = {
+    profile: (d) => d.fullName,
+    company: (d) => d.name,
+    posts: (d) => `Posts · ${postsName(d)}`,
+  };
+  function remember(url, k, d) {
+    const entry = { url, kind: k, label: LABEL_OF[k](d) || url, at: new Date().toISOString() };
+    writeRecent([entry, ...readRecent().filter((r) => r.url !== url)].slice(0, RECENT_MAX));
+  }
+  const recentLink = (r) => `<a href="?url=${encodeURIComponent(r.url)}" data-recent="${esc(r.url)}">${esc(r.label)}</a>`;
+  const ROW_MAX = 5;
+  function renderRecent() {
+    const list = readRecent();
+    recentEl.hidden = recentRow.hidden = !list.length;
+    if (!list.length) { recentEl.innerHTML = recentRow.innerHTML = ''; return; }
+    recentRow.innerHTML = `Recent: ${list.slice(0, ROW_MAX).map(recentLink).join('<span class="sep">·</span>')}`;
+    recentEl.innerHTML = `<h2 class="panel-h">Recent</h2>
+      <ul class="quiet">${list.map((r) => `<li>${recentLink(r)}<span class="t">${esc(ago(r.at))}</span></li>`).join('')}</ul>
+      <p class="panel-foot"><button class="btn-text" type="button" data-recent-clear>Clear</button></p>`;
+  }
+
+  const statusLine = (hit) => dots([String(hit.status), took(hit.ms), cachedFor(hit.data.meta)]);
+
+  // The right rail carries what the tabs row shows inline on a narrow screen,
+  // plus the actions that belong to the request rather than to the result.
+  function renderStatusBox(hit) {
+    statusBox.hidden = !hit;
+    delete statusEl.dataset.mirrored;
+    if (!hit) { statusBox.innerHTML = ''; return; }
+    statusEl.dataset.mirrored = 'true';
+    const cached = cachedFor(hit.data.meta, ' · ');
+    statusBox.innerHTML = `<h2 class="panel-h">Status</h2>
+      <ul class="quiet">
+        <li><span>HTTP</span><span class="t">${esc(hit.status)}</span></li>
+        <li><span>Time</span><span class="t">${esc(took(hit.ms))}</span></li>
+        ${cached ? `<li><span>Cache</span><span class="t">${esc(cached)}</span></li>` : ''}
+      </ul>
+      <ul class="quiet actions">
+        <li><button class="btn-text" type="button" data-copy-json="full">Copy JSON</button></li>
+        <li><button class="btn-text" type="button" data-copy-json="trimmed">Copy trimmed</button></li>
+        ${hit.data.url ? `<li><a href="${esc(hit.data.url)}" rel="noopener" target="_blank">View on LinkedIn</a></li>` : ''}
+      </ul>`;
+  }
+
+  // ---- the left rail's index of the result on screen
+  const SECTION_IDS = ['personal', 'about', 'experience', 'education', 'skills', 'certifications', 'languages', 'posts', 'details'];
+  const HEAD_LABEL = { profile: 'Personal', company: 'Overview', posts: 'Activity' };
+  // A section is named by its own heading; the two that have none are named
+  // after what they hold.
+  function sectionLabel(el) {
+    const h2 = $('h2', el);
+    if (h2) return h2.firstChild.textContent.trim();
+    return el.id === 'personal' ? HEAD_LABEL[kind] : 'Posts';
+  }
+
+  let observer = null, visible = new Set(), order = [];
+  function setActive(id) {
+    for (const a of sectionsEl.querySelectorAll('a')) a.setAttribute('aria-current', String(a.dataset.jump === id));
+  }
+  function renderSections() {
+    observer?.disconnect();
+    visible = new Set();
+    const els = [...view.querySelectorAll('[id]')].filter((el) => SECTION_IDS.includes(el.id));
+    order = els.map((el) => el.id);
+    sectionsEl.hidden = els.length < 2;
+    if (sectionsEl.hidden) { sectionsEl.innerHTML = ''; return; }
+    sectionsEl.innerHTML = `<h2 class="panel-h">Sections</h2>
+      <ul class="quiet">${els.map((el) => `<li><a href="#${el.id}" data-jump="${el.id}">${esc(sectionLabel(el))}</a></li>`).join('')}</ul>`;
+    setActive(order[0]);
+    // The section being read is the lowest one reaching into the top of the
+    // viewport, so a section scrolling out yields to the one taking its place.
+    observer = new IntersectionObserver((entries) => {
+      for (const e of entries) e.isIntersecting ? visible.add(e.target.id) : visible.delete(e.target.id);
+      const active = order.filter((id) => visible.has(id)).pop();
+      if (active) setActive(active);
+    }, { rootMargin: '0px 0px -60% 0px' });
+    for (const el of els) observer.observe(el);
+  }
+
+  function showKind() {
+    tabView.textContent = KIND_LABEL[kind];
+    for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
+  }
+  // Back to the landing block: no result, no status, no tabs.
+  function clearResults() {
+    data = null;
+    view.hidden = true; view.innerHTML = ''; delete view.dataset.loading;
+    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
+    renderStatusBox(null); renderSections();
+    setState('landing');
+  }
+  // Puts a stored result back on screen, request free.
+  function restore(url, hit) {
+    input.value = url;
+    kind = hit.kind; data = hit.data; tab = 'view';
+    showKind();
+    setState('results'); tabsEl.hidden = false;
+    setStatus('', statusLine(hit));
+    renderStatusBox(hit);
+    renderView();
+  }
+
+  // `mode` is how the lookup enters the history: a submit pushes, the initial
+  // deep link replaces, and a Back that has to refetch touches nothing.
+  async function lookup(raw, mode = 'push') {
     const url = raw.trim();
     if (!url) { input.focus(); return; }
     input.value = url;
     if (!viewer) { promptSignIn(url); return; }
+    const key = normalise(url);
     kind = kindOf(url);
-    history.replaceState(null, '', `?url=${encodeURIComponent(url)}`);
+    const entry = `?url=${encodeURIComponent(url)}`;
+    if (mode === 'push') history.pushState({ url }, '', entry);
+    else if (mode === 'replace') history.replaceState({ url }, '', entry);
 
     data = null; tab = 'view'; go.disabled = true;
-    tabView.textContent = KIND_LABEL[kind];
-    for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
+    showKind();
     setState('results'); tabsEl.hidden = true;
     setStatus('', 'Fetching…');
+    renderStatusBox(null);
     showLoading();
     const t0 = performance.now();
     try {
@@ -871,7 +751,11 @@
         return;
       }
       data = body;
-      setStatus('', dots(['200', took(ms), body.meta?.cached ? cacheAge(body.meta.fetchedAt) : null]));
+      const hit = { kind, data: body, status: res.status, ms, at: new Date().toISOString() };
+      results.set(key, hit);
+      remember(key, kind, body);
+      setStatus('', statusLine(hit));
+      renderStatusBox(hit);
       tabsEl.hidden = false;
       renderView();
     } catch (err) {
@@ -882,6 +766,14 @@
 
   // ---- wiring
   form.addEventListener('submit', (e) => { e.preventDefault(); lookup(input.value); });
+  // Back and Forward replay the map; only a URL this session never fetched
+  // goes to the network.
+  window.addEventListener('popstate', (e) => {
+    const url = e.state?.url ?? new URLSearchParams(location.search).get('url');
+    if (!url) { input.value = ''; clearResults(); return; }
+    const hit = results.get(normalise(url));
+    hit ? restore(url, hit) : lookup(url, 'none');
+  });
   authForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const value = authInput().value.trim();
@@ -893,7 +785,8 @@
     for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
     renderView();
   });
-  async function flash(btn, text, label) {
+  async function flash(btn, text) {
+    const label = btn.dataset.label ?? (btn.dataset.label = btn.textContent);
     try {
       await navigator.clipboard.writeText(text);
       btn.textContent = 'Copied';
@@ -910,6 +803,12 @@
       else { step = 'email'; renderAuth(); authInput().focus(); }
       return;
     }
+    const recent = e.target.closest('[data-recent]');
+    // A modified click is the browser's to handle: it opens the deep link.
+    if (recent && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); lookup(recent.dataset.recent); return; }
+    if (e.target.closest('[data-recent-clear]')) { writeRecent([]); return; }
+    const jump = e.target.closest('[data-jump]');
+    if (jump) { e.preventDefault(); $(`#${jump.dataset.jump}`)?.scrollIntoView({ block: 'start' }); return; }
     const example = e.target.closest('[data-example]');
     if (example) { lookup(example.dataset.example); return; }
     const clamp = e.target.closest('[data-clamp]');
@@ -919,11 +818,11 @@
     const json = e.target.closest('[data-copy-json]');
     if (json) {
       const full = json.dataset.copyJson === 'full';
-      flash(json, JSON.stringify(full ? data : withoutVariants(data), null, 2), full ? 'Copy full' : 'Copy');
+      flash(json, JSON.stringify(full ? data : withoutVariants(data), null, 2));
       return;
     }
     const copyUrl = e.target.closest('[data-copy-url]');
-    if (copyUrl) flash(copyUrl, copyUrl.dataset.copyUrl, 'Copy link');
+    if (copyUrl) flash(copyUrl, copyUrl.dataset.copyUrl);
   });
   document.addEventListener('keydown', (e) => {
     const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '');
@@ -932,10 +831,11 @@
   });
 
   renderTry();
+  renderRecent();
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) input.value = initial;
   loadViewer().then(() => {
-    if (initial) lookup(initial);
+    if (initial) lookup(initial, 'replace');
     else input.focus();
   });
 })();
