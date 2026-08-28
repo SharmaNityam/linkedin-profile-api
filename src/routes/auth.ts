@@ -1,16 +1,22 @@
 import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import type { AdminCredential } from '../auth/admin.js';
+import { verifyAdminCredential } from '../auth/admin.js';
 import { canonicalEmail } from '../auth/email.js';
+import { domainNotAllowedMessage, isDomainAllowed } from '../auth/domains.js';
 import type { MailSender } from '../auth/mailer.js';
 import type { OtpStore, VerifyResult } from '../auth/otp.js';
+import type { LoginRegistry } from '../auth/registry.js';
 import { AppError } from '../errors.js';
 import {
   AuthConfigResponse,
+  LoginBody,
   LogoutResponse,
   MeResponse,
   RequestCodeBody,
   RequestCodeResponse,
   VerifyBody,
+  VerifyResponse,
 } from '../schema/auth.js';
 import { ErrorResponse } from '../schema/common.js';
 
@@ -19,16 +25,29 @@ export interface AuthRoutesOptions {
   mailer: MailSender;
   /** Per-IP budget for the endpoints an anonymous caller can reach. */
   otpRateLimitPerHour: number;
+  /** Domains `/auth/request-code` accepts, lowercased and trimmed. */
+  allowedEmailDomains: string[];
+  /** Tracks which emails have verified from which IPs, for the per-IP account cap. */
+  registry: LoginRegistry;
+  /** Per IP, distinct verified accounts inside the trailing 7 days. */
+  accountsPerIp: number;
+  /** The shared tester credential for POST /auth/login. Undefined when not configured. */
+  admin?: AdminCredential;
 }
 
+/** How far back `emailsFor` looks when checking an IP's account budget. */
+const ACCOUNT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 const errorResponses = {
-  400: ErrorResponse.describe('Invalid email, or the code is wrong, expired or exhausted'),
+  400: ErrorResponse.describe(
+    'Invalid email, a disallowed domain, or the code is wrong, expired or exhausted',
+  ),
   429: ErrorResponse.describe('Rate limited'),
 };
 
 export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
   app,
-  { store, mailer, otpRateLimitPerHour },
+  { store, mailer, otpRateLimitPerHour, allowedEmailDomains, registry, accountsPerIp, admin },
 ) => {
   /**
    * Anonymous callers hit these, so they're budgeted per IP and per hour on
@@ -63,7 +82,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       },
       config: { rateLimit: false },
     },
-    async () => ({ gate: 'email' as const }),
+    async () => ({ gate: 'email' as const, domains: allowedEmailDomains, admin: admin !== undefined }),
   );
 
   app.post(
@@ -81,6 +100,19 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
     },
     async (req) => {
       const email = canonicalEmail(req.body.email);
+      if (!isDomainAllowed(email, allowedEmailDomains)) {
+        throw new AppError('EMAIL_DOMAIN_NOT_ALLOWED', domainNotAllowedMessage(allowedEmailDomains));
+      }
+
+      const since = new Date(Date.now() - ACCOUNT_WINDOW_MS);
+      const accounts = registry.emailsFor(req.ip, since);
+      if (!accounts.has(email) && accounts.size >= accountsPerIp) {
+        throw new AppError(
+          'TOO_MANY_ACCOUNTS',
+          `This network already has ${accounts.size} accounts; sign in with one of them`,
+        );
+      }
+
       const outcome = store.issue(email);
       if (outcome.status === 'rate_limited') {
         throw new AppError(
@@ -103,7 +135,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
         description:
           "Verifies the code sent by POST /auth/request-code and sets the `sid` session cookie on success. That cookie authorises every /v1/* request from this origin — including Swagger UI's \"Try it out\".",
         body: VerifyBody,
-        response: { 200: MeResponse, ...errorResponses },
+        response: { 200: VerifyResponse, ...errorResponses },
       },
       config: perIp,
     },
@@ -111,8 +143,33 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       const email = canonicalEmail(req.body.email);
       const result = store.verify(email, req.body.code);
       if (result !== 'ok') throw new AppError('INVALID_CODE', invalidCodeMessage(result));
-      req.session.set('viewer', { email });
+      req.session.set('viewer', { email, role: 'user' });
+      registry.record(req.ip, email);
+      req.log.info({ email, ip: req.ip }, 'sign-in');
       return { email };
+    },
+  );
+
+  app.post(
+    '/auth/login',
+    {
+      schema: {
+        tags: ['auth'],
+        summary: 'Sign in with the shared admin credential',
+        body: LoginBody,
+        response: { 200: MeResponse, 401: ErrorResponse.describe('Email or password is incorrect') },
+      },
+      config: perIp,
+    },
+    async (req) => {
+      const email = canonicalEmail(req.body.email);
+      if (!verifyAdminCredential(admin, email, req.body.password)) {
+        throw new AppError('INVALID_CREDENTIALS', 'Email or password is incorrect');
+      }
+      req.session.set('viewer', { email, role: 'admin' });
+      registry.record(req.ip, email);
+      req.log.info({ email, ip: req.ip }, 'sign-in');
+      return { email, role: 'admin' as const };
     },
   );
 
@@ -128,7 +185,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
     },
     async (req) => {
       if (!req.viewer) throw new AppError('UNAUTHENTICATED', 'Verify your email to use this endpoint');
-      return { email: req.viewer.email };
+      return { email: req.viewer.email, role: req.viewer.role };
     },
   );
 

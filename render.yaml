@@ -30,3 +30,11 @@ services:
         value: '465'
       - key: APP_ORIGIN
         value: https://linkedin-profile-api-c925.onrender.com
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: gmail.com,yahoo.com,outlook.com,myyahoo.com
+      - key: ACCOUNTS_PER_IP
+        value: '10'
+      - key: ADMIN_EMAIL
+        sync: false # optional shared tester login; set in the dashboard, or leave unset to disable POST /auth/login
+      - key: ADMIN_PASSWORD
+        sync: false # optional shared tester login; at least 12 characters; set in the dashboard

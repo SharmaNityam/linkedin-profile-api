@@ -101,6 +101,50 @@ describe('loadConfig', () => {
       loadConfig({ ...base, BREVO_API_KEY: 'brevo-key', SMTP_USER: 'a@b.com' }).EMAIL_FROM,
     ).toBe('a@b.com');
   });
+
+  it('defaults ALLOWED_EMAIL_DOMAINS', () => {
+    const config = loadConfig(base);
+    expect(config.ALLOWED_EMAIL_DOMAINS).toEqual([
+      'gmail.com',
+      'yahoo.com',
+      'outlook.com',
+      'myyahoo.com',
+    ]);
+  });
+
+  it('parses ALLOWED_EMAIL_DOMAINS as a trimmed, lowercased list', () => {
+    const config = loadConfig({ ...base, ALLOWED_EMAIL_DOMAINS: ' Proton.me, Example.com ,,' });
+    expect(config.ALLOWED_EMAIL_DOMAINS).toEqual(['proton.me', 'example.com']);
+  });
+
+  it('requires ADMIN_EMAIL and ADMIN_PASSWORD together', () => {
+    expect(() => loadConfig({ ...base, ADMIN_EMAIL: 'admin@example.com' })).toThrow(
+      /ADMIN_PASSWORD/,
+    );
+    expect(() => loadConfig({ ...base, ADMIN_PASSWORD: 'a-long-enough-password' })).toThrow(
+      /ADMIN_PASSWORD/,
+    );
+    expect(() =>
+      loadConfig({
+        ...base,
+        ADMIN_EMAIL: 'admin@example.com',
+        ADMIN_PASSWORD: 'a-long-enough-password',
+      }),
+    ).not.toThrow();
+    expect(loadConfig(base).ADMIN_EMAIL).toBeUndefined();
+  });
+
+  it('rejects an ADMIN_PASSWORD under 12 characters', () => {
+    expect(() =>
+      loadConfig({ ...base, ADMIN_EMAIL: 'admin@example.com', ADMIN_PASSWORD: 'short' }),
+    ).toThrow(/ADMIN_PASSWORD/);
+  });
+
+  it('rejects a malformed ADMIN_EMAIL', () => {
+    expect(() =>
+      loadConfig({ ...base, ADMIN_EMAIL: 'not-an-email', ADMIN_PASSWORD: 'a-long-enough-password' }),
+    ).toThrow(/ADMIN_EMAIL/);
+  });
 });
 
 describe('redactConfig', () => {
@@ -145,5 +189,19 @@ describe('redactConfig', () => {
     expect(JSON.stringify(withKey)).not.toContain('brevo-secret-key');
 
     expect(redactConfig(loadConfig(base)).BREVO_API_KEY).toBeUndefined();
+  });
+
+  it('redacts ADMIN_PASSWORD and leaves it undefined when unset', () => {
+    const withPassword = redactConfig(
+      loadConfig({
+        ...base,
+        ADMIN_EMAIL: 'admin@example.com',
+        ADMIN_PASSWORD: 'a-long-enough-password',
+      }),
+    );
+    expect(withPassword.ADMIN_PASSWORD).toBe('(22 chars, redacted)');
+    expect(JSON.stringify(withPassword)).not.toContain('a-long-enough-password');
+
+    expect(redactConfig(loadConfig(base)).ADMIN_PASSWORD).toBeUndefined();
   });
 });

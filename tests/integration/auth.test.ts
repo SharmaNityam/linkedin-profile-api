@@ -297,15 +297,15 @@ describe('email OTP gate', () => {
     expect(res.json()).toMatchObject({ error: { code: 'UNAUTHENTICATED' } });
   });
 
-  it('GET /auth/config reports the gate, unlimited', async () => {
-    const { auth } = testAuth();
+  it('GET /auth/config reports the gate, domains and admin flag, unlimited', async () => {
+    const { auth } = testAuth({ allowedEmailDomains: ['gmail.com'] });
     app = await buildApp({ services, auth, rateLimitPerMinute: 2 });
     await app.ready();
 
     for (let i = 0; i < 10; i += 1) {
       const res = await app.inject({ url: '/auth/config' });
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual({ gate: 'email' });
+      expect(res.json()).toEqual({ gate: 'email', domains: ['gmail.com'], admin: false });
     }
   });
 

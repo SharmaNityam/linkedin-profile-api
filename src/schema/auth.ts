@@ -31,11 +31,27 @@ export const VerifyBody = z.object({
 });
 export type VerifyBody = z.infer<typeof VerifyBody>;
 
-export const MeResponse = z.object({ email: z.string() });
+export const VerifyResponse = z.object({ email: z.string() });
+export type VerifyResponse = z.infer<typeof VerifyResponse>;
+
+export const Role = z.enum(['user', 'admin']);
+export type Role = z.infer<typeof Role>;
+
+export const MeResponse = z.object({ email: z.string(), role: Role });
 export type MeResponse = z.infer<typeof MeResponse>;
+
+export const LoginBody = z.object({
+  email: EmailAddress.describe('The shared admin address'),
+  password: z.string().min(1).max(200),
+});
+export type LoginBody = z.infer<typeof LoginBody>;
 
 export const LogoutResponse = z.object({ status: z.literal('signed_out') });
 export type LogoutResponse = z.infer<typeof LogoutResponse>;
 
-export const AuthConfigResponse = z.object({ gate: z.literal('email') });
+export const AuthConfigResponse = z.object({
+  gate: z.literal('email'),
+  domains: z.array(z.string()).describe('Email domains /auth/request-code accepts'),
+  admin: z.boolean().describe('Whether an admin login (POST /auth/login) is configured'),
+});
 export type AuthConfigResponse = z.infer<typeof AuthConfigResponse>;

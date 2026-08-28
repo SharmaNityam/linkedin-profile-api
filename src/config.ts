@@ -50,6 +50,24 @@ const rawEnvSchema = z.object({
   OTP_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(10),
   /** Per email address, on code issuance. */
   OTP_PER_EMAIL_PER_HOUR: z.coerce.number().int().positive().default(5),
+  /** Comma list of domains `/auth/request-code` accepts, lowercased and trimmed. */
+  ALLOWED_EMAIL_DOMAINS: z
+    .string()
+    .default('gmail.com,yahoo.com,outlook.com,myyahoo.com')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  /** Per IP, distinct verified accounts inside the trailing 7 days. */
+  ACCOUNTS_PER_IP: z.coerce.number().int().positive().default(10),
+  /**
+   * Shared tester credential for `POST /auth/login`, exempt from the domain
+   * allowlist and the per-IP cap (it never uses `/auth/request-code`).
+   */
+  ADMIN_EMAIL: z.string().email('ADMIN_EMAIL must be a valid email').optional(),
+  ADMIN_PASSWORD: z.string().min(12, 'ADMIN_PASSWORD must be at least 12 characters').optional(),
 });
 
 const envSchema = rawEnvSchema
@@ -60,6 +78,10 @@ const envSchema = rawEnvSchema
   .refine((v) => !v.BREVO_API_KEY || v.EMAIL_FROM || v.SMTP_USER, {
     message: 'EMAIL_FROM is required when BREVO_API_KEY is set (unless SMTP_USER is too)',
     path: ['EMAIL_FROM'],
+  })
+  .refine((v) => Boolean(v.ADMIN_EMAIL) === Boolean(v.ADMIN_PASSWORD), {
+    message: 'ADMIN_EMAIL and ADMIN_PASSWORD must both be set, or neither',
+    path: ['ADMIN_PASSWORD'],
   })
   .transform((v) => ({ ...v, EMAIL_FROM: v.EMAIL_FROM ?? v.SMTP_USER }));
 
@@ -84,6 +106,9 @@ export function redactConfig(config: Config): Record<string, unknown> {
     SMTP_PASS: config.SMTP_PASS ? `(${config.SMTP_PASS.length} chars, redacted)` : undefined,
     BREVO_API_KEY: config.BREVO_API_KEY
       ? `(${config.BREVO_API_KEY.length} chars, redacted)`
+      : undefined,
+    ADMIN_PASSWORD: config.ADMIN_PASSWORD
+      ? `(${config.ADMIN_PASSWORD.length} chars, redacted)`
       : undefined,
   };
 }
