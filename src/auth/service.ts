@@ -7,7 +7,7 @@ import type { MailSender } from './mailer.js';
 import type { PasswordHasher } from './password.js';
 import { normalizePhone } from './phone.js';
 import { answeredVerdict, type PhoneValidator, type PhoneVerdict } from './phone-validation.js';
-import type { PhoneValidation, Repositories, User } from './repositories.js';
+import type { PendingSignup, PhoneValidation, Repositories, User } from './repositories.js';
 
 /** Long enough to be worth hashing, short enough not to be a DoS vector. */
 const MIN_PASSWORD_LENGTH = 10;
@@ -15,6 +15,14 @@ const MAX_PASSWORD_LENGTH = 200;
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_CODE_ATTEMPTS = 5;
+
+/**
+ * How many unverified submissions one address may have in flight. Every
+ * submission is kept, so somebody has to bound the table; five is enough for a
+ * person who mistypes their password and retries, and small enough that
+ * hammering one address costs the attacker nothing they can use.
+ */
+const MAX_PENDING_PER_EMAIL = 5;
 
 /** The one message every wrong-code path returns, so none of them is an oracle. */
 const WRONG_CODE = 'Verification code is incorrect';
@@ -65,6 +73,11 @@ export class AuthService {
    * "that email exists" would turn signup into an account-existence oracle.
    * A domain outside the allowlist and a too-short password are safe to
    * report, because neither depends on who has already signed up.
+   *
+   * Every submission is stored on its own, never merged with or overwritten by
+   * another one for the same address. An attacker who signs up as
+   * `victim@gmail.com` gets their own pending row and their own code; the
+   * victim's code creates the account from the victim's row.
    */
   async signup(email: string, password: string): Promise<void> {
     const canonical = canonicalEmail(email);
@@ -78,76 +91,68 @@ export class AuthService {
     }
     assertPasswordPolicy(password);
 
+    // An account already exists, so there is nothing to sign up for and no code
+    // to send. Burn a hash anyway, so this branch costs what the other one does
+    // and response latency does not say which addresses are registered.
     const existing = await this.deps.repos.users.findByCanonicalEmail(canonical);
     if (existing) {
-      // A verified account keeps its password: re-running signup must not be a
-      // way to reset someone else's credentials.
-      if (existing.emailVerifiedAt) {
-        // Burn a hash anyway, so this branch costs what the others do and
-        // response latency does not say which addresses are already verified.
-        await this.deps.hasher.hash(password);
-        this.deps.log?.('debug', 'signup for an already verified address', { canonical });
-        return;
-      }
-      // Nobody has proved they hold this mailbox yet, so the pending password
-      // belongs to whoever asked last. Leaving the first one in place would let
-      // an attacker pre-register an address and inherit the victim's account
-      // the moment they verify it.
-      await this.deps.repos.users.updatePasswordHash(
-        existing.id,
-        await this.deps.hasher.hash(password),
-      );
-      await this.issueCode(existing);
+      await this.deps.hasher.hash(password);
+      this.deps.log?.('debug', 'signup for an address that already has an account', { canonical });
       return;
     }
 
-    const user = await this.deps.repos.users.create({
+    const passwordHash = await this.deps.hasher.hash(password);
+    const code = generateCode();
+    await this.deps.repos.pendingSignups.create({
       email: email.trim(),
       emailCanonical: canonical,
-      passwordHash: await this.deps.hasher.hash(password),
+      passwordHash,
+      codeHash: hashCode(code),
+      expiresAt: new Date(this.now().getTime() + CODE_TTL_MS),
     });
-    await this.issueCode(user);
+    await this.capPending(canonical);
+    await this.deps.mailer.sendVerificationCode(email.trim(), code);
   }
 
   /**
-   * Consumes the emailed code. Wrong, expired and exhausted all surface as
-   * `INVALID_CODE` — the message says which, since by this point the caller
-   * has already proven they know an address that received a code.
+   * Consumes the emailed code, and creates the account from the submission that
+   * code belongs to. Wrong, expired and exhausted all surface as `INVALID_CODE`
+   * — the message says which, since by this point the caller has already proven
+   * they know an address that received a code.
    */
   async verifyEmail(email: string, code: string): Promise<{ claims: SessionClaims; me: Me }> {
-    const user = await this.deps.repos.users.findByCanonicalEmail(canonicalEmail(email));
-    if (!user) throw new AppError('INVALID_CODE', WRONG_CODE);
+    const canonical = canonicalEmail(email);
+    const pending = await this.deps.repos.pendingSignups.listByCanonicalEmail(canonical);
+    const now = this.now();
 
-    const stored = await this.deps.repos.verifications.find(user.id);
-    if (!stored) throw new AppError('INVALID_CODE', WRONG_CODE);
+    // Newest first, because the code someone has just been mailed is the one
+    // they are most likely to be typing.
+    let live = 0;
+    let exhausted = 0;
+    for (const row of pending) {
+      const check = codeIsValid({ stored: row, code, now, maxAttempts: MAX_CODE_ATTEMPTS });
+      if (check === 'expired') continue;
+      live += 1;
+      if (check === 'exhausted') {
+        exhausted += 1;
+        continue;
+      }
+      if (check === 'mismatch') {
+        // Attempts are counted per submission: guessing at one row must not
+        // spend the budget of the row the real owner is about to use.
+        await this.deps.repos.pendingSignups.incrementAttempts(row.id);
+        continue;
+      }
+      return this.completeSignup(row, canonical, now);
+    }
 
-    const check = codeIsValid({
-      stored,
-      code,
-      now: this.now(),
-      maxAttempts: MAX_CODE_ATTEMPTS,
-    });
-    if (check === 'expired') {
+    if (pending.length > 0 && live === 0) {
       throw new AppError('INVALID_CODE', 'Verification code has expired; request a new one');
     }
-    if (check === 'exhausted') {
+    if (live > 0 && exhausted === live) {
       throw new AppError('INVALID_CODE', 'Too many attempts; request a new code');
     }
-    if (check === 'mismatch') {
-      await this.deps.repos.verifications.incrementAttempts(user.id);
-      throw new AppError('INVALID_CODE', WRONG_CODE);
-    }
-
-    const at = this.now();
-    await this.deps.repos.users.markEmailVerified(user.id, at);
-    // Single use: a code that has done its job is not left lying around.
-    await this.deps.repos.verifications.delete(user.id);
-
-    const verified = (await this.deps.repos.users.findById(user.id)) ?? {
-      ...user,
-      emailVerifiedAt: at,
-    };
-    return { claims: this.claims(verified), me: this.me(verified) };
+    throw new AppError('INVALID_CODE', WRONG_CODE);
   }
 
   /**
@@ -160,14 +165,11 @@ export class AuthService {
     userId: string,
     phone: string,
   ): Promise<{ me: Me; phoneValidation: 'accepted' | 'skipped' }> {
-    // Establish who is asking before anything else: an unverified account must
-    // not be able to spend provider quota, or claim a number, on the strength
-    // of a mailbox nobody has proved they hold.
+    // Establish who is asking before anything else: nobody without an account
+    // gets to spend provider quota or claim a number. An account only exists
+    // once its mailbox has been proved, so that is the same check.
     const account = await this.deps.repos.users.findById(userId);
     if (!account) throw noSession();
-    if (!account.emailVerifiedAt) {
-      throw new AppError('EMAIL_UNVERIFIED', 'Verify your email before adding a phone number');
-    }
 
     const phoneE164 = normalizePhone(phone);
 
@@ -186,9 +188,9 @@ export class AuthService {
   }
 
   /**
-   * An unknown address and a wrong password are the same answer. An
-   * unverified one is not: the caller already proved they know the password,
-   * so telling them to go and check their mail leaks nothing new.
+   * An unknown address and a wrong password are the same answer — and an
+   * address that has only ever been signed up for, never verified, is an
+   * unknown address here: it has no account yet.
    */
   async login(email: string, password: string): Promise<{ claims: SessionClaims; me: Me }> {
     let canonical: string;
@@ -207,12 +209,6 @@ export class AuthService {
     }
 
     if (!(await this.deps.hasher.verify(user.passwordHash, password))) throw invalidCredentials();
-    if (!user.emailVerifiedAt) {
-      throw new AppError(
-        'EMAIL_UNVERIFIED',
-        'Verify your email address before signing in; we sent you a code.',
-      );
-    }
 
     return { claims: this.claims(user), me: this.me(user) };
   }
@@ -237,7 +233,9 @@ export class AuthService {
   me(user: User): Me {
     return {
       email: user.email,
-      emailVerified: user.emailVerifiedAt !== null,
+      // Always true: an account is only ever created by verifying a code. The
+      // field stays in the response because clients read it.
+      emailVerified: true,
       phoneVerified: user.phoneVerifiedAt !== null,
       createdAt: user.createdAt.toISOString(),
     };
@@ -251,16 +249,52 @@ export class AuthService {
     };
   }
 
-  /** Replaces any pending code: only the newest one ever verifies. */
-  private async issueCode(user: User): Promise<void> {
-    const code = generateCode();
-    await this.deps.repos.verifications.upsert({
-      userId: user.id,
-      codeHash: hashCode(code),
-      expiresAt: new Date(this.now().getTime() + CODE_TTL_MS),
-      attempts: 0,
-    });
-    await this.deps.mailer.sendVerificationCode(user.email, code);
+  /**
+   * Turns the submission whose code was presented into the account. The
+   * password that arrives is the one that was submitted with that code, which
+   * is the whole point: another submission for the same address cannot lend
+   * its password to somebody else's code.
+   */
+  private async completeSignup(
+    pending: PendingSignup,
+    canonical: string,
+    at: Date,
+  ): Promise<{ claims: SessionClaims; me: Me }> {
+    let user: User;
+    try {
+      user = await this.deps.repos.users.create({
+        email: pending.email,
+        emailCanonical: pending.emailCanonical,
+        passwordHash: pending.passwordHash,
+        emailVerifiedAt: at,
+      });
+    } catch (err) {
+      // Another submission for this address verified between the listing and
+      // the insert. The account is not this caller's to claim, and saying so
+      // would tell them one exists.
+      const taken = await this.deps.repos.users.findByCanonicalEmail(canonical);
+      if (!taken) throw err;
+      this.deps.log?.('warn', 'lost the race to create an account', { canonical });
+      throw new AppError('INVALID_CODE', WRONG_CODE);
+    }
+
+    // Single use, and every rival submission goes with it: once the mailbox
+    // has spoken, nobody else's pending password can still become this account.
+    await this.deps.repos.pendingSignups.deleteByCanonicalEmail(canonical);
+    return { claims: this.claims(user), me: this.me(user) };
+  }
+
+  /**
+   * Bounds the table. Expired rows are dropped wholesale first — they can never
+   * verify again — and anything past the cap for this address goes oldest
+   * first, so the submission someone just made always survives.
+   */
+  private async capPending(canonical: string): Promise<void> {
+    await this.deps.repos.pendingSignups.deleteExpired(this.now());
+    const pending = await this.deps.repos.pendingSignups.listByCanonicalEmail(canonical);
+    for (const row of pending.slice(MAX_PENDING_PER_EMAIL)) {
+      await this.deps.repos.pendingSignups.deleteById(row.id);
+    }
   }
 
   /** The cache first, the provider only for numbers nobody has checked yet. */

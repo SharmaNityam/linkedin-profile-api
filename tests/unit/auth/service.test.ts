@@ -5,7 +5,7 @@ import { createMemoryRepositories } from '../../../src/auth/memory.js';
 import type { MailSender } from '../../../src/auth/mailer.js';
 import type { PasswordHasher } from '../../../src/auth/password.js';
 import type { PhoneValidator, PhoneVerdict } from '../../../src/auth/phone-validation.js';
-import type { Repositories, User } from '../../../src/auth/repositories.js';
+import type { PendingSignup, Repositories, User } from '../../../src/auth/repositories.js';
 import { AuthService } from '../../../src/auth/service.js';
 import { AppError } from '../../../src/errors.js';
 
@@ -118,6 +118,11 @@ describe('AuthService', () => {
     return user;
   }
 
+  /** Every submission still in flight for an address, newest first. */
+  function pendingFor(email: string): Promise<PendingSignup[]> {
+    return repos.pendingSignups.listByCanonicalEmail(canonicalEmail(email));
+  }
+
   beforeEach(() => {
     repos = createMemoryRepositories();
     hasher = new FakeHasher();
@@ -128,14 +133,17 @@ describe('AuthService', () => {
   });
 
   describe('signup', () => {
-    it('stores a hashed password and mails a six-digit code', async () => {
+    it('stores a hashed password and mails a six-digit code, creating no account', async () => {
       await service.signup(EMAIL, PASSWORD);
 
-      const user = await mustFind(EMAIL);
-      expect(user.passwordHash).not.toBe(PASSWORD);
-      expect(user.passwordHash).not.toContain(PASSWORD);
-      expect(user.passwordHash.startsWith('fake$')).toBe(true);
-      expect(user.emailVerifiedAt).toBeNull();
+      // Nothing is an account until a code comes back.
+      expect(await repos.users.findByCanonicalEmail(canonicalEmail(EMAIL))).toBeNull();
+
+      const [pending] = await pendingFor(EMAIL);
+      expect(pending?.passwordHash).not.toBe(PASSWORD);
+      expect(pending?.passwordHash).not.toContain(PASSWORD);
+      expect(pending?.passwordHash.startsWith('fake$')).toBe(true);
+      expect(pending?.email).toBe(EMAIL);
 
       expect(mailer.sent).toHaveLength(1);
       expect(mailer.sent[0]?.to).toBe(EMAIL);
@@ -145,8 +153,7 @@ describe('AuthService', () => {
     it('stores the pending code hashed, never in clear', async () => {
       await service.signup(EMAIL, PASSWORD);
 
-      const user = await mustFind(EMAIL);
-      const pending = await repos.verifications.find(user.id);
+      const [pending] = await pendingFor(EMAIL);
       expect(pending?.codeHash).toMatch(/^[0-9a-f]{64}$/);
       expect(pending?.codeHash).not.toBe(mailer.lastCode);
       expect(pending?.attempts).toBe(0);
@@ -174,39 +181,48 @@ describe('AuthService', () => {
       expect(err.code).toBe('INVALID_REQUEST');
     });
 
-    it('re-sends a code for an unverified alias without creating a second user', async () => {
+    it('gives an alias of the same mailbox its own submission and its own code', async () => {
       await service.signup(EMAIL, PASSWORD);
-      const first = await mustFind(EMAIL);
-
       await service.signup(ALIAS, PASSWORD);
 
-      const second = await mustFind(EMAIL);
-      expect(second.id).toBe(first.id);
+      const pending = await pendingFor(EMAIL);
+      expect(pending).toHaveLength(2);
+      expect(pending[0]?.id).not.toBe(pending[1]?.id);
       expect(mailer.sent).toHaveLength(2);
       expect(mailer.sent[1]?.code).not.toBe(mailer.sent[0]?.code);
     });
 
-    it('rotates the code so only the newest one verifies', async () => {
-      await service.signup(EMAIL, PASSWORD);
-      const stale = mailer.lastCode;
-      await service.signup(ALIAS, PASSWORD);
-      const fresh = mailer.lastCode;
+    it('keeps at most five submissions per address, evicting the oldest', async () => {
+      for (let i = 1; i <= 5; i += 1) await service.signup(EMAIL, `password-${i}0`);
+      const oldest = (await pendingFor(EMAIL)).at(-1);
+      const firstCode = mailer.sent[0]!.code;
 
-      expect(stale).not.toBe(fresh);
-      expect((await appError(() => service.verifyEmail(EMAIL, stale))).code).toBe('INVALID_CODE');
-      await expect(service.verifyEmail(EMAIL, fresh)).resolves.toBeTruthy();
+      await service.signup(EMAIL, 'password-60');
+
+      const pending = await pendingFor(EMAIL);
+      expect(pending).toHaveLength(5);
+      expect(pending.map((row) => row.id)).not.toContain(oldest?.id);
+      // The evicted submission's code no longer opens anything.
+      expect((await appError(() => service.verifyEmail(EMAIL, firstCode))).code).toBe(
+        'INVALID_CODE',
+      );
     });
 
-    it('replaces the password when an unverified address is claimed again', async () => {
-      const first = 'first-password-in';
-      const second = 'second-password-in';
-      await service.signup(EMAIL, first);
-      await service.signup(ALIAS, second);
+    it('does not evict submissions for a different address', async () => {
+      for (let i = 0; i < 6; i += 1) await service.signup(EMAIL, PASSWORD);
+      await service.signup('jane@outlook.com', PASSWORD);
+      for (let i = 0; i < 6; i += 1) await service.signup(EMAIL, PASSWORD);
 
-      await service.verifyEmail(EMAIL, mailer.lastCode);
+      expect(await pendingFor('jane@outlook.com')).toHaveLength(1);
+    });
 
-      await expect(service.login(EMAIL, second)).resolves.toBeTruthy();
-      expect((await appError(() => service.login(EMAIL, first))).code).toBe('INVALID_CREDENTIALS');
+    it('drops submissions that have expired rather than counting them', async () => {
+      await service.signup(EMAIL, PASSWORD);
+      clock = new Date('2026-01-01T00:11:00.000Z');
+
+      await service.signup(EMAIL, PASSWORD);
+
+      expect(await pendingFor(EMAIL)).toHaveLength(1);
     });
 
     it('hashes exactly once for an address that is already verified', async () => {
@@ -233,14 +249,15 @@ describe('AuthService', () => {
   });
 
   describe('verifyEmail', () => {
-    it('marks the email verified and returns claims and profile', async () => {
+    it('creates the verified account and returns claims and profile', async () => {
       await service.signup(EMAIL, PASSWORD);
       clock = new Date('2026-01-01T00:05:00.000Z');
 
       const { claims, me } = await service.verifyEmail(EMAIL, mailer.lastCode);
 
       const user = await mustFind(EMAIL);
-      expect(user.emailVerifiedAt?.toISOString()).toBe('2026-01-01T00:05:00.000Z');
+      expect(user.emailVerifiedAt.toISOString()).toBe('2026-01-01T00:05:00.000Z');
+      expect(user.passwordHash).toBe(digest(PASSWORD));
       expect(claims).toEqual({
         userId: user.id,
         sessionVersion: user.sessionVersion,
@@ -252,7 +269,7 @@ describe('AuthService', () => {
         phoneVerified: false,
         createdAt: user.createdAt.toISOString(),
       });
-      expect(await repos.verifications.find(user.id)).toBeNull();
+      expect(await pendingFor(EMAIL)).toEqual([]);
     });
 
     it('accepts the alias spelling of the same mailbox', async () => {
@@ -260,15 +277,39 @@ describe('AuthService', () => {
       await expect(service.verifyEmail(ALIAS, mailer.lastCode)).resolves.toBeTruthy();
     });
 
+    it('clears every rival submission once one of them verifies', async () => {
+      await service.signup(EMAIL, 'first-password');
+      const first = mailer.lastCode;
+      await service.signup(EMAIL, 'second-password');
+
+      await service.verifyEmail(EMAIL, mailer.lastCode);
+
+      expect(await pendingFor(EMAIL)).toEqual([]);
+      expect((await appError(() => service.verifyEmail(EMAIL, first))).code).toBe('INVALID_CODE');
+    });
+
     it('rejects a wrong code and counts the attempt', async () => {
       await service.signup(EMAIL, PASSWORD);
-      const user = await mustFind(EMAIL);
 
       const err = await appError(() => service.verifyEmail(EMAIL, '000000'));
 
       expect(err.code).toBe('INVALID_CODE');
       expect(err.message).toBe('Verification code is incorrect');
-      expect((await repos.verifications.find(user.id))?.attempts).toBe(1);
+      expect((await pendingFor(EMAIL))[0]?.attempts).toBe(1);
+    });
+
+    it('counts attempts per submission, not per address', async () => {
+      await service.signup(EMAIL, 'first-password');
+      const first = mailer.lastCode;
+      await service.signup(EMAIL, 'second-password');
+
+      // Five wrong guesses spend both budgets, because a guess is tried
+      // against every live row — but each row counts its own.
+      for (let i = 0; i < 3; i += 1) await appError(() => service.verifyEmail(EMAIL, '000000'));
+
+      expect((await pendingFor(EMAIL)).map((row) => row.attempts)).toEqual([3, 3]);
+      // Neither row is exhausted yet, so the older code still works.
+      await expect(service.verifyEmail(EMAIL, first)).resolves.toBeTruthy();
     });
 
     it('stops accepting attempts after five wrong ones', async () => {
@@ -307,6 +348,82 @@ describe('AuthService', () => {
       const err = await appError(() => service.verifyEmail(EMAIL, '000000'));
       expect(err.code).toBe('INVALID_CODE');
       expect(err.message).toBe('Verification code is incorrect');
+    });
+
+    it('ignores an expired submission while a live one is still waiting', async () => {
+      await service.signup(EMAIL, 'stale-password');
+      const stale = mailer.lastCode;
+      clock = new Date('2026-01-01T00:11:00.000Z');
+      await service.signup(EMAIL, 'fresh-password');
+
+      expect((await appError(() => service.verifyEmail(EMAIL, stale))).code).toBe('INVALID_CODE');
+      await expect(service.verifyEmail(EMAIL, mailer.lastCode)).resolves.toBeTruthy();
+      expect((await mustFind(EMAIL)).passwordHash).toBe(digest('fresh-password'));
+    });
+
+    it('says "expired" only when every submission has expired', async () => {
+      await service.signup(EMAIL, PASSWORD);
+      const code = mailer.lastCode;
+      clock = new Date('2026-01-01T00:05:00.000Z');
+      await service.signup(EMAIL, PASSWORD);
+      clock = new Date('2026-01-01T00:12:00.000Z');
+
+      // One live submission left, so a wrong guess is just wrong.
+      expect((await appError(() => service.verifyEmail(EMAIL, code))).message).toBe(
+        'Verification code is incorrect',
+      );
+
+      clock = new Date('2026-01-01T00:16:00.000Z');
+      expect((await appError(() => service.verifyEmail(EMAIL, code))).message).toContain('expired');
+    });
+  });
+
+  /**
+   * The hijack this whole table exists to stop. Whoever's mailbox receives the
+   * code decides which password the account is created with, no matter who
+   * submitted first or last.
+   */
+  describe('competing signups for one address', () => {
+    const VICTIM = 'password-victim-a';
+    const ATTACKER = 'password-attacker-b';
+
+    it('gives the account to the code the victim actually received, signing up first', async () => {
+      await service.signup(EMAIL, VICTIM);
+      const victimCode = mailer.lastCode;
+      await service.signup(ALIAS, ATTACKER);
+
+      await service.verifyEmail(EMAIL, victimCode);
+
+      await expect(service.login(EMAIL, VICTIM)).resolves.toBeTruthy();
+      expect((await appError(() => service.login(EMAIL, ATTACKER))).code).toBe(
+        'INVALID_CREDENTIALS',
+      );
+    });
+
+    it('gives it to the victim just the same when the attacker signed up first', async () => {
+      await service.signup(ALIAS, ATTACKER);
+      await service.signup(EMAIL, VICTIM);
+      const victimCode = mailer.lastCode;
+
+      await service.verifyEmail(EMAIL, victimCode);
+
+      await expect(service.login(EMAIL, VICTIM)).resolves.toBeTruthy();
+      expect((await appError(() => service.login(EMAIL, ATTACKER))).code).toBe(
+        'INVALID_CREDENTIALS',
+      );
+    });
+
+    it('leaves the attacker nothing to verify once the account exists', async () => {
+      await service.signup(EMAIL, VICTIM);
+      const victimCode = mailer.lastCode;
+      await service.signup(ALIAS, ATTACKER);
+      const attackerCode = mailer.lastCode;
+
+      await service.verifyEmail(EMAIL, victimCode);
+
+      const err = await appError(() => service.verifyEmail(EMAIL, attackerCode));
+      expect(err.code).toBe('INVALID_CODE');
+      expect((await mustFind(EMAIL)).passwordHash).toBe(digest(VICTIM));
     });
   });
 
@@ -425,17 +542,6 @@ describe('AuthService', () => {
       expect((await mustFind(EMAIL)).phoneE164).toBe(OTHER_PHONE);
     });
 
-    it('refuses a phone until the email is verified', async () => {
-      await service.signup(EMAIL, PASSWORD);
-      const user = await mustFind(EMAIL);
-
-      const err = await appError(() => service.setPhone(user.id, PHONE));
-
-      expect(err.code).toBe('EMAIL_UNVERIFIED');
-      expect(validator.calls).toHaveLength(0);
-      expect((await mustFind(EMAIL)).phoneE164).toBeNull();
-    });
-
     it('rejects a user id that no longer exists', async () => {
       const err = await appError(() =>
         service.setPhone('ffffffff-ffff-4fff-8fff-ffffffffffff', PHONE),
@@ -510,12 +616,14 @@ describe('AuthService', () => {
       expect(unknown.message).toBe(wrong.message);
     });
 
-    it('refuses an unverified account with its own code', async () => {
+    // A pending signup is not an account, and saying so any other way would
+    // tell a stranger that somebody is midway through claiming the address.
+    it('treats an address that has only been signed up for as unknown', async () => {
       await service.signup(EMAIL, PASSWORD);
 
       const err = await appError(() => service.login(EMAIL, PASSWORD));
 
-      expect(err.code).toBe('EMAIL_UNVERIFIED');
+      expect(err.code).toBe('INVALID_CREDENTIALS');
     });
 
     it('treats a malformed address as bad credentials', async () => {

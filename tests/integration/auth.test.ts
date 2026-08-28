@@ -171,6 +171,99 @@ describe('auth flow', () => {
     expect(login.json()).toMatchObject({ email: EMAIL, phoneVerified: true });
   });
 
+  /**
+   * The pre-registration hijack, over real HTTP. Two people submit a signup for
+   * one address; the account belongs to whoever's code comes back, whichever
+   * order they arrived in.
+   */
+  describe('two signups racing for one address', () => {
+    const VICTIM = 'victim password aa';
+    const ATTACKER = 'attacker password bb';
+
+    async function signup(app: FastifyInstance, password: string): Promise<void> {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/signup',
+        payload: { email: EMAIL, password },
+      });
+      expect(res.statusCode).toBe(200);
+    }
+
+    async function login(app: FastifyInstance, password: string): Promise<number> {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { email: EMAIL, password },
+      });
+      return res.statusCode;
+    }
+
+    it.each([
+      ['the victim signed up first', 0],
+      ['the attacker signed up first', 1],
+    ])('gives the account to the code the victim received when %s', async (_case, victimIndex) => {
+      const { app, auth } = await harness();
+      const order = victimIndex === 0 ? [VICTIM, ATTACKER] : [ATTACKER, VICTIM];
+      for (const password of order) await signup(app, password);
+
+      // The victim types the code from their own mail, not the newest one.
+      const verified = await app.inject({
+        method: 'POST',
+        url: '/auth/verify-email',
+        payload: { email: EMAIL, code: auth.mailer.codesFor(EMAIL)[victimIndex] },
+      });
+      expect(verified.statusCode).toBe(200);
+
+      expect(await login(app, VICTIM)).toBe(200);
+      expect(await login(app, ATTACKER)).toBe(401);
+    });
+
+    it('leaves the attacker code useless once the account exists', async () => {
+      const { app, auth } = await harness();
+      await signup(app, VICTIM);
+      await signup(app, ATTACKER);
+      const [victimCode, attackerCode] = auth.mailer.codesFor(EMAIL);
+
+      const verified = await app.inject({
+        method: 'POST',
+        url: '/auth/verify-email',
+        payload: { email: EMAIL, code: victimCode },
+      });
+      expect(verified.statusCode).toBe(200);
+
+      const attacker = await app.inject({
+        method: 'POST',
+        url: '/auth/verify-email',
+        payload: { email: EMAIL, code: attackerCode },
+      });
+      expect(attacker.statusCode).toBe(400);
+      expect(attacker.json()).toMatchObject({ error: { code: 'INVALID_CODE' } });
+      expect(await login(app, ATTACKER)).toBe(401);
+    });
+
+    it('caps an address at five pending submissions, evicting the oldest', async () => {
+      const { app, auth } = await harness();
+      for (let i = 1; i <= 6; i += 1) await signup(app, `password number ${i}`);
+
+      const evicted = await app.inject({
+        method: 'POST',
+        url: '/auth/verify-email',
+        payload: { email: EMAIL, code: auth.mailer.codesFor(EMAIL)[0] },
+      });
+      expect(evicted.statusCode).toBe(400);
+      expect(evicted.json()).toMatchObject({ error: { code: 'INVALID_CODE' } });
+
+      // The second-oldest survived, so five is a cap and not a purge.
+      const kept = await app.inject({
+        method: 'POST',
+        url: '/auth/verify-email',
+        payload: { email: EMAIL, code: auth.mailer.codesFor(EMAIL)[1] },
+      });
+      expect(kept.statusCode).toBe(200);
+      expect(await login(app, 'password number 2')).toBe(200);
+    });
+  });
+
   it('rejects a phone number another account already holds', async () => {
     const { app, auth } = await harness();
     await signedInCookie(app, auth, { email: EMAIL, phone: PHONE });

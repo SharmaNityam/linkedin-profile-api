@@ -1,9 +1,10 @@
 import type { Pool } from 'pg';
 import { AppError } from '../errors.js';
 import type {
-  EmailVerification,
-  EmailVerificationRepository,
+  NewPendingSignup,
   NewUser,
+  PendingSignup,
+  PendingSignupRepository,
   PhoneValidation,
   PhoneValidationRepository,
   Repositories,
@@ -37,7 +38,7 @@ interface UserRow {
   id: string;
   email: string;
   email_canonical: string;
-  email_verified_at: Date | null;
+  email_verified_at: Date;
   password_hash: string;
   phone_e164: string | null;
   phone_verified_at: Date | null;
@@ -72,9 +73,9 @@ class PostgresUserRepository implements UserRepository {
   async create(user: NewUser): Promise<User> {
     try {
       const { rows } = await this.pool.query<UserRow>(
-        `insert into users (email, email_canonical, password_hash)
-         values ($1, $2, $3) returning ${USER_COLUMNS}`,
-        [user.email, user.emailCanonical, user.passwordHash],
+        `insert into users (email, email_canonical, password_hash, email_verified_at)
+         values ($1, $2, $3, $4) returning ${USER_COLUMNS}`,
+        [user.email, user.emailCanonical, user.passwordHash, user.emailVerifiedAt],
       );
       return toUser(rows[0]!);
     } catch (err) {
@@ -95,22 +96,6 @@ class PostgresUserRepository implements UserRepository {
 
   async findByPhone(phoneE164: string): Promise<User | null> {
     return this.findOne('phone_e164 = $1', phoneE164);
-  }
-
-  async markEmailVerified(id: string, at: Date): Promise<void> {
-    const { rowCount } = await this.pool.query(
-      'update users set email_verified_at = $2 where id = $1',
-      [id, at],
-    );
-    if (rowCount === 0) throw missingUser(id);
-  }
-
-  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
-    const { rowCount } = await this.pool.query(
-      'update users set password_hash = $2 where id = $1',
-      [id, passwordHash],
-    );
-    if (rowCount === 0) throw missingUser(id);
   }
 
   async setPhone(id: string, phoneE164: string, at: Date): Promise<'ok' | 'taken'> {
@@ -148,53 +133,79 @@ class PostgresUserRepository implements UserRepository {
   }
 }
 
-interface VerificationRow {
-  user_id: string;
+interface PendingSignupRow {
+  id: string;
+  email: string;
+  email_canonical: string;
+  password_hash: string;
   code_hash: string;
   expires_at: Date;
   attempts: number;
+  created_at: Date;
 }
 
-class PostgresEmailVerificationRepository implements EmailVerificationRepository {
+const PENDING_COLUMNS = `id, email, email_canonical, password_hash, code_hash,
+                         expires_at, attempts, created_at`;
+
+function toPendingSignup(row: PendingSignupRow): PendingSignup {
+  return {
+    id: row.id,
+    email: row.email,
+    emailCanonical: row.email_canonical,
+    passwordHash: row.password_hash,
+    codeHash: row.code_hash,
+    expiresAt: row.expires_at,
+    attempts: row.attempts,
+    createdAt: row.created_at,
+  };
+}
+
+class PostgresPendingSignupRepository implements PendingSignupRepository {
   constructor(private readonly pool: Pool) {}
 
-  async upsert(verification: EmailVerification): Promise<void> {
-    await this.pool.query(
-      `insert into email_verifications (user_id, code_hash, expires_at, attempts)
-       values ($1, $2, $3, $4)
-       on conflict (user_id) do update
-         set code_hash  = excluded.code_hash,
-             expires_at = excluded.expires_at,
-             attempts   = excluded.attempts`,
-      [verification.userId, verification.codeHash, verification.expiresAt, verification.attempts],
+  async create(pending: NewPendingSignup): Promise<PendingSignup> {
+    const { rows } = await this.pool.query<PendingSignupRow>(
+      `insert into pending_signups (email, email_canonical, password_hash, code_hash, expires_at)
+       values ($1, $2, $3, $4, $5) returning ${PENDING_COLUMNS}`,
+      [
+        pending.email,
+        pending.emailCanonical,
+        pending.passwordHash,
+        pending.codeHash,
+        pending.expiresAt,
+      ],
     );
+    return toPendingSignup(rows[0]!);
   }
 
-  async find(userId: string): Promise<EmailVerification | null> {
-    const { rows } = await this.pool.query<VerificationRow>(
-      `select user_id, code_hash, expires_at, attempts
-       from email_verifications where user_id = $1`,
-      [userId],
+  async listByCanonicalEmail(emailCanonical: string): Promise<PendingSignup[]> {
+    const { rows } = await this.pool.query<PendingSignupRow>(
+      `select ${PENDING_COLUMNS} from pending_signups
+       where email_canonical = $1 order by created_at desc`,
+      [emailCanonical],
     );
-    const row = rows[0];
-    if (!row) return null;
-    return {
-      userId: row.user_id,
-      codeHash: row.code_hash,
-      expiresAt: row.expires_at,
-      attempts: row.attempts,
-    };
+    return rows.map(toPendingSignup);
   }
 
-  async incrementAttempts(userId: string): Promise<void> {
-    await this.pool.query(
-      'update email_verifications set attempts = attempts + 1 where user_id = $1',
-      [userId],
-    );
+  async incrementAttempts(id: string): Promise<void> {
+    await this.pool.query('update pending_signups set attempts = attempts + 1 where id = $1', [id]);
   }
 
-  async delete(userId: string): Promise<void> {
-    await this.pool.query('delete from email_verifications where user_id = $1', [userId]);
+  async deleteById(id: string): Promise<void> {
+    await this.pool.query('delete from pending_signups where id = $1', [id]);
+  }
+
+  async deleteByCanonicalEmail(emailCanonical: string): Promise<void> {
+    await this.pool.query('delete from pending_signups where email_canonical = $1', [
+      emailCanonical,
+    ]);
+  }
+
+  async deleteExpired(now: Date): Promise<number> {
+    const { rowCount } = await this.pool.query('delete from pending_signups where expires_at <= $1', [
+      now,
+    ]);
+    return rowCount ?? 0;
   }
 }
 
@@ -255,7 +266,7 @@ class PostgresPhoneValidationRepository implements PhoneValidationRepository {
 export function createPostgresRepositories(pool: Pool): Repositories {
   return {
     users: new PostgresUserRepository(pool),
-    verifications: new PostgresEmailVerificationRepository(pool),
+    pendingSignups: new PostgresPendingSignupRepository(pool),
     phoneValidations: new PostgresPhoneValidationRepository(pool),
   };
 }

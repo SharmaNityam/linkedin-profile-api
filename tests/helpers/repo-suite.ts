@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Repositories, User } from '../../src/auth/repositories.js';
+import type { NewPendingSignup, Repositories, User } from '../../src/auth/repositories.js';
 import { AppError } from '../../src/errors.js';
 import type { ErrorCode } from '../../src/errors.js';
 
@@ -9,6 +9,9 @@ import type { ErrorCode } from '../../src/errors.js';
  * has to be spelled with a real UUID for both implementations to agree.
  */
 export const MISSING_ID = '00000000-0000-0000-0000-000000000000';
+
+/** Accounts are created verified, so every fixture user carries a timestamp. */
+const VERIFIED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 async function caught(promise: Promise<unknown>): Promise<unknown> {
   return promise.then(
@@ -50,18 +53,19 @@ export function repositorySuite(
         email: `User.${seq}+tag@Example.com`,
         emailCanonical: `user${seq}@example.com`,
         passwordHash: `hash-${seq}`,
+        emailVerifiedAt: VERIFIED_AT,
       });
     }
 
     describe('users', () => {
-      it('creates a user with a uuid and unverified defaults', async () => {
+      it('creates a verified user with a uuid and no phone yet', async () => {
         const user = await newUser();
 
         expect(user.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
         expect(user.email).toBe('User.1+tag@Example.com');
         expect(user.emailCanonical).toBe('user1@example.com');
         expect(user.passwordHash).toBe('hash-1');
-        expect(user.emailVerifiedAt).toBeNull();
+        expect(user.emailVerifiedAt).toEqual(VERIFIED_AT);
         expect(user.phoneE164).toBeNull();
         expect(user.phoneVerifiedAt).toBeNull();
         expect(user.sessionVersion).toBe(0);
@@ -81,6 +85,7 @@ export function repositorySuite(
             email: 'someone-else@example.com',
             emailCanonical: 'user1@example.com',
             passwordHash: 'other',
+            emailVerifiedAt: VERIFIED_AT,
           }),
           'INTERNAL_ERROR',
         );
@@ -104,15 +109,6 @@ export function repositorySuite(
         expect(await repos.users.findById(MISSING_ID)).toBeNull();
         expect(await repos.users.findByCanonicalEmail('nobody@example.com')).toBeNull();
         expect(await repos.users.findByPhone('+14155550000')).toBeNull();
-      });
-
-      it('marks the email verified', async () => {
-        const user = await newUser();
-        const at = new Date('2026-01-01T00:00:00.000Z');
-
-        await repos.users.markEmailVerified(user.id, at);
-
-        expect((await repos.users.findById(user.id))?.emailVerifiedAt).toEqual(at);
       });
 
       it('sets a phone and finds the user by it', async () => {
@@ -148,25 +144,6 @@ export function repositorySuite(
         expect((await repos.users.findById(user.id))?.phoneVerifiedAt).toEqual(at);
       });
 
-      it('replaces the stored password hash', async () => {
-        const user = await newUser();
-
-        await repos.users.updatePasswordHash(user.id, 'hash-rotated');
-
-        expect((await repos.users.findById(user.id))?.passwordHash).toBe('hash-rotated');
-      });
-
-      it('rotates the password of only the requested user, leaving the rest alone', async () => {
-        const first = await newUser();
-        const second = await newUser();
-
-        await repos.users.updatePasswordHash(first.id, 'hash-rotated');
-
-        const stored = await repos.users.findById(first.id);
-        expect(stored).toEqual({ ...first, passwordHash: 'hash-rotated' });
-        expect((await repos.users.findById(second.id))?.passwordHash).toBe('hash-2');
-      });
-
       it('bumps the session version, returning the new value', async () => {
         const user = await newUser();
 
@@ -185,17 +162,11 @@ export function repositorySuite(
       });
 
       it('fails loudly when writing to a user that does not exist', async () => {
-        const at = new Date();
-        await expectAppError(repos.users.markEmailVerified(MISSING_ID, at), 'INTERNAL_ERROR');
         await expectAppError(
-          repos.users.setPhone(MISSING_ID, '+14155559999', at),
+          repos.users.setPhone(MISSING_ID, '+14155559999', new Date()),
           'INTERNAL_ERROR',
         );
         await expectAppError(repos.users.bumpSessionVersion(MISSING_ID), 'INTERNAL_ERROR');
-        await expectAppError(
-          repos.users.updatePasswordHash(MISSING_ID, 'hash-rotated'),
-          'INTERNAL_ERROR',
-        );
       });
 
       it('does not hand out a reference into its own storage', async () => {
@@ -210,104 +181,159 @@ export function repositorySuite(
       });
     });
 
-    describe('email verifications', () => {
+    describe('pending signups', () => {
       const expiresAt = new Date('2026-01-01T00:10:00.000Z');
 
-      it('returns null when there is nothing stored', async () => {
-        const user = await newUser();
-        expect(await repos.verifications.find(user.id)).toBeNull();
-      });
-
-      it('round-trips an upserted verification', async () => {
-        const user = await newUser();
-        const record = { userId: user.id, codeHash: 'abc123', expiresAt, attempts: 0 };
-
-        await repos.verifications.upsert(record);
-
-        expect(await repos.verifications.find(user.id)).toEqual(record);
-      });
-
-      it('replaces the previous code on re-upsert, resetting attempts', async () => {
-        const user = await newUser();
-        await repos.verifications.upsert({
-          userId: user.id,
-          codeHash: 'old',
+      /** A submission for `who@example.com`, spelled however the caller typed it. */
+      function submission(over: Partial<NewPendingSignup> = {}): NewPendingSignup {
+        return {
+          email: 'Who+tag@Example.com',
+          emailCanonical: 'who@example.com',
+          passwordHash: 'hash-a',
+          codeHash: 'code-a',
           expiresAt,
-          attempts: 0,
-        });
-        await repos.verifications.incrementAttempts(user.id);
+          ...over,
+        };
+      }
 
-        const later = new Date('2026-01-01T00:20:00.000Z');
-        await repos.verifications.upsert({
-          userId: user.id,
-          codeHash: 'new',
-          expiresAt: later,
-          attempts: 0,
-        });
-
-        expect(await repos.verifications.find(user.id)).toEqual({
-          userId: user.id,
-          codeHash: 'new',
-          expiresAt: later,
-          attempts: 0,
-        });
+      it('returns an empty list for an address with nothing pending', async () => {
+        expect(await repos.pendingSignups.listByCanonicalEmail('who@example.com')).toEqual([]);
       });
 
-      it('increments attempts one at a time', async () => {
-        const user = await newUser();
-        await repos.verifications.upsert({
-          userId: user.id,
-          codeHash: 'abc',
-          expiresAt,
-          attempts: 0,
-        });
+      it('round-trips a created submission, with a uuid and zero attempts', async () => {
+        const created = await repos.pendingSignups.create(submission());
 
-        await repos.verifications.incrementAttempts(user.id);
-        expect((await repos.verifications.find(user.id))?.attempts).toBe(1);
+        expect(created.id).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
+        expect(created.email).toBe('Who+tag@Example.com');
+        expect(created.emailCanonical).toBe('who@example.com');
+        expect(created.passwordHash).toBe('hash-a');
+        expect(created.codeHash).toBe('code-a');
+        expect(created.expiresAt).toEqual(expiresAt);
+        expect(created.attempts).toBe(0);
+        expect(created.createdAt).toBeInstanceOf(Date);
+        expect(Date.now() - created.createdAt.getTime()).toBeLessThan(60_000);
 
-        await repos.verifications.incrementAttempts(user.id);
-        expect((await repos.verifications.find(user.id))?.attempts).toBe(2);
+        expect(await repos.pendingSignups.listByCanonicalEmail('who@example.com')).toEqual([
+          created,
+        ]);
       });
 
-      it('keeps each user’s verification separate', async () => {
-        const first = await newUser();
-        const second = await newUser();
-        await repos.verifications.upsert({
-          userId: first.id,
-          codeHash: 'one',
-          expiresAt,
-          attempts: 0,
-        });
-        await repos.verifications.upsert({
-          userId: second.id,
-          codeHash: 'two',
-          expiresAt,
-          attempts: 0,
-        });
+      // The whole point of the table: two people can have a submission in
+      // flight for one address, and neither overwrites the other.
+      it('keeps every submission for the same address, newest first', async () => {
+        const first = await repos.pendingSignups.create(
+          submission({ passwordHash: 'hash-first', codeHash: 'code-first' }),
+        );
+        const second = await repos.pendingSignups.create(
+          submission({ passwordHash: 'hash-second', codeHash: 'code-second' }),
+        );
+        const third = await repos.pendingSignups.create(
+          submission({ passwordHash: 'hash-third', codeHash: 'code-third' }),
+        );
 
-        await repos.verifications.incrementAttempts(first.id);
-
-        expect((await repos.verifications.find(first.id))?.codeHash).toBe('one');
-        expect((await repos.verifications.find(second.id))?.attempts).toBe(0);
+        const listed = await repos.pendingSignups.listByCanonicalEmail('who@example.com');
+        expect(listed.map((row) => row.id)).toEqual([third.id, second.id, first.id]);
+        expect(listed.map((row) => row.passwordHash)).toEqual([
+          'hash-third',
+          'hash-second',
+          'hash-first',
+        ]);
       });
 
-      it('deletes, after which find returns null', async () => {
-        const user = await newUser();
-        await repos.verifications.upsert({
-          userId: user.id,
-          codeHash: 'abc',
-          expiresAt,
-          attempts: 0,
-        });
+      it('matches the canonical column exactly, without normalising', async () => {
+        await repos.pendingSignups.create(submission());
 
-        await repos.verifications.delete(user.id);
-
-        expect(await repos.verifications.find(user.id)).toBeNull();
+        expect(await repos.pendingSignups.listByCanonicalEmail('Who+tag@Example.com')).toEqual([]);
+        expect(await repos.pendingSignups.listByCanonicalEmail('WHO@EXAMPLE.COM')).toEqual([]);
       });
 
-      it('treats incrementing or deleting a missing verification as a no-op', async () => {
-        await expect(repos.verifications.incrementAttempts(MISSING_ID)).resolves.toBeUndefined();
-        await expect(repos.verifications.delete(MISSING_ID)).resolves.toBeUndefined();
+      it('counts attempts per row, leaving its siblings alone', async () => {
+        const first = await repos.pendingSignups.create(submission({ codeHash: 'code-first' }));
+        const second = await repos.pendingSignups.create(submission({ codeHash: 'code-second' }));
+
+        await repos.pendingSignups.incrementAttempts(first.id);
+        await repos.pendingSignups.incrementAttempts(first.id);
+
+        const byId = new Map(
+          (await repos.pendingSignups.listByCanonicalEmail('who@example.com')).map((row) => [
+            row.id,
+            row.attempts,
+          ]),
+        );
+        expect(byId.get(first.id)).toBe(2);
+        expect(byId.get(second.id)).toBe(0);
+      });
+
+      it('deletes a single row by id', async () => {
+        const first = await repos.pendingSignups.create(submission({ codeHash: 'code-first' }));
+        const second = await repos.pendingSignups.create(submission({ codeHash: 'code-second' }));
+
+        await repos.pendingSignups.deleteById(first.id);
+
+        const listed = await repos.pendingSignups.listByCanonicalEmail('who@example.com');
+        expect(listed.map((row) => row.id)).toEqual([second.id]);
+      });
+
+      it('deletes every row for one address, and only that address', async () => {
+        await repos.pendingSignups.create(submission({ codeHash: 'code-first' }));
+        await repos.pendingSignups.create(submission({ codeHash: 'code-second' }));
+        const other = await repos.pendingSignups.create(
+          submission({ email: 'other@example.com', emailCanonical: 'other@example.com' }),
+        );
+
+        await repos.pendingSignups.deleteByCanonicalEmail('who@example.com');
+
+        expect(await repos.pendingSignups.listByCanonicalEmail('who@example.com')).toEqual([]);
+        expect(
+          (await repos.pendingSignups.listByCanonicalEmail('other@example.com')).map((r) => r.id),
+        ).toEqual([other.id]);
+      });
+
+      it('deletes expired rows, reporting how many, and keeps live ones', async () => {
+        const stale = new Date('2026-01-01T00:00:00.000Z');
+        const live = new Date('2026-01-01T01:00:00.000Z');
+        await repos.pendingSignups.create(submission({ expiresAt: stale }));
+        await repos.pendingSignups.create(
+          submission({ emailCanonical: 'other@example.com', expiresAt: stale }),
+        );
+        const kept = await repos.pendingSignups.create(submission({ expiresAt: live }));
+
+        expect(await repos.pendingSignups.deleteExpired(new Date('2026-01-01T00:30:00.000Z'))).toBe(
+          2,
+        );
+
+        expect(
+          (await repos.pendingSignups.listByCanonicalEmail('who@example.com')).map((r) => r.id),
+        ).toEqual([kept.id]);
+        expect(await repos.pendingSignups.deleteExpired(stale)).toBe(0);
+      });
+
+      it('treats an expiry exactly at the cutoff as expired', async () => {
+        const at = new Date('2026-01-01T00:10:00.000Z');
+        await repos.pendingSignups.create(submission({ expiresAt: at }));
+
+        expect(await repos.pendingSignups.deleteExpired(at)).toBe(1);
+      });
+
+      it('treats incrementing or deleting a missing row as a no-op', async () => {
+        await expect(repos.pendingSignups.incrementAttempts(MISSING_ID)).resolves.toBeUndefined();
+        await expect(repos.pendingSignups.deleteById(MISSING_ID)).resolves.toBeUndefined();
+        await expect(
+          repos.pendingSignups.deleteByCanonicalEmail('nobody@example.com'),
+        ).resolves.toBeUndefined();
+      });
+
+      it('does not hand out a reference into its own storage', async () => {
+        const created = await repos.pendingSignups.create(submission());
+
+        created.attempts = 99;
+        created.passwordHash = 'tampered';
+
+        const [stored] = await repos.pendingSignups.listByCanonicalEmail('who@example.com');
+        expect(stored?.attempts).toBe(0);
+        expect(stored?.passwordHash).toBe('hash-a');
       });
     });
 

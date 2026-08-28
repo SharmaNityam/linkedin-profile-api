@@ -9,7 +9,12 @@ export interface User {
   email: string;
   /** The de-duplicated form of `email`; unique, and what lookups match on. */
   emailCanonical: string;
-  emailVerifiedAt: Date | null;
+  /**
+   * When the mailbox was proved. Never null: a `users` row is only ever created
+   * by a successful verification, so an account and a verified address are the
+   * same thing.
+   */
+  emailVerifiedAt: Date;
   passwordHash: string;
   phoneE164: string | null;
   phoneVerifiedAt: Date | null;
@@ -18,11 +23,23 @@ export interface User {
   createdAt: Date;
 }
 
-export interface EmailVerification {
-  userId: string;
+/**
+ * One signup submission that has not been verified yet. Deliberately keyed by
+ * its own id rather than by address: several people may have a submission in
+ * flight for the same mailbox, and each carries the password it was submitted
+ * with, so the code that arrives in the mail is the only thing that decides
+ * which password the account ends up with.
+ */
+export interface PendingSignup {
+  id: string;
+  /** The address as typed; what the code was mailed to. */
+  email: string;
+  emailCanonical: string;
+  passwordHash: string;
   codeHash: string;
   expiresAt: Date;
   attempts: number;
+  createdAt: Date;
 }
 
 /** A cached verdict from the phone-validation provider, keyed by number. */
@@ -40,6 +57,16 @@ export interface NewUser {
   email: string;
   emailCanonical: string;
   passwordHash: string;
+  /** Accounts are created verified; there is no unverified user state. */
+  emailVerifiedAt: Date;
+}
+
+export interface NewPendingSignup {
+  email: string;
+  emailCanonical: string;
+  passwordHash: string;
+  codeHash: string;
+  expiresAt: Date;
 }
 
 export interface UserRepository {
@@ -52,25 +79,24 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByCanonicalEmail(emailCanonical: string): Promise<User | null>;
   findByPhone(phoneE164: string): Promise<User | null>;
-  markEmailVerified(id: string, at: Date): Promise<void>;
-  /**
-   * Overwrites the stored hash. Signup uses it when an unverified address is
-   * claimed again, so the last person to submit a password is the only one who
-   * can sign in once the address is verified.
-   */
-  updatePasswordHash(id: string, passwordHash: string): Promise<void>;
   /** `'taken'` when another account already holds the number. */
   setPhone(id: string, phoneE164: string, at: Date): Promise<'ok' | 'taken'>;
   /** Returns the new session version. */
   bumpSessionVersion(id: string): Promise<number>;
 }
 
-export interface EmailVerificationRepository {
-  /** One pending code per user; re-issuing replaces the previous one. */
-  upsert(verification: EmailVerification): Promise<void>;
-  find(userId: string): Promise<EmailVerification | null>;
-  incrementAttempts(userId: string): Promise<void>;
-  delete(userId: string): Promise<void>;
+export interface PendingSignupRepository {
+  create(pending: NewPendingSignup): Promise<PendingSignup>;
+  /** Every submission in flight for the address, newest first. */
+  listByCanonicalEmail(emailCanonical: string): Promise<PendingSignup[]>;
+  /** Counted per row: a wrong guess only burns the submission it was aimed at. */
+  incrementAttempts(id: string): Promise<void>;
+  /** Used to evict the oldest submission once an address is over its cap. */
+  deleteById(id: string): Promise<void>;
+  /** Drops every submission for one address, after one of them verified. */
+  deleteByCanonicalEmail(emailCanonical: string): Promise<void>;
+  /** Housekeeping; returns how many rows were dropped. */
+  deleteExpired(now: Date): Promise<number>;
 }
 
 export interface PhoneValidationRepository {
@@ -80,6 +106,6 @@ export interface PhoneValidationRepository {
 
 export interface Repositories {
   users: UserRepository;
-  verifications: EmailVerificationRepository;
+  pendingSignups: PendingSignupRepository;
   phoneValidations: PhoneValidationRepository;
 }

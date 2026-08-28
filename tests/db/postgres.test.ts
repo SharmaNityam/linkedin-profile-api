@@ -7,7 +7,7 @@ import { repositorySuite } from '../helpers/repo-suite.js';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
-const TABLES = 'users, email_verifications, phone_validations';
+const TABLES = 'users, pending_signups, phone_validations';
 
 /**
  * Runs the same behavioural contract as the memory repositories against a real

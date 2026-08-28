@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { AppError } from '../errors.js';
 import type {
-  EmailVerification,
-  EmailVerificationRepository,
+  NewPendingSignup,
   NewUser,
+  PendingSignup,
+  PendingSignupRepository,
   PhoneValidation,
   PhoneValidationRepository,
   Repositories,
@@ -39,7 +40,7 @@ class MemoryUserRepository implements UserRepository {
       id: randomUUID(),
       email: user.email,
       emailCanonical: user.emailCanonical,
-      emailVerifiedAt: null,
+      emailVerifiedAt: user.emailVerifiedAt,
       passwordHash: user.passwordHash,
       phoneE164: null,
       phoneVerifiedAt: null,
@@ -61,14 +62,6 @@ class MemoryUserRepository implements UserRepository {
 
   async findByPhone(phoneE164: string): Promise<User | null> {
     return this.find((u) => u.phoneE164 === phoneE164);
-  }
-
-  async markEmailVerified(id: string, at: Date): Promise<void> {
-    this.mutable(id).emailVerifiedAt = at;
-  }
-
-  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
-    this.mutable(id).passwordHash = passwordHash;
   }
 
   async setPhone(id: string, phoneE164: string, at: Date): Promise<'ok' | 'taken'> {
@@ -99,25 +92,58 @@ class MemoryUserRepository implements UserRepository {
   }
 }
 
-class MemoryEmailVerificationRepository implements EmailVerificationRepository {
-  private readonly byUserId = new Map<string, EmailVerification>();
+class MemoryPendingSignupRepository implements PendingSignupRepository {
+  /** Insertion order, which is also creation order; read back reversed. */
+  private readonly rows: PendingSignup[] = [];
 
-  async upsert(verification: EmailVerification): Promise<void> {
-    this.byUserId.set(verification.userId, { ...verification });
+  async create(pending: NewPendingSignup): Promise<PendingSignup> {
+    const record: PendingSignup = {
+      id: randomUUID(),
+      email: pending.email,
+      emailCanonical: pending.emailCanonical,
+      passwordHash: pending.passwordHash,
+      codeHash: pending.codeHash,
+      expiresAt: pending.expiresAt,
+      attempts: 0,
+      createdAt: new Date(),
+    };
+    this.rows.push(record);
+    return { ...record };
   }
 
-  async find(userId: string): Promise<EmailVerification | null> {
-    const stored = this.byUserId.get(userId);
-    return stored ? { ...stored } : null;
+  async listByCanonicalEmail(emailCanonical: string): Promise<PendingSignup[]> {
+    const matching = this.rows.filter((row) => row.emailCanonical === emailCanonical);
+    // Newest first: the code someone just received is the one most likely to
+    // be presented, and the caller stops at the first row that matches.
+    return matching.reverse().map((row) => ({ ...row }));
   }
 
-  async incrementAttempts(userId: string): Promise<void> {
-    const stored = this.byUserId.get(userId);
-    if (stored) stored.attempts += 1;
+  async incrementAttempts(id: string): Promise<void> {
+    const row = this.rows.find((r) => r.id === id);
+    if (row) row.attempts += 1;
   }
 
-  async delete(userId: string): Promise<void> {
-    this.byUserId.delete(userId);
+  async deleteById(id: string): Promise<void> {
+    this.remove((row) => row.id === id);
+  }
+
+  async deleteByCanonicalEmail(emailCanonical: string): Promise<void> {
+    this.remove((row) => row.emailCanonical === emailCanonical);
+  }
+
+  async deleteExpired(now: Date): Promise<number> {
+    return this.remove((row) => row.expiresAt.getTime() <= now.getTime());
+  }
+
+  private remove(predicate: (row: PendingSignup) => boolean): number {
+    let removed = 0;
+    for (let i = this.rows.length - 1; i >= 0; i -= 1) {
+      if (predicate(this.rows[i]!)) {
+        this.rows.splice(i, 1);
+        removed += 1;
+      }
+    }
+    return removed;
   }
 }
 
@@ -142,7 +168,7 @@ class MemoryPhoneValidationRepository implements PhoneValidationRepository {
 export function createMemoryRepositories(): Repositories {
   return {
     users: new MemoryUserRepository(),
-    verifications: new MemoryEmailVerificationRepository(),
+    pendingSignups: new MemoryPendingSignupRepository(),
     phoneValidations: new MemoryPhoneValidationRepository(),
   };
 }

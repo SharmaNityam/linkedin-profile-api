@@ -46,3 +46,23 @@ Auth panel under the header: signed-out (email+password → "Sign up" / "Log in"
 
 ## Tests
 Unit: canonical email matrix, allowlist, phone normalisation, Abstract client (mocked fetch: mobile accept, landline reject, 429/missing key → skipped/open vs rejected/closed), hashers, codes (expiry, attempts), session-version revocation. Integration (memory repos, `LogMailer`, fake validator): happy path to `/v1/profile` 200; unverified → 401; no phone → 403; duplicate canonical email → generic 200; duplicate phone → 409; per-user limit independent across two users on one IP; cross-origin POST → 403; `GET /` and `/health` unlimited. `tests/db/postgres.test.ts` gated on `DATABASE_URL`.
+
+## Amendment 2026-08-28
+
+**`pending_signups` replaces `email_verifications`.** As designed above, an unverified signup was a `users` row and a repeat signup overwrote its password hash, so the *last* submission before verification won. An attacker who signed up as `victim@gmail.com` after the victim — any time inside the code window — owned the account the moment the victim verified with their own newest code. The fix is structural rather than a check: a signup no longer creates a user at all.
+
+```
+pending_signups(id uuid pk, email text, email_canonical text, password_hash text,
+                code_hash text, expires_at timestamptz, attempts int default 0,
+                created_at timestamptz default now())   -- index on (email_canonical)
+users.email_verified_at is now NOT NULL
+```
+
+`migrations/0002_pending_signups.sql` creates the table, drops `email_verifications`, and makes `users.email_verified_at` not null (backfilled from `created_at` first, defensively; the table was empty everywhere).
+
+- **Signup** canonicalises, checks the allowlist and the password policy, and returns early (burning a hash) if an account already exists. Otherwise it inserts one `pending_signups` row per submission — never updating another — caps the address at 5 rows by dropping the oldest, sweeps expired rows, and mails the code. The mail is not awaited on the response path.
+- **verify-email** lists the address's rows newest first and tries each live one: the first `ok` creates the user with *that row's* password hash and `email_verified_at = now`, then deletes every row for the address. A `mismatch` increments that row's attempts only. `expired` is reported only when every row has expired, `exhausted` only when every live row is out of attempts, `incorrect` otherwise. Losing the create race (another submission verified first) is reported as `INVALID_CODE`.
+- **login** has no `EMAIL_UNVERIFIED` branch left: an address with only pending submissions has no account, so it is `INVALID_CREDENTIALS` like any other unknown address. The code stays in `errors.ts`. `setPhone` still answers `UNAUTHENTICATED` for a user id that no longer exists.
+- `UserRepository.create` takes `emailVerifiedAt`; `markEmailVerified` and `updatePasswordHash` are gone.
+
+**Also corrected here:** `phoneValidation` is a top-level field on the `/auth/phone` response, not `meta.phoneValidation` as the table above says.

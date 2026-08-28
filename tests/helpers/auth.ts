@@ -36,12 +36,17 @@ export class RecordingMailer implements MailSender {
     this.sent.push({ to, code });
   }
 
+  /** Every code sent to an address, oldest first, matched the way lookups match. */
+  codesFor(email: string): string[] {
+    const canonical = canonicalEmail(email);
+    return this.sent.filter((m) => canonicalEmail(m.to) === canonical).map((m) => m.code);
+  }
+
   /** The newest code sent to an address, matched the way lookups match. */
   lastCodeFor(email: string): string {
-    const canonical = canonicalEmail(email);
-    const last = this.sent.filter((m) => canonicalEmail(m.to) === canonical).at(-1);
-    if (!last) throw new Error(`no verification code was sent to ${email}`);
-    return last.code;
+    const last = this.codesFor(email).at(-1);
+    if (last === undefined) throw new Error(`no verification code was sent to ${email}`);
+    return last;
   }
 }
 
