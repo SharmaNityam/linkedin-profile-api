@@ -1,0 +1,39 @@
+name: Live
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
+
+concurrency:
+  group: live-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-secret:
+    runs-on: ubuntu-latest
+    outputs:
+      has-li-at: ${{ steps.check.outputs.has-li-at }}
+    steps:
+      - id: check
+        run: echo "has-li-at=${{ secrets.LI_AT != '' }}" >> "$GITHUB_OUTPUT"
+
+  live:
+    needs: check-secret
+    if: needs.check-secret.outputs.has-li-at == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:live
+        env:
+          LI_AT: ${{ secrets.LI_AT }}
+          LI_COOKIES: ${{ secrets.LI_COOKIES }}
