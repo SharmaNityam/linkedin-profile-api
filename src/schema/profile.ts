@@ -2,15 +2,6 @@ import { z } from 'zod';
 import { Image, Meta, ErrorResponse } from './common.js';
 export { Image, Meta, ErrorResponse };
 
-/**
- * Public response schema. This is the single source of truth: it drives the
- * TypeScript types, runtime validation of what we return, and the OpenAPI doc.
- *
- * Conventions: a field that LinkedIn does not expose for a profile is `null`;
- * a list section the profile does not have is `[]`. Dates are `{year, month?}`
- * because LinkedIn stores month precision, we never invent a day.
- */
-
 export const PartialDate = z
   .object({
     year: z.number().int(),

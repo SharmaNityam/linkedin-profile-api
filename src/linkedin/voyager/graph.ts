@@ -1,18 +1,10 @@
 import type { CollectionResponse, VoyagerEntity, VoyagerResponse } from './types.js';
 
-/**
- * Indexes a Voyager normalized response so entities can be dereferenced by
- * URN. Tolerant by design: a dangling reference yields `undefined`, not an
- * exception, so one missing entity never takes down the whole profile.
- */
 export class EntityGraph {
   private readonly byUrn = new Map<string, VoyagerEntity>();
   readonly root: VoyagerEntity | undefined;
 
   constructor(...responses: VoyagerResponse[]) {
-    // The same entity (e.g. the Profile) can appear in several responses with
-    // different field subsets, depending on each request's decoration. Merge
-    // them so no field is lost; on conflict the earlier response wins.
     for (const res of responses) {
       for (const entity of res.included ?? []) {
         if (!entity.entityUrn) continue;

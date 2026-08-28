@@ -10,7 +10,6 @@ import {
   type VoyagerResponse,
 } from './types.js';
 
-/** The raw responses that together describe one profile. */
 export interface ProfileBundle {
   /** FullProfileWithEntities decoration, the main entity graph. */
   full: VoyagerResponse;
@@ -20,10 +19,6 @@ export interface ProfileBundle {
   skillPages?: VoyagerResponse[];
 }
 
-/**
- * Turns LinkedIn's entity graph into our public schema. Pure and synchronous
- * so it can be tested exhaustively against recorded fixtures.
- */
 export function normalizeProfile(bundle: ProfileBundle): ProfileData {
   const graph = new EntityGraph(bundle.full, bundle.topCard ?? {}, ...(bundle.skillPages ?? []));
 

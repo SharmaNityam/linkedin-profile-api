@@ -19,11 +19,6 @@ function toUrl(raw: string, original: string): URL {
   }
 }
 
-/**
- * Accepts the many ways a profile URL shows up in the wild and returns the
- * public identifier. Rejects anything that is not a member profile (company,
- * school, pub/dir, posts) so we fail fast with a helpful message.
- */
 export function parseProfileUrl(input: string): ParsedProfileUrl {
   const raw = input.trim();
   if (!raw) throw new InvalidUrlError('Profile URL is empty');
@@ -78,11 +73,6 @@ const COMPANY_SLUG = /^[\p{L}\p{N}\-_%.&]{1,120}$/u;
 // "host.tld", with an optional scheme and port and nothing else.
 const HOSTLIKE = /^(?:[a-z]+:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?$/i;
 
-/**
- * Accepts the ways a company/school URL shows up in the wild and returns the
- * universal name and kind. Rejects member profile URLs so we can redirect
- * callers to /v1/profile.
- */
 export function parseCompanyUrl(input: string): ParsedCompanyUrl {
   const raw = input.trim();
   if (!raw) throw new InvalidUrlError('Company URL is empty');

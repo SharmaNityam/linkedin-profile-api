@@ -46,10 +46,6 @@ interface VoyagerErrorBody {
   message?: string;
 }
 
-/**
- * Turns a raw LinkedIn response into either a parsed body or one of our typed
- * errors. Shared by every transport so the failure mapping is defined once.
- */
 export function interpretVoyagerResponse(
   res: RawResponse,
   context: RequestContext,
@@ -119,20 +115,6 @@ export function interpretVoyagerResponse(
   );
 }
 
-/**
- * Headers every Voyager call needs.
- *
- * Authentication is two cookies:
- *   - `li_at`     , the real session, issued at login (we get it from env)
- *   - `JSESSIONID`, a CSRF token. LinkedIn uses the double-submit pattern:
- *                    the `csrf-token` header must equal the `JSESSIONID`
- *                    cookie, but the value itself is client-chosen. LinkedIn's
- *                    own web app uses the form `ajax:<19 digits>`.
- *
- * The Rest.li headers (`x-restli-protocol-version: 2.0.0`,
- * `accept: …normalized+json+2.1`) are what make responses come back as the
- * flat `included[]` entity graph that `EntityGraph` reads.
- */
 export function voyagerHeaders(csrfToken: string): Record<string, string> {
   return {
     'csrf-token': csrfToken,
@@ -177,13 +159,6 @@ export class HttpVoyagerClient implements VoyagerTransport {
     }
   }
 
-  /**
-   * Establishes the session cookies. If the operator supplied the browser's
-   * companion cookies we use those. Otherwise we do what a browser does on its
-   * first visit: load a page with `li_at` only and keep the `JSESSIONID`,
-   * `bcookie`, `bscookie` and `lidc` LinkedIn sets in response. Replaying
-   * `li_at` without its companions is what gets sessions revoked.
-   */
   private ensureSession(): Promise<SessionCookies> {
     if (this.session) return Promise.resolve(this.session);
     this.bootstrapping ??= this.bootstrap().finally(() => (this.bootstrapping = undefined));
