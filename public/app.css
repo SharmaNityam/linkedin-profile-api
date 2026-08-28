@@ -7,7 +7,8 @@
   --border-strong: #3d3d3d;
   --text: #ededed;
   --muted: #a1a1a1;
-  --faint: #6b6b6b;
+  /* --muted and --faint both clear 4.5:1 on --bg, --surface and --surface-2. */
+  --faint: #828282;
   --accent: #3ecf8e;
   --accent-ink: #06140d;
   --err: #f87171;
@@ -27,12 +28,14 @@
     --border-strong: #b8b8b8;
     --text: #171717;
     --muted: #666666;
-    --faint: #999999;
+    --faint: #6d6d6d;
     --accent: #1f9d61;
-    --accent-ink: #ffffff;
     --err: #b91c1c;
   }
 }
+/* Nothing in the product sets data-theme yet — there is no theme control in
+   either header — so this block is reachable only from devtools. Kept so the
+   override keeps working if a toggle is ever added. */
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #ffffff;
@@ -42,9 +45,8 @@
   --border-strong: #b8b8b8;
   --text: #171717;
   --muted: #666666;
-  --faint: #999999;
+  --faint: #6d6d6d;
   --accent: #1f9d61;
-  --accent-ink: #ffffff;
   --err: #b91c1c;
 }
 
@@ -64,7 +66,13 @@ a:hover { color: var(--accent); text-decoration: underline; }
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-h1, h2, h3 { font-weight: 600; margin: 0; }
+h1, h2, h3 { font-weight: 600; margin: 0; line-height: 1.2; text-wrap: balance; }
+.body, .ptext, .headline, .timeline .desc, .hero p { text-wrap: pretty; }
+/* Data reads as columns, not as a shimmy, when the digits share a width. */
+.status, .stats, ul.quiet .t, ul.quiet > li > span, .activity .count,
+section.block > h2 .count, .timeline .d, .facts, pre.json, pre.snippet {
+  font-variant-numeric: tabular-nums;
+}
 
 header.top { border-bottom: var(--border-w) solid var(--border); }
 header.top .hdr {
@@ -87,38 +95,64 @@ main[data-state="landing"] { justify-content: center; }
 main[data-state="results"] { justify-content: flex-start; }
 main[data-state="results"] > .shell { max-width: 680px; padding: 0 24px 64px; }
 
-.hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; }
+.hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; line-height: 1.15; }
 .hero p { margin: 0; font-size: 15px; color: var(--muted); }
 
 /* the URL row: one bordered box holding the input and the button */
 form.lookup {
   display: flex; align-items: center; margin: 24px 0 0;
-  height: 44px; padding-right: 4px;
+  height: 48px; padding-right: 4px;
   background: var(--bg);
   border: var(--border-w) solid var(--border); border-radius: 8px;
 }
-form.lookup:focus-within { border-color: var(--border-strong); }
+/* The input fills the bar, so the ring belongs to the bar: it hugs the border
+   the eye already reads as the control. --text on --bg is 16.9:1 / 17.9:1. */
+form.lookup:focus-within {
+  border-color: var(--text);
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
 form.lookup input {
   flex: 1; min-width: 0; height: 100%; padding: 0 12px;
   font-size: 14px; background: none; border: 0; border-radius: 8px 0 0 8px;
 }
-form.lookup .btn { height: 36px; }
+form.lookup input:focus-visible { outline: none; }
+form.lookup .btn { height: 40px; }
 form.lookup input::placeholder { color: var(--faint); }
-form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
 .btn {
   height: 40px; padding: 0 16px; border: var(--border-w) solid transparent; border-radius: 8px;
   font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
   background: var(--accent); color: var(--accent-ink);
   min-width: 80px;
+  transition-property: background-color, opacity, scale;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
+.btn:hover:not([disabled]) { background: color-mix(in srgb, var(--accent) 88%, var(--text)); }
+.btn:active:not([disabled]) { scale: 0.96; }
 .btn.quiet { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.btn.quiet:hover:not([disabled]) { background: var(--surface-2); border-color: var(--border-strong); }
 .btn.wide { width: 100%; }
-.btn[disabled] { cursor: progress; }
+.btn[disabled] { cursor: progress; opacity: 0.65; scale: 1; }
+@media (prefers-reduced-motion: reduce) { .btn:active { scale: 1; } }
 .btn-text {
   background: none; border: 0; padding: 0; cursor: pointer;
   font-size: 13px; color: var(--muted);
 }
 .btn-text:hover { color: var(--text); text-decoration: underline; }
+
+/* Pointer targets. The visual boxes stay at their text size; an inert ::after
+   carries the 44px hit area. Only controls that sit alone on a line get one —
+   in the rails the rows grow instead (see ul.quiet), because two overlapping
+   44px overlays would steal each other's clicks. */
+.ex, .more, .tabs button,
+.links .btn-text, .json-actions .btn-text, .me .btn-text, .panel-foot .btn-text { position: relative; }
+.ex::after, .more::after, .tabs button::after,
+.links .btn-text::after, .json-actions .btn-text::after,
+.me .btn-text::after, .panel-foot .btn-text::after {
+  content: ""; position: absolute; inset: 50% 0 auto 0;
+  height: 44px; min-width: 44px; transform: translateY(-50%);
+}
 
 /* the sign-in page: one narrow column, centred the way the landing block is */
 .shell.signin { max-width: 400px; }
@@ -130,7 +164,11 @@ form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
   border: var(--border-w) solid var(--border); border-radius: 8px;
 }
 .field::placeholder { color: var(--faint); }
-.field:focus { outline: none; border-color: var(--border-strong); }
+.field:focus-visible {
+  border-color: var(--text);
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
 .auth-note, .auth-err { font-size: 13px; }
 .auth-note { margin: 8px 0 0; color: var(--muted); }
 .auth-note.faint { margin-top: 4px; color: var(--faint); }
@@ -159,18 +197,26 @@ form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
 .recent-row a { color: var(--text); }
 .panel-h { font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
 ul.quiet { list-style: none; margin: 0; padding: 0; }
-ul.quiet > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; }
+ul.quiet > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0; }
 ul.quiet a { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 ul.quiet > li > span { font-size: 13px; }
 ul.quiet .t { font-size: 12px; color: var(--muted); white-space: nowrap; }
-ul.quiet.actions > li { padding: 4px 0; }
+ul.quiet.actions > li { padding: 6px 0; }
+/* A rail row's hit area is the whole row, so rows sit edge to edge instead of
+   overlapping; on a touch pointer the row grows to 44px. */
+ul.quiet a, ul.quiet .btn-text { position: relative; }
+ul.quiet a::after, ul.quiet .btn-text::after { content: ""; position: absolute; inset: -6px 0; }
+@media (pointer: coarse) {
+  ul.quiet > li, ul.quiet.actions > li { padding: 12px 0; }
+  ul.quiet a::after, ul.quiet .btn-text::after { inset: -12px 0; }
+}
 ul.quiet.actions a { font-size: 13px; color: var(--muted); }
 ul.quiet.actions a:hover { color: var(--accent); }
 .sections a { font-size: 13px; color: var(--muted); }
 .sections a[aria-current="true"] { color: var(--text); }
 #view > [id] { scroll-margin-top: 24px; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
-.panel-foot { margin: 8px 0 0; }
+.panel-foot { margin: 16px 0 0; }
 
 /* Fixed rows: the tabs, the status line and the loading card each keep
    their box when their contents change, so nothing below them moves. */
