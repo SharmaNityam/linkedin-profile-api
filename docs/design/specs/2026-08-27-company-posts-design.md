@@ -1,6 +1,6 @@
 # Design: `/v1/company` and `/v1/posts`
 
-Date: 2026-08-27. Status: approved .
+Date: 2026-08-27. Status: approved.
 
 ## Goal
 
