@@ -26,7 +26,7 @@ export interface AuthRoutesOptions {
 const errorResponses = {
   400: ErrorResponse.describe('The body is malformed, or the code or phone number was rejected'),
   401: ErrorResponse.describe('Not signed in, or the credentials are wrong'),
-  403: ErrorResponse.describe('Email not verified, or the request came from another origin'),
+  403: ErrorResponse.describe('Phone number required, or the request came from another origin'),
   409: ErrorResponse.describe('That phone number belongs to another account'),
   429: ErrorResponse.describe('Rate limited'),
 };

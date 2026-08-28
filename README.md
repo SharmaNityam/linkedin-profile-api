@@ -109,7 +109,7 @@ Accounts:
 | `ABSTRACT_API_KEY` | - | Abstract Phone Validation v1 key. Unset means every number comes back `skipped` |
 | `PHONE_VALIDATION_FAIL_MODE` | `open` | What to do when the provider gives no verdict (no key, no quota, its 5xx). `open` accepts and reports `phoneValidation: "skipped"`; `closed` rejects with `400 PHONE_REJECTED` |
 | `ALLOWED_EMAIL_DOMAINS` | built-in list | Comma-separated override for the accepted mailbox providers. The built-in list is the consumer Google, Microsoft and Yahoo domains in [`src/auth/email-domains.ts`](src/auth/email-domains.ts). Matched **after** canonicalisation, so list `gmail.com` and never `googlemail.com`: the latter has already folded into the former by the time the list is consulted and would match nothing |
-| `AUTH_RATE_LIMIT_PER_HOUR` | `20` | Per-IP hourly budget on `/auth/*`, the endpoints an anonymous caller can reach |
+| `AUTH_RATE_LIMIT_PER_HOUR` | `20` | Per-IP hourly budget on `/auth/signup`, `/auth/verify-email`, `/auth/login` and `/auth/phone` (`/auth/me` uses the per-minute limit, `/auth/logout` is exempt) |
 | `PASSWORD_HASHER` | `argon2` | Which algorithm new passwords are written with: `argon2` (argon2id, 19 MiB, t=2, p=1, native binding) or `scrypt` (N=2^17, pure node). Both verify either format, so switching re-hashes nothing and signs nobody out |
 
 Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY`, `RESEND_API_KEY` and `ABSTRACT_API_KEY` by length, and strips the password out of `DATABASE_URL` while leaving the host and database name readable.
@@ -219,7 +219,7 @@ One address may hold **5** pending submissions at a time — the oldest is dropp
 
 Body `{"email": "…", "code": "123456"}`. On success sets the `sid` cookie and returns the [`/auth/me`](#get-authme) shape.
 
-The code is six digits, valid **10 minutes** and capped at **5 attempts**, counted per submission so that guessing at one pending row cannot spend the budget of the row the real owner is about to use. Every live submission for the address is tried, newest first, and the first one that matches becomes the account; verifying then deletes them all, so a code is single use and so is every code that was racing it. Wrong, expired and exhausted all come back as `400 INVALID_CODE`; the message distinguishes them (`expired` only when every submission has expired, `exhausted` only when every live one is out of attempts), since by that point the caller has already shown they know an address that was sent a code.
+The code is six digits, valid **10 minutes** and capped at **5 attempts**, counted per submission, so a submission made after a burst of guesses starts with a full budget; note that a wrong guess is tried against every live submission and spends one attempt on each. Every live submission for the address is tried, newest first, and the first one that matches becomes the account; verifying then deletes them all, so a code is single use and so is every code that was racing it. Wrong, expired and exhausted all come back as `400 INVALID_CODE`; the message distinguishes them (`expired` only when every submission has expired, `exhausted` only when every live one is out of attempts), since by that point the caller has already shown they know an address that was sent a code.
 
 ### `POST /auth/login`
 

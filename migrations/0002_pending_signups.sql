@@ -26,8 +26,10 @@ create index if not exists pending_signups_email_canonical_idx
 
 drop table if exists email_verifications;
 
--- A `users` row now means a verified account, nothing else. Every environment
--- so far has an empty table, but backfill defensively rather than fail the
--- migration on a row nobody expected.
-update users set email_verified_at = created_at where email_verified_at is null;
+-- A `users` row now means a verified account, nothing else. Under the old
+-- schema an unverified row was a pending signup whose password belonged to
+-- whoever submitted last: the pre-registration hijack this migration ends.
+-- Discard those rows rather than bless them. Nobody could sign in or link a
+-- phone with one, so nothing legitimate is lost.
+delete from users where email_verified_at is null;
 alter table users alter column email_verified_at set not null;
