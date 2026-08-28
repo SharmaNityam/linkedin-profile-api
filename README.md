@@ -141,6 +141,25 @@ Accepted URL forms: `https://www.linkedin.com/in/<slug>/`, `linkedin.com/in/<slu
       "isCurrent": false
     }
   ],
+  "experienceGroups": [
+    {
+      "key": "rhyno-wheels",
+      "name": "Rhyno EV",
+      "company": {
+        "name": "Rhyno EV",
+        "linkedinUrl": "https://www.linkedin.com/company/rhyno-wheels/",
+        "logoUrl": "https://media.licdn.com/dms/image/v2/…/company-logo_200_200/…",
+        "universalName": "rhyno-wheels"
+      },
+      "employmentType": "Internship",
+      "location": null,
+      "startDate": { "year": 2024, "month": 6 },
+      "endDate": { "year": 2024, "month": 9 },
+      "isCurrent": false,
+      "totalMonths": 4,
+      "roles": [ /* the one Experience entry above */ ]
+    }
+  ],
   "education": [
     {
       "schoolName": "SRM Institute of Science and Technology (SRMIST)",
@@ -186,6 +205,7 @@ Schema conventions:
 - A field LinkedIn does not expose for that profile is `null`; a section the profile does not have is `[]`.
 - Dates are `{ "year", "month"? }`: LinkedIn stores month precision, so no day is ever invented.
 - `experience[].isCurrent` is `true` when a position has a start date and no end date.
+- `experienceGroups` collapses consecutive same-company roles into one entry each, LinkedIn-style; `employmentType` and `location` are only set when identical across every role in the group, otherwise `null`.
 - `meta.warnings` lists non-fatal problems, e.g. a skills page that could not be fetched.
 - The full schema is in [`src/schema/profile.ts`](src/schema/profile.ts) and served at `/openapi.json`.
 
