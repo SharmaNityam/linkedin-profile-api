@@ -68,6 +68,7 @@ async function main(): Promise<void> {
     phoneValidator,
     allowedDomains: parseAllowedDomains(config.ALLOWED_EMAIL_DOMAINS),
     failMode: config.PHONE_VALIDATION_FAIL_MODE,
+    emailVerification: config.EMAIL_VERIFICATION,
     log,
   });
 
@@ -79,6 +80,8 @@ async function main(): Promise<void> {
     secureCookies: config.NODE_ENV === 'production',
     rateLimitPerMinute: config.RATE_LIMIT_PER_MINUTE,
     authRateLimitPerHour: config.AUTH_RATE_LIMIT_PER_HOUR,
+    emailVerification: config.EMAIL_VERIFICATION,
+    phoneValidation: config.ABSTRACT_API_KEY ? 'abstract' : 'none',
     logger,
   });
 

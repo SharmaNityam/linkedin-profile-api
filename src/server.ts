@@ -13,7 +13,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { authPlugin, requireAccount } from './auth/plugin.js';
-import type { AuthService } from './auth/service.js';
+import type { AuthService, EmailVerificationMode } from './auth/service.js';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
 import type { LinkedInService } from './linkedin/service.js';
@@ -33,6 +33,10 @@ export interface BuildAppOptions {
   rateLimitPerMinute: number;
   /** Per IP, for the endpoints an anonymous caller can reach. */
   authRateLimitPerHour: number;
+  /** Reported by `GET /auth/config`. Defaults to the mode `AuthService` defaults to. */
+  emailVerification?: EmailVerificationMode;
+  /** Reported by `GET /auth/config`. Defaults to "no provider configured". */
+  phoneValidation?: 'abstract' | 'none';
   /** A pino instance to log through; omitted in tests. */
   logger?: FastifyBaseLogger;
 }
@@ -154,6 +158,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       const path = req.url.split('?', 1)[0] ?? '';
       return (
         path === '/health' ||
+        path === '/auth/config' ||
         path === '/openapi.json' ||
         path === '/docs' ||
         path.startsWith('/docs/')
@@ -189,6 +194,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(authRoutes, {
     auth: options.auth,
     authRateLimitPerHour: options.authRateLimitPerHour,
+    emailVerification: options.emailVerification ?? 'required',
+    phoneValidation: options.phoneValidation ?? 'none',
   });
 
   // One encapsulated context so the gate is stated once and cannot be
