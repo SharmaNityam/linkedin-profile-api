@@ -87,6 +87,15 @@ describe('HTTP API', () => {
     expect(res.body).toContain('href="/app.css"');
   });
 
+  it('GET /login serves the sign-in page', async () => {
+    const res = await app.inject({ url: '/login' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.body).toContain('Sign in');
+    expect(res.body).toContain('/auth/request-code');
+    expect(res.body).toContain('href="/app.css"');
+  });
+
   it('GET /app.css serves the shared stylesheet', async () => {
     const res = await app.inject({ url: '/app.css' });
     expect(res.statusCode).toBe(200);
@@ -363,7 +372,7 @@ describe('rate limiting', () => {
 
   // The playground's own files are registered before the limiter, and the
   // allow-list is matched on the path alone so a query string cannot slip past.
-  it('never limits the playground, /health or /openapi.json, query string included', async () => {
+  it('never limits the playground, sign-in, /health or /openapi.json, query string included', async () => {
     const app = await buildApp({
       services: {} as unknown as LinkedInService,
       auth: testAuth().auth,
@@ -372,6 +381,9 @@ describe('rate limiting', () => {
     await app.ready();
     for (let i = 0; i < 30; i += 1) {
       expect((await app.inject({ url: '/' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/login' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/login?next=%2F' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/login.html' })).statusCode).toBe(200);
       expect((await app.inject({ url: '/app.css' })).statusCode).toBe(200);
       expect((await app.inject({ url: '/health' })).statusCode).toBe(200);
       expect((await app.inject({ url: '/health?x=1' })).statusCode).toBe(200);

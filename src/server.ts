@@ -152,12 +152,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     keyGenerator: (req) => req.viewer?.email ?? req.ip,
     // Path matched alone, query string excluded, so `/health?x=1` is exempt
     // just like `/health`. Covers everything `@fastify/static` serves too
-    // (`/`, `/index.html` and the stylesheet that page pulls in).
+    // (`/`, `/index.html`, the sign-in page and the stylesheet both pull in).
     allowList: (req) => {
       const path = req.url.split('?', 1)[0] ?? '';
       return (
         path === '/' ||
         path === '/index.html' ||
+        path === '/login' ||
+        path === '/login.html' ||
         path === '/app.css' ||
         path === '/health' ||
         path === '/openapi.json' ||
@@ -237,6 +239,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     // at boot costs nothing and nothing is ever added at runtime.
     wildcard: false,
   });
+
+  // A route per file leaves the sign-in page reachable only as `/login.html`,
+  // and the registration above declines to decorate, so a second instance that
+  // serves nothing supplies `reply.sendFile` for the extensionless path.
+  await app.register(fastifyStatic, {
+    root: fileURLToPath(new URL('../public', import.meta.url)),
+    serve: false,
+  });
+  app.get('/login', async (_req, reply) => reply.sendFile('login.html'));
 
   app.setNotFoundHandler({ preHandler: app.rateLimit() }, async (request) => {
     const path = request.url.split('?', 1)[0] ?? '';

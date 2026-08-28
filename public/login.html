@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in · LinkedIn Profile API</title>
+<meta name="description" content="Sign in to the LinkedIn Profile API playground with an emailed one-time code." />
+<meta name="color-scheme" content="dark light" />
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+<header class="top">
+  <div class="hdr">
+    <a class="brand" href="/">LinkedIn Profile API</a>
+    <nav aria-label="Resources">
+      <a href="/docs">Docs</a><span class="sep">·</span><a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" data-state="landing">
+  <div class="shell signin" id="card"></div>
+</main>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const card = $('#card');
+
+  // Only a same-site path is a safe place to land: a value starting with `//`
+  // is an absolute URL to another host wearing a path's clothes.
+  const raw = new URLSearchParams(location.search).get('next') ?? '/';
+  const next = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
+
+  let viewer = null, ready = false;
+  let mode = 'email', step = 'email', signInEmail = '';
+  let domains = [], hasAdmin = false;
+
+  // ---- markup
+  const TABS = [['email', 'Email code'], ['admin', 'Admin']];
+  function tabsHtml() {
+    const shown = TABS.filter(([id]) => id === 'email' || hasAdmin);
+    return `<div class="tabs" role="tablist" aria-label="Sign-in method">${shown.map(([id, label]) => {
+      const on = mode === id;
+      return `<button role="tab" type="button" id="tab-${id}" data-mode="${id}" aria-selected="${on}" aria-controls="panel" tabindex="${on ? 0 : -1}">${label}</button>`;
+    }).join('')}</div>`;
+  }
+
+  const errLine = '<p class="auth-err" id="err" hidden></p>';
+
+  function emailPanel() {
+    if (step === 'code') return `
+      <p class="auth-note">Sent to ${esc(signInEmail)}</p>
+      <form id="form" autocomplete="off">
+        <div class="auth-row">
+          <label class="sr" for="code">Six-digit code</label>
+          <input class="field" id="code" name="code" type="text" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+          <button class="btn" type="submit">Verify</button>
+        </div>
+        ${errLine}
+      </form>
+      <p class="auth-links"><button class="btn-text" type="button" data-act="resend">Resend</button><span class="sep">·</span><button class="btn-text" type="button" data-act="restart">Change email</button></p>`;
+    return `
+      <p class="auth-note">We'll email a 6-digit code. No password, no account.</p>
+      ${domains.length ? `<p class="auth-note faint">Accepted: ${esc(domains.join(', '))}</p>` : ''}
+      <form id="form" autocomplete="off">
+        <div class="auth-row">
+          <label class="sr" for="email">Email address</label>
+          <input class="field" id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false" />
+          <button class="btn" type="submit">Send code</button>
+        </div>
+        ${errLine}
+      </form>`;
+  }
+
+  const adminPanel = () => `
+    <p class="auth-note">Sign in with the shared tester credential.</p>
+    <form id="form" autocomplete="off">
+      <div class="auth-stack">
+        <label class="sr" for="admin-email">Email address</label>
+        <input class="field" id="admin-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" spellcheck="false" />
+        <label class="sr" for="password">Password</label>
+        <input class="field" id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" />
+        <button class="btn wide" type="submit">Sign in</button>
+      </div>
+      ${errLine}
+    </form>`;
+
+  function render() {
+    if (!ready) { card.innerHTML = ''; return; }
+    if (viewer) {
+      card.innerHTML = `<h1>Signed in</h1>
+        <p class="auth-note">Signed in as ${esc(viewer.email)}</p>
+        <p class="auth-links"><a href="${esc(next)}">Continue</a><span class="sep">·</span><button class="btn-text" type="button" data-act="logout">Sign out</button></p>`;
+      return;
+    }
+    card.innerHTML = `<h1>Sign in</h1>${tabsHtml()}
+      <div id="panel" role="tabpanel" aria-labelledby="tab-${mode}">${mode === 'admin' ? adminPanel() : emailPanel()}</div>`;
+    $('input', card)?.focus();
+  }
+
+  // ---- requests
+  function showError(text) {
+    const el = $('#err', card);
+    if (!el) return;
+    el.textContent = text ?? '';
+    el.hidden = !text;
+  }
+  function failed(res, body) {
+    const e = body?.error;
+    let msg = e?.message ?? `Request failed (${res.status}).`;
+    // The per-address message already names the wait; the per-IP one does not.
+    if (e?.code === 'RATE_LIMITED' && !/try again/i.test(msg)) {
+      const secs = Number(e.details?.retryAfterSeconds ?? res.headers.get('retry-after'));
+      if (Number.isFinite(secs) && secs > 0) msg += ` Try again in ${Math.ceil(secs / 60)} min.`;
+    }
+    showError(msg);
+  }
+  const postJson = (path, body) => fetch(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+  const readBody = async (res) => { try { return await res.json(); } catch { return null; } };
+
+  async function run(work) {
+    const btn = $('button[type=submit]', card);
+    showError('');
+    if (btn) btn.disabled = true;
+    try { await work(); } catch (err) { showError(String(err.message || err)); }
+    finally { if (btn?.isConnected) btn.disabled = false; }
+  }
+
+  const requestCode = (email) => run(async () => {
+    const res = await postJson('/auth/request-code', { email });
+    const body = await readBody(res);
+    if (!res.ok) return failed(res, body);
+    signInEmail = email;
+    step = 'code';
+    render();
+  });
+
+  const verifyCode = (code) => run(async () => {
+    const res = await postJson('/auth/verify', { email: signInEmail, code });
+    const body = await readBody(res);
+    if (!res.ok) return failed(res, body);
+    location.assign(next);
+  });
+
+  const logIn = (email, password) => run(async () => {
+    const res = await postJson('/auth/login', { email, password });
+    const body = await readBody(res);
+    if (!res.ok) return failed(res, body);
+    location.assign(next);
+  });
+
+  async function signOut() {
+    try { await fetch('/auth/logout', { method: 'POST', headers: { accept: 'application/json' }, credentials: 'same-origin' }); } catch {}
+    viewer = null;
+    mode = 'email'; step = 'email'; signInEmail = '';
+    render();
+  }
+
+  // ---- wiring
+  document.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (viewer) return;
+    if (mode === 'admin') {
+      const email = $('#admin-email', card).value.trim(), password = $('#password', card).value;
+      if (!email || !password) { (email ? $('#password', card) : $('#admin-email', card)).focus(); return; }
+      logIn(email, password);
+      return;
+    }
+    const field = $('#form input', card);
+    const value = field.value.trim();
+    if (!value) { field.focus(); return; }
+    step === 'code' ? verifyCode(value) : requestCode(value);
+  });
+
+  document.addEventListener('click', (e) => {
+    const tab = e.target.closest('[role=tab]');
+    if (tab) { mode = tab.dataset.mode; step = 'email'; render(); return; }
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'logout') signOut();
+    else if (act === 'resend') requestCode(signInEmail);
+    else if (act === 'restart') { step = 'email'; render(); }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const tab = e.target.closest?.('[role=tab]');
+    if (tab && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      const tabs = [...card.querySelectorAll('[role=tab]')];
+      const at = tabs.indexOf(tab);
+      const to = tabs[(at + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      if (!to || to === tab) return;
+      e.preventDefault();
+      mode = to.dataset.mode; step = 'email';
+      render();
+      $(`#tab-${mode}`, card)?.focus();
+      return;
+    }
+    if (e.key === 'Escape' && document.activeElement?.tagName === 'INPUT') document.activeElement.value = '';
+  });
+
+  async function load(path) {
+    try {
+      const res = await fetch(path, { headers: { accept: 'application/json' }, credentials: 'same-origin' });
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
+  }
+
+  Promise.all([load('/auth/config'), load('/auth/me')]).then(([config, me]) => {
+    domains = Array.isArray(config?.domains) ? config.domains : [];
+    hasAdmin = config?.admin === true;
+    viewer = me;
+    ready = true;
+    render();
+  });
+})();
+</script>
+</body>
+</html>
