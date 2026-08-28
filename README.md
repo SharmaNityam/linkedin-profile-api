@@ -99,7 +99,7 @@ Accounts:
 | Variable | Default | Purpose |
 |---|---|---|
 | `NODE_ENV` | `development` | `development` \| `test` \| `production`. Production additionally **requires** `DATABASE_URL`, `RESEND_API_KEY` and a non-localhost `APP_ORIGIN`, and puts `Secure` on the session cookie |
-| `DATABASE_URL` | - | Postgres connection string. **Required when `NODE_ENV=production`.** Unset elsewhere means the in-memory repositories, with a startup warning. TLS is verified for every host except loopback, so a hosted database needs no extra flag and a local one needs no certificate |
+| `DATABASE_URL` | - | Postgres connection string. **Required when `NODE_ENV=production`.** Unset elsewhere means the in-memory repositories, with a startup warning. TLS is verified for every host except loopback, so a hosted database needs no extra flag and a local one needs no certificate. Any `sslmode`/`ssl` in the connection string is stripped, so the string cannot downgrade that |
 | `SESSION_KEY` | - | **Required.** The session cookie's encryption key: 32 bytes as 64 hex characters, `openssl rand -hex 32`. Changing it invalidates every cookie in circulation |
 | `APP_ORIGIN` | `http://localhost:3000` | The only `Origin` a `POST`/`PUT`/`PATCH`/`DELETE` may declare. Must be the public origin in production |
 | `RESEND_API_KEY` | - | Resend key for the verification email. Unset falls back to writing the code to the log at `debug`, which is fine locally and **not** fine in production — so it is **required when `NODE_ENV=production`**, and the app refuses to start without it |

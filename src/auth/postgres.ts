@@ -14,10 +14,23 @@ import type {
 /** Postgres' `unique_violation`. */
 const UNIQUE_VIOLATION = '23505';
 
-function isUniqueViolation(err: unknown): boolean {
-  return (
-    typeof err === 'object' && err !== null && (err as { code?: unknown }).code === UNIQUE_VIOLATION
-  );
+/**
+ * The constraints declared in `migrations/0001_accounts.sql`, under the names
+ * Postgres derives for a column-level `unique`.
+ */
+const EMAIL_CONSTRAINT = 'users_email_canonical_key';
+const PHONE_CONSTRAINT = 'users_phone_e164_key';
+
+/**
+ * A `23505` alone says only that *some* unique index was tripped. Translating
+ * it into "that email is taken" without checking which one turns a future
+ * constraint — a second unique column, an index added by a later migration —
+ * into a silently wrong answer, so the name has to match.
+ */
+function isUniqueViolation(err: unknown, constraint: string): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { code?: unknown; constraint?: unknown };
+  return e.code === UNIQUE_VIOLATION && e.constraint === constraint;
 }
 
 interface UserRow {
@@ -65,7 +78,7 @@ class PostgresUserRepository implements UserRepository {
       );
       return toUser(rows[0]!);
     } catch (err) {
-      if (isUniqueViolation(err)) {
+      if (isUniqueViolation(err, EMAIL_CONSTRAINT)) {
         throw new AppError('INTERNAL_ERROR', 'An account with that email already exists');
       }
       throw err;
@@ -109,8 +122,7 @@ class PostgresUserRepository implements UserRepository {
       if (rowCount === 0) throw missingUser(id);
       return 'ok';
     } catch (err) {
-      // The only unique index this statement can trip is users.phone_e164.
-      if (isUniqueViolation(err)) return 'taken';
+      if (isUniqueViolation(err, PHONE_CONSTRAINT)) return 'taken';
       throw err;
     }
   }
