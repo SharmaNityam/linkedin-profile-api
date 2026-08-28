@@ -11,6 +11,11 @@
 <meta property="og:url" content="https://linkedin-profile-api-c925.onrender.com/" />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary" />
+<meta property="og:site_name" content="LinkedIn Profile API" />
+<link rel="canonical" href="https://linkedin-profile-api-c925.onrender.com/" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0a" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0a'/%3E%3Ctext x='16' y='23' font-family='Inter,system-ui,sans-serif' font-size='19' font-weight='600' fill='%23ededed' text-anchor='middle'%3E%7B%7D%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
@@ -35,9 +40,12 @@
     </div>
 
     <div class="mid">
+      <!-- The product's name is the header's job; the landing heading says
+           what the page does, so the two no longer print the same words on
+           the same left edge. -->
       <div class="hero" id="hero">
-        <h1>LinkedIn Profile API</h1>
-        <p>Turn a LinkedIn profile, company or activity URL into JSON.</p>
+        <h1>Turn a LinkedIn URL into JSON</h1>
+        <p>Profiles, companies and activity feeds, from LinkedIn's internal Voyager API.</p>
       </div>
 
       <form class="lookup" id="form" autocomplete="off">
@@ -51,14 +59,14 @@
       <p class="recent-row" id="recent-row" hidden></p>
 
       <div class="bar" id="bar" hidden>
-        <div class="tabs" role="tablist" id="tabs" hidden>
-          <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
-          <button role="tab" aria-selected="false" data-tab="json">JSON</button>
+        <div class="tabs" role="tablist" id="tabs" aria-label="Result format" hidden>
+          <button role="tab" aria-selected="true" aria-controls="view" tabindex="0" data-tab="view" id="tab-view">Profile</button>
+          <button role="tab" aria-selected="false" aria-controls="view" tabindex="-1" data-tab="json" id="tab-json">JSON</button>
         </div>
         <span class="status" id="status" hidden></span>
       </div>
 
-      <div class="card" id="view" hidden></div>
+      <div class="card" id="view" role="tabpanel" tabindex="0" aria-labelledby="tab-view" hidden></div>
     </div>
 
     <div class="rail rail-right">
@@ -89,6 +97,8 @@
     ['linkedin.com/in/sharmanityam/recent-activity/all/', 'posts'],
   ];
   const KIND_LABEL = { profile: 'Profile', company: 'Company', posts: 'Posts' };
+  // The schema's page kind is an enum; the heading is prose.
+  const PAGE_KIND = { company: 'Company', school: 'School', showcase: 'Showcase' };
 
   // ---- dates
   const fmt = (d) => d ? (d.month ? `${MONTHS[d.month - 1]} ${d.year}` : String(d.year)) : null;
@@ -321,7 +331,7 @@
         <div class="identity">
           ${img({ image: c.logo, alt: c.name, cls: 'avatar org', eager: true, sizes: '48px', fallback: initialHtml(c.name, c.name) })}
           <div class="who">
-            <h1>${esc(c.name)}<span class="kind">${esc(c.kind)}</span></h1>
+            <h1>${esc(c.name)}<span class="kind">${esc(PAGE_KIND[c.kind] ?? c.kind)}</span></h1>
             ${c.tagline ? `<p class="headline">${esc(c.tagline)}</p>` : ''}
             ${facts ? `<p class="facts">${facts}</p>` : ''}
           </div>
@@ -379,17 +389,18 @@
     uid = 0;
     view.innerHTML = `
       <div class="pad activity" id="personal">
+        <h1 class="sr">Posts by ${esc(postsName(r))}</h1>
         <a href="${esc(r.url)}" rel="noopener" target="_blank">${esc(r.url.replace(/^https:\/\/www\./, ''))}</a>
         <span class="count">${r.posts.length} of ${r.count} requested</span>
       </div>
-      <div id="posts">${r.posts.map((p) => `
+      <section id="posts"><h2 class="sr">Posts</h2>${r.posts.map((p) => `
         <div class="post pad">
           ${author(p, p.isReshare && !p.reshared)}
           ${desc(p.text, 'ptext')}
           ${media(p)}
           ${p.reshared ? `<div class="quote">${author(p.reshared, false)}${desc(p.reshared.text, 'ptext')}${media(p.reshared)}</div>` : ''}
           ${statsRow(p)}
-        </div>`).join('')}</div>`;
+        </div>`).join('')}</section>`;
     bindImages(view);
     trimClamps(view);
   }
@@ -469,7 +480,7 @@
   function renderAuth() {
     meEl.hidden = false;
     meEl.innerHTML = viewer
-      ? `${esc(viewer.email)}<span class="sep">·</span><button class="btn-text" type="button" data-auth="logout">Sign out</button><span class="sep">·</span>`
+      ? `<span class="me-addr">${esc(viewer.email)}</span><span class="sep">·</span><button class="btn-text" type="button" data-auth="logout">Sign out</button><span class="sep">·</span>`
       : `<a href="${esc(loginHref())}">Sign in</a><span class="sep">·</span>`;
   }
 
@@ -588,12 +599,11 @@
   // ---- the left rail's index of the result on screen
   const SECTION_IDS = ['personal', 'about', 'experience', 'education', 'skills', 'certifications', 'languages', 'posts', 'details'];
   const HEAD_LABEL = { profile: 'Personal', company: 'Overview', posts: 'Activity' };
-  // A section is named by its own heading; the two that have none are named
-  // after what they hold.
+  // A section is named by its own heading; the header block has none and is
+  // named after what it holds.
   function sectionLabel(el) {
     const h2 = $('h2', el);
-    if (h2) return h2.firstChild.textContent.trim();
-    return el.id === 'personal' ? HEAD_LABEL[kind] : 'Posts';
+    return h2 ? h2.firstChild.textContent.trim() : HEAD_LABEL[kind];
   }
 
   let observer = null, visible = new Set(), order = [];
@@ -622,7 +632,7 @@
 
   function showKind() {
     tabView.textContent = KIND_LABEL[kind];
-    for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
+    selectTab(tabView);
   }
   // Back to the landing block: no result, no status, no tabs.
   function clearResults() {
@@ -698,10 +708,26 @@
     const hit = results.get(normalise(url));
     hit ? restore(url, hit) : lookup(url, 'none');
   });
-  for (const b of tabsEl.children) b.addEventListener('click', () => {
+  // One tab in the Tab order, the arrow keys move between them: the roving
+  // tabindex the role advertises.
+  function selectTab(b) {
     tab = b.dataset.tab;
-    for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
-    renderView();
+    for (const x of tabsEl.children) {
+      x.setAttribute('aria-selected', String(x === b));
+      x.tabIndex = x === b ? 0 : -1;
+    }
+    view.setAttribute('aria-labelledby', b.id);
+  }
+  for (const b of tabsEl.children) b.addEventListener('click', () => { selectTab(b); renderView(); });
+  tabsEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const btns = [...tabsEl.children];
+    const at = btns.indexOf(e.target);
+    if (at < 0) return;
+    e.preventDefault();
+    const next = btns[(at + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length];
+    next.click();
+    next.focus();
   });
   async function flash(btn, text) {
     const label = btn.dataset.label ?? (btn.dataset.label = btn.textContent);
@@ -717,7 +743,15 @@
     const recent = e.target.closest('[data-recent]');
     // A modified click is the browser's to handle: it opens the deep link.
     if (recent && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); lookup(recent.dataset.recent); return; }
-    if (e.target.closest('[data-recent-clear]')) { writeRecent([]); return; }
+    // Clearing the history is irreversible, so the button asks once first.
+    const clear = e.target.closest('[data-recent-clear]');
+    if (clear) {
+      if (clear.dataset.armed) { writeRecent([]); return; }
+      clear.dataset.armed = '1';
+      clear.textContent = 'Clear all? Click again';
+      setTimeout(() => { if (clear.isConnected) { delete clear.dataset.armed; clear.textContent = 'Clear'; } }, 4000);
+      return;
+    }
     const jump = e.target.closest('[data-jump]');
     if (jump) { e.preventDefault(); $(`#${jump.dataset.jump}`)?.scrollIntoView({ block: 'start' }); return; }
     const example = e.target.closest('[data-example]');

@@ -7,7 +7,8 @@
   --border-strong: #3d3d3d;
   --text: #ededed;
   --muted: #a1a1a1;
-  --faint: #6b6b6b;
+  /* --muted and --faint both clear 4.5:1 on --bg, --surface and --surface-2. */
+  --faint: #828282;
   --accent: #3ecf8e;
   --accent-ink: #06140d;
   --err: #f87171;
@@ -27,12 +28,14 @@
     --border-strong: #b8b8b8;
     --text: #171717;
     --muted: #666666;
-    --faint: #999999;
+    --faint: #6d6d6d;
     --accent: #1f9d61;
-    --accent-ink: #ffffff;
     --err: #b91c1c;
   }
 }
+/* Nothing in the product sets data-theme yet — there is no theme control in
+   either header — so this block is reachable only from devtools. Kept so the
+   override keeps working if a toggle is ever added. */
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #ffffff;
@@ -42,9 +45,8 @@
   --border-strong: #b8b8b8;
   --text: #171717;
   --muted: #666666;
-  --faint: #999999;
+  --faint: #6d6d6d;
   --accent: #1f9d61;
-  --accent-ink: #ffffff;
   --err: #b91c1c;
 }
 
@@ -64,12 +66,21 @@ a:hover { color: var(--accent); text-decoration: underline; }
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-h1, h2, h3 { font-weight: 600; margin: 0; }
+h1, h2, h3 { font-weight: 600; margin: 0; line-height: 1.2; text-wrap: balance; }
+.body, .ptext, .headline, .timeline .desc, .hero p { text-wrap: pretty; }
+/* Data reads as columns, not as a shimmy, when the digits share a width. */
+.status, .stats, ul.quiet .t, ul.quiet > li > span, .activity .count,
+section.block > h2 .count, .timeline .d, .facts, pre.json, pre.snippet {
+  font-variant-numeric: tabular-nums;
+}
 
 header.top { border-bottom: var(--border-w) solid var(--border); }
+/* One line system for the whole page: a 680px content column inside a 24px
+   gutter. The header, the landing block, the narrow result and the wide
+   layout's middle column all resolve to the same left edge. */
 header.top .hdr {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  max-width: 680px; margin: 0 auto; padding: 0 24px; height: 64px;
+  max-width: 728px; margin: 0 auto; padding: 0 24px; height: 64px;
 }
 header.top .brand { font-size: 14px; font-weight: 600; white-space: nowrap; }
 header.top nav {
@@ -82,45 +93,75 @@ main {
   display: flex; flex-direction: column; align-items: center;
   min-height: calc(100vh - 64px);
 }
-main > .shell { width: 100%; max-width: 560px; padding: 24px; }
+main > .shell { width: 100%; max-width: 728px; padding: 24px; }
 main[data-state="landing"] { justify-content: center; }
 main[data-state="results"] { justify-content: flex-start; }
-main[data-state="results"] > .shell { max-width: 680px; padding: 0 24px 64px; }
+main[data-state="results"] > .shell { max-width: 728px; padding: 0 24px 64px; }
 
-.hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; }
+.hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; line-height: 1.15; }
 .hero p { margin: 0; font-size: 15px; color: var(--muted); }
 
 /* the URL row: one bordered box holding the input and the button */
 form.lookup {
   display: flex; align-items: center; margin: 24px 0 0;
-  height: 44px; padding-right: 4px;
+  height: 48px; padding-right: 4px;
   background: var(--bg);
   border: var(--border-w) solid var(--border); border-radius: 8px;
 }
-form.lookup:focus-within { border-color: var(--border-strong); }
+/* The input fills the bar, so the ring belongs to the bar: it hugs the border
+   the eye already reads as the control. --text on --bg is 16.9:1 / 17.9:1. */
+form.lookup:focus-within {
+  border-color: var(--text);
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
 form.lookup input {
   flex: 1; min-width: 0; height: 100%; padding: 0 12px;
   font-size: 14px; background: none; border: 0; border-radius: 8px 0 0 8px;
 }
-form.lookup .btn { height: 36px; }
+form.lookup input:focus-visible { outline: none; }
+/* Concentric: the bar's 8px radius less its 4px inset leaves the button 4px. */
+form.lookup .btn { height: 40px; border-radius: 4px; }
 form.lookup input::placeholder { color: var(--faint); }
-form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
 .btn {
   height: 40px; padding: 0 16px; border: var(--border-w) solid transparent; border-radius: 8px;
   font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
   background: var(--accent); color: var(--accent-ink);
   min-width: 80px;
+  transition-property: background-color, opacity, scale;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
+.btn:hover:not([disabled]) { background: color-mix(in srgb, var(--accent) 88%, var(--text)); }
+.btn:active:not([disabled]) { scale: 0.96; }
 .btn.quiet { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.btn.quiet:hover:not([disabled]) { background: var(--surface-2); border-color: var(--border-strong); }
 .btn.wide { width: 100%; }
-.btn[disabled] { cursor: progress; }
+.btn[disabled] { cursor: progress; opacity: 0.65; scale: 1; }
+@media (prefers-reduced-motion: reduce) { .btn:active { scale: 1; } }
 .btn-text {
   background: none; border: 0; padding: 0; cursor: pointer;
   font-size: 13px; color: var(--muted);
 }
 .btn-text:hover { color: var(--text); text-decoration: underline; }
 
-/* the sign-in page: one narrow column, centred the way the landing block is */
+/* Pointer targets. The visual boxes stay at their text size; an inert ::after
+   carries the 44px hit area. Only controls that sit alone on a line get one —
+   in the rails the rows grow instead (see ul.quiet), because two overlapping
+   44px overlays would steal each other's clicks. */
+.ex, .more, .tabs button, .links .btn-text, .json-actions .btn-text,
+.me .btn-text, .panel-foot .btn-text, .auth-links .btn-text { position: relative; }
+.ex::after, .more::after, .tabs button::after,
+.links .btn-text::after, .json-actions .btn-text::after,
+.me .btn-text::after, .panel-foot .btn-text::after, .auth-links .btn-text::after {
+  content: ""; position: absolute; inset: 50% 0 auto 0;
+  height: 44px; min-width: 44px; transform: translateY(-50%);
+}
+
+/* The sign-in page: one narrow column, top-anchored. Centring it would move
+   the card every time its height changes, and it changes on every tab switch. */
+main[data-state="signin"] { justify-content: flex-start; }
+main[data-state="signin"] > .shell { padding-top: clamp(48px, 18vh, 160px); }
 .shell.signin { max-width: 400px; }
 .signin h1 { font-size: 20px; }
 .signin .tabs { margin: 16px 0 20px; }
@@ -130,18 +171,29 @@ form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
   border: var(--border-w) solid var(--border); border-radius: 8px;
 }
 .field::placeholder { color: var(--faint); }
-.field:focus { outline: none; border-color: var(--border-strong); }
+.field:focus-visible {
+  border-color: var(--text);
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+}
 .auth-note, .auth-err { font-size: 13px; }
 .auth-note { margin: 8px 0 0; color: var(--muted); }
 .auth-note.faint { margin-top: 4px; color: var(--faint); }
-.auth-err { margin: 12px 0 0; color: var(--err); }
+.auth-err { margin: 8px 0 0; color: var(--err); }
 .auth-err[hidden] { display: none; }
-.auth-row { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+.auth-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .auth-row .field { flex: 1; min-width: 0; }
-.auth-stack { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.auth-stack { display: flex; flex-direction: column; gap: 4px; margin-top: 16px; }
 .auth-stack .btn { margin-top: 8px; }
+.auth-stack .field + label { margin-top: 8px; }
+.auth-stack label, .auth-row label { font-size: 13px; color: var(--muted); }
+.auth-row label { flex-basis: 100%; }
 .auth-links { margin: 12px 0 0; font-size: 13px; }
-.me { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+/* Only the address truncates. Clipping the whole line hid the Sign-out button
+   while leaving it in the Tab order. */
+.me { display: inline-flex; align-items: baseline; min-width: 0; color: var(--muted); }
+.me-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) { .me-addr, .me-addr + .sep { display: none; } }
 
 /* the example line under the URL row */
 .try { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
@@ -159,18 +211,28 @@ form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
 .recent-row a { color: var(--text); }
 .panel-h { font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
 ul.quiet { list-style: none; margin: 0; padding: 0; }
-ul.quiet > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; }
+ul.quiet > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0; }
 ul.quiet a { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 ul.quiet > li > span { font-size: 13px; }
 ul.quiet .t { font-size: 12px; color: var(--muted); white-space: nowrap; }
-ul.quiet.actions > li { padding: 4px 0; }
+/* The actions are not more status fields: a gap says so without a divider. */
+ul.quiet.actions { margin-top: 16px; }
+ul.quiet.actions > li { padding: 6px 0; }
+/* A rail row's hit area is the whole row, so rows sit edge to edge instead of
+   overlapping; on a touch pointer the row grows to 44px. */
+ul.quiet a, ul.quiet .btn-text { position: relative; }
+ul.quiet a::after, ul.quiet .btn-text::after { content: ""; position: absolute; inset: -6px 0; }
+@media (pointer: coarse) {
+  ul.quiet > li, ul.quiet.actions > li { padding: 12px 0; }
+  ul.quiet a::after, ul.quiet .btn-text::after { inset: -12px 0; }
+}
 ul.quiet.actions a { font-size: 13px; color: var(--muted); }
 ul.quiet.actions a:hover { color: var(--accent); }
 .sections a { font-size: 13px; color: var(--muted); }
 .sections a[aria-current="true"] { color: var(--text); }
 #view > [id] { scroll-margin-top: 24px; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
-.panel-foot { margin: 8px 0 0; }
+.panel-foot { margin: 16px 0 0; }
 
 /* Fixed rows: the tabs, the status line and the loading card each keep
    their box when their contents change, so nothing below them moves. */
@@ -202,6 +264,9 @@ ul.quiet.actions a:hover { color: var(--accent); }
   color: var(--faint); font-weight: 500; font-size: 14px;
 }
 .avatar { width: 48px; height: 48px; border-radius: 50%; flex: none; font-size: 16px; }
+/* Every image gets the same neutral edge, so a light photo cannot bleed into
+   the surface behind it. Border, not shadow — this sheet has no shadows. */
+.avatar, .pimgs .cell { box-sizing: border-box; border: var(--border-w) solid var(--border); }
 .logo { width: 40px; height: 40px; border-radius: 6px; border: var(--border-w) solid var(--border); flex: none; }
 .logo > img, .org > img { object-fit: contain; }
 .org { border-radius: 6px; border: var(--border-w) solid var(--border); }
@@ -219,6 +284,10 @@ ul.quiet.actions a:hover { color: var(--accent); }
 .kind { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
 
 .body { margin: 0; font-size: 14px; white-space: pre-wrap; }
+/* Free text keeps a readable measure; structured rows stay full width. 58ch
+   is ~476px here, which measures 67-76 characters a line in real copy — `ch`
+   is the width of a zero, and prose averages narrower than that. */
+.body, .ptext, .timeline .desc { max-width: 58ch; }
 [data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .more { background: none; border: 0; padding: 8px 0 0; cursor: pointer; font-size: 13px; color: var(--muted); }
 .more:hover { color: var(--text); text-decoration: underline; }
@@ -267,7 +336,10 @@ section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--mute
 .pimgs[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
 .pimgs[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
 .pimgs .cell { aspect-ratio: 4 / 3; }
-.pimgs[data-n="1"] .cell { max-height: 400px; }
+/* A lone image owns the full column whatever its proportions: the height cap
+   letterboxes a tall one instead of shrinking the box back into the column. */
+.pimgs[data-n="1"] { grid-template-columns: minmax(0, 1fr); }
+.pimgs[data-n="1"] .cell { justify-self: stretch; max-height: 400px; }
 .pimgs[data-n="1"] .cell > img { object-fit: contain; }
 .article-card {
   display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
@@ -283,7 +355,11 @@ section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--mute
 .json-actions { display: flex; justify-content: flex-end; gap: 16px; padding: 12px 20px 0; }
 .card > .json-actions + .json { border-top: 0; }
 pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
-.json { margin: 0; padding: 12px 20px 20px; overflow: auto; max-height: 70vh; }
+/* The pane is a window on a much longer payload; the fade says so. */
+.json {
+  margin: 0; padding: 12px 20px 20px; overflow: auto; max-height: 70vh;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+}
 .snippet { margin: 12px 0 0; padding: 12px; background: var(--bg); border: var(--border-w) solid var(--border); border-radius: 6px; overflow-x: auto; }
 .j-k { color: var(--text); } .j-s { color: var(--muted); } .j-n, .j-b, .j-null { color: var(--faint); }
 
@@ -300,21 +376,27 @@ pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 
   main[data-state="results"] > .shell { padding: 0 16px 64px; }
 }
 
-/* Three columns from 1100px: an index of the result and the recents on the
+/* Three columns from 1216px: an index of the result and the recents on the
    left, the result in the middle, the request's own numbers on the right. The
-   landing block keeps its single centred column — there is nothing to index
-   yet — and the status line stays inline until the rail takes it over. */
-@media (min-width: 1100px) {
+   breakpoint is the width at which all three tracks and the gutter fit at
+   their full size, so the middle column never has to shrink off the shared
+   680px line. Below it the recents collapse into one row under the search and
+   the status goes back inline. */
+@media (min-width: 1216px) {
   main[data-state="results"] > .shell {
     display: grid;
-    grid-template-columns: 220px minmax(0, 680px) 200px;
+    grid-template-columns: 220px minmax(0, 680px) 220px;
     gap: 24px;
     align-items: start;
-    max-width: 1196px;
+    max-width: none;
+    justify-content: center;
   }
   main[data-state="results"] .rail {
     display: flex; flex-direction: column; gap: 24px;
     margin-top: 24px; position: sticky; top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   main[data-state="results"] .recent-row { display: none; }
   main[data-state="results"] .status[data-mirrored="true"] { display: none; }

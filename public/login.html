@@ -7,6 +7,10 @@
 <meta name="description" content="Sign in to the LinkedIn Profile API playground with an emailed one-time code." />
 <meta name="color-scheme" content="dark light" />
 <meta name="robots" content="noindex" />
+<link rel="canonical" href="https://linkedin-profile-api-c925.onrender.com/login" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0a" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0a'/%3E%3Ctext x='16' y='23' font-family='Inter,system-ui,sans-serif' font-size='19' font-weight='600' fill='%23ededed' text-anchor='middle'%3E%7B%7D%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
@@ -25,41 +29,6 @@
 <main id="main" data-state="signin">
   <div class="shell signin" id="card"></div>
 </main>
-
-<style>
-/* Local, login.html-scoped rules — fold into app.css once agreed:
-   1) main[data-state="signin"] is a state value only this page ever sets,
-      so it top-anchors the sign-in card instead of the landing page's
-      centred layout (stops the card jumping when its height changes).
-   2) The rest are scoped under .signin / #card / #panel so they only
-      touch this page's markup (.field, .auth-row, .auth-stack, .tabs,
-      .btn-text classes are not used anywhere in index.html). */
-main[data-state="signin"] { justify-content: flex-start; }
-main[data-state="signin"] > .shell { padding-top: clamp(48px, 18vh, 160px); }
-
-.auth-stack label, .auth-row label { font-size: 13px; color: var(--muted); }
-.auth-stack { gap: 4px; }
-.auth-stack .field + label { margin-top: 8px; }
-.auth-err { margin: 8px 0 0; }
-.auth-row { flex-wrap: wrap; }
-.auth-row label { flex-basis: 100%; }
-
-/* H1 fix, scoped to the two sign-in fields: restore a visible keyboard
-   focus ring (app.css:133 removes outline entirely on .field:focus). */
-#panel .field:focus-visible {
-  outline: 1px solid var(--text);
-  outline-offset: 2px;
-  border-color: var(--text);
-}
-
-/* M7 fix, scoped to this page's tabs/text buttons: 44px hit area
-   without changing the visible box. */
-.signin .btn-text, .signin .tabs button { position: relative; }
-.signin .btn-text::after, .signin .tabs button::after {
-  content: ""; position: absolute; inset: 50% 0 auto 0;
-  height: 44px; transform: translateY(-50%); min-width: 44px;
-}
-</style>
 
 <script>
 (() => {

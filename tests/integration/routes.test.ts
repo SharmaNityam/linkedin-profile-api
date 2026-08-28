@@ -87,6 +87,17 @@ describe('HTTP API', () => {
     expect(res.body).toContain('href="/app.css"');
   });
 
+  it.each([
+    ['/', 'https://linkedin-profile-api-c925.onrender.com/'],
+    ['/login', 'https://linkedin-profile-api-c925.onrender.com/login'],
+  ])('%s carries a canonical URL, a favicon and both theme colours', async (url, canonical) => {
+    const res = await app.inject({ url });
+    expect(res.body).toContain(`<link rel="canonical" href="${canonical}" />`);
+    expect(res.body).toContain('<link rel="icon" href="data:image/svg+xml,');
+    expect(res.body).toContain('content="#0a0a0a"');
+    expect(res.body).toContain('content="#ffffff"');
+  });
+
   it('GET /login serves the sign-in page', async () => {
     const res = await app.inject({ url: '/login' });
     expect(res.statusCode).toBe(200);
