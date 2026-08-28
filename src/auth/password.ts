@@ -148,12 +148,8 @@ function scryptKey(
   params: ScryptParams = DEFAULT_SCRYPT_PARAMS,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    scrypt(
-      password,
-      salt,
-      SCRYPT_KEY_BYTES,
-      { ...params, maxmem: SCRYPT_MAXMEM },
-      (err, key) => (err ? reject(err) : resolve(key)),
+    scrypt(password, salt, SCRYPT_KEY_BYTES, { ...params, maxmem: SCRYPT_MAXMEM }, (err, key) =>
+      err ? reject(err) : resolve(key),
     );
   });
 }

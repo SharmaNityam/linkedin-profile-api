@@ -61,6 +61,8 @@ pnpm dev                                              # http://localhost:3000/do
 
 Without `DATABASE_URL`, accounts live in the process and are lost on restart, which is fine for a local run; the startup log says so. To use a real database locally, set `DATABASE_URL` and run `pnpm migrate:dev` once.
 
+`APP_ORIGIN` has to be the origin the **browser** is on, and it defaults to `http://localhost:3000`. Change `PORT` and it has to move with it — on `PORT=3200`, set `APP_ORIGIN=http://localhost:3200`, or every button in the playground that posts (sign up, verify, sign in, add a phone) comes back `403 FORBIDDEN_ORIGIN` while the page itself loads perfectly.
+
 ### Getting `LI_AT`
 
 The service authenticates to LinkedIn with the `li_at` session cookie of a real account. No password is ever stored.
@@ -130,7 +132,9 @@ Signing up is not free either, which is the point: a mailbox at an accepted prov
 
 Three requests, then the `sid` cookie opens `/v1/*`. `curl` keeps that cookie in a jar: `-c jar` writes what the server sets, `-b jar` sends what is already there, and a step that needs both takes both.
 
-Two things every state-changing request needs, and both are enforced (see [`src/auth/plugin.ts`](src/auth/plugin.ts)): a `content-type` of `application/json`, and either no `Origin` header at all (`curl`'s default) or one exactly equal to `APP_ORIGIN`. A browser form posting from somewhere else gets `403 FORBIDDEN_ORIGIN`; a form-encoded body gets `400 INVALID_REQUEST`.
+Two things every state-changing request needs, and both are enforced (see [`src/auth/plugin.ts`](src/auth/plugin.ts)): either no `content-type` at all or one starting `application/json`, and either no `Origin` header at all (`curl`'s default) or one exactly equal to `APP_ORIGIN`. A browser form posting from somewhere else gets `403 FORBIDDEN_ORIGIN`; a form-encoded body gets `400 INVALID_REQUEST`, empty or not.
+
+The origin check compares the whole origin, scheme and port included, so `APP_ORIGIN` must be exactly what the browser's address bar shows — `http://localhost:3200` when the server runs on `PORT=3200`, not the default `http://localhost:3000`. A mismatch is invisible until the first POST, which then fails with `403 FORBIDDEN_ORIGIN`; `curl`, which sends no `Origin`, keeps working throughout and will not reproduce it.
 
 ```bash
 API=https://linkedin-profile-api-c925.onrender.com
@@ -811,7 +815,7 @@ The blueprint targets the **free** plan. Free instances sleep after 15 minutes o
 
 **The signup password reset is not transactional.** Re-running signup on an unverified address writes the new password hash and then issues a new code as two separate statements. A crash between them leaves the account with the newest password and the previous pending code, which the newest caller does not have. The account is not lost (signup can simply be run again) but the two writes should be one transaction and are not.
 
-**Nothing rate-limits an account's creation beyond the mailbox and the number.** `AUTH_RATE_LIMIT_PER_HOUR` is per IP, so the same address rotation that defeats a per-IP read limit also paces signups. What bounds farming is the supply of accepted-provider mailboxes and distinct mobile numbers, not this counter.
+**Nothing rate-limits an account's creation beyond the mailbox and the number.** `AUTH_RATE_LIMIT_PER_HOUR` is itself keyed by IP — the very thing the account gate exists because it cannot be trusted. The same address rotation that defeats a per-IP read limit resets this counter too, so it paces a casual signup script and no more. What actually bounds farming is the supply of accepted-provider mailboxes and, above all, distinct mobile numbers: the phone is unique across accounts, so each identity costs a number nobody else is using.
 
 **Email deliverability is Resend's shared sender by default.** `EMAIL_FROM` points at `onboarding@resend.dev`, which works without a verified domain and lands in spam more often than a domain you own. A verification code nobody sees is indistinguishable from a broken signup.
 
