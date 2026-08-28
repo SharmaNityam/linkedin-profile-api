@@ -140,8 +140,18 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     // Signed in, the budget follows the account across IPs — and an office or
     // a mobile carrier NAT no longer shares one.
     keyGenerator: (req) => req.currentUser?.id ?? req.ip,
-    allowList: (req) =>
-      req.url === '/health' || req.url === '/openapi.json' || req.url.startsWith('/docs'),
+    // Matched on the path alone: `req.url` carries the query string, so a
+    // bare `===` would miss `/health?x=1`, and a bare `startsWith('/docs')`
+    // would exempt a `/docsomething` route added later.
+    allowList: (req) => {
+      const path = req.url.split('?', 1)[0] ?? '';
+      return (
+        path === '/health' ||
+        path === '/openapi.json' ||
+        path === '/docs' ||
+        path.startsWith('/docs/')
+      );
+    },
     errorResponseBuilder: (req, ctx) => ({
       statusCode: 429,
       error: {

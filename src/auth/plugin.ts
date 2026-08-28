@@ -151,6 +151,7 @@ function readClaims(session: Session): SessionClaims | undefined {
   if (!raw) return undefined;
   if (typeof raw.userId !== 'string') return undefined;
   if (typeof raw.sessionVersion !== 'number') return undefined;
+  if (raw.issuedAt !== undefined && !Number.isFinite(raw.issuedAt)) return undefined;
   return { userId: raw.userId, sessionVersion: raw.sessionVersion, issuedAt: raw.issuedAt ?? 0 };
 }
 

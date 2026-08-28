@@ -143,6 +143,9 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
         body: LogoutBody,
         response: { 200: LogoutResponse, ...errorResponses },
       },
+      // Being over budget must not trap someone in a session they cannot end,
+      // and a sign-out costs nothing upstream.
+      config: { rateLimit: false },
       // A body-less POST parses to `null`, which the schema would reject; a
       // client that just wants to sign out should not have to send `{}`.
       preValidation: async (req) => {

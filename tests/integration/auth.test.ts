@@ -366,12 +366,30 @@ describe('rate limiting', () => {
     expect(Number(fourth.headers['retry-after'])).toBeGreaterThan(0);
   });
 
-  it('never limits the playground or /health', async () => {
+  it('never limits the playground or /health, query string included', async () => {
     const { app } = await harness({ rateLimitPerMinute: 2 });
     for (let i = 0; i < 30; i += 1) {
       expect((await app.inject({ url: '/' })).statusCode).toBe(200);
       expect((await app.inject({ url: '/health' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/health?x=1' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/openapi.json?x=1' })).statusCode).toBe(200);
     }
+  });
+
+  // Being over budget must never trap someone in a session they cannot end.
+  it('lets a limited account still sign out', async () => {
+    const { app, auth } = await harness({ rateLimitPerMinute: 2 });
+    const cookie = await signedInCookie(app, auth, { email: EMAIL, phone: PHONE });
+
+    const hit = () =>
+      app.inject({ url: '/v1/profile', query: { url: 'jane-doe' }, headers: { cookie } });
+    expect((await hit()).statusCode).toBe(200);
+    expect((await hit()).statusCode).toBe(200);
+    expect((await hit()).statusCode).toBe(429);
+
+    const out = await app.inject({ method: 'POST', url: '/auth/logout', headers: { cookie } });
+    expect(out.statusCode).toBe(200);
+    expect(out.json()).toEqual({ status: 'signed_out' });
   });
 });
 
