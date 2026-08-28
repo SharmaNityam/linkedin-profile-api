@@ -6,7 +6,8 @@ import type { LinkedInService } from '../linkedin/service.js';
 const UrlInput = z
   .string()
   .min(1)
-  .describe('LinkedIn profile URL, e.g. https://www.linkedin.com/in/sharmanityam/');
+  .describe('LinkedIn profile URL, e.g. https://www.linkedin.com/in/sharmanityam/')
+  .meta({ example: 'https://www.linkedin.com/in/sharmanityam/' });
 
 const errorResponses = {
   400: ErrorResponse.describe('The URL is not a LinkedIn member profile URL'),
@@ -28,6 +29,9 @@ export const profileRoutes: FastifyPluginAsyncZod<{ services: LinkedInService }>
       schema: {
         tags: ['profile'],
         summary: 'Fetch a LinkedIn profile by URL',
+        description:
+          'Looks up a public LinkedIn member profile and returns normalized JSON: name, headline, about, location, experience, education, skills, certifications, languages, volunteering, projects, honors, publications, courses and images.',
+        security: [{ cookieAuth: [] }],
         querystring: z.object({ url: UrlInput }),
         response: { 200: ProfileResponse, ...errorResponses },
       },
@@ -41,6 +45,8 @@ export const profileRoutes: FastifyPluginAsyncZod<{ services: LinkedInService }>
       schema: {
         tags: ['profile'],
         summary: 'Fetch a LinkedIn profile by URL (JSON body)',
+        description: 'Same as GET /v1/profile, with the URL passed as a JSON body instead.',
+        security: [{ cookieAuth: [] }],
         body: z.object({ url: UrlInput }),
         response: { 200: ProfileResponse, ...errorResponses },
       },

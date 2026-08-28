@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
@@ -35,6 +37,15 @@ export interface BuildAppAuthOptions {
   /** Per IP, on `/auth/request-code` and `/auth/verify`. */
   otpRateLimitPerHour: number;
 }
+
+// Read once at module load rather than on every buildApp() call: both files
+// are baked into the image and never change at runtime.
+const require = createRequire(import.meta.url);
+const { version: packageVersion } = require('../package.json') as { version: string };
+const docsThemeCss = readFileSync(
+  fileURLToPath(new URL('../public/docs-theme.css', import.meta.url)),
+  'utf8',
+);
 
 export interface BuildAppOptions {
   services: LinkedInService;
@@ -84,11 +95,32 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       openapi: '3.1.0',
       info: {
         title: 'LinkedIn Profile API',
-        version: '1.0.0',
+        version: packageVersion,
         description:
-          "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API. Try it in the playground: https://linkedin-profile-api-c925.onrender.com/?url=https://www.linkedin.com/in/sharmanityam/ (the `url` query parameter pre-fills and runs a lookup; the same works for company and posts URLs).",
+          "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API.\n\n" +
+          "Sign in at / with an email code; the `sid` cookie authorises `/v1/*`. In Swagger UI \"Try it out\" works once you have signed in on this origin.\n\n" +
+          'Playground: https://linkedin-profile-api-c925.onrender.com/?url=https://www.linkedin.com/in/sharmanityam/ · Repo: https://github.com/SharmaNityam/linkedin-profile-api',
       },
-      tags: [{ name: 'profile' }, { name: 'company' }, { name: 'posts' }, { name: 'ops' }],
+      servers: [
+        { url: 'https://linkedin-profile-api-c925.onrender.com', description: 'Live' },
+        { url: 'http://localhost:3000', description: 'Local' },
+      ],
+      tags: [
+        { name: 'profile', description: 'Look up a LinkedIn member profile by URL' },
+        { name: 'company', description: 'Look up a LinkedIn company or school page by URL' },
+        { name: 'posts', description: "Fetch a member's newest posts" },
+        { name: 'auth', description: 'Email one-time-code sign-in' },
+        { name: 'ops', description: 'Health and status' },
+      ],
+      externalDocs: {
+        url: 'https://github.com/SharmaNityam/linkedin-profile-api#readme',
+        description: 'Full documentation in the repo README',
+      },
+      components: {
+        securitySchemes: {
+          cookieAuth: { type: 'apiKey', in: 'cookie', name: 'sid' },
+        },
+      },
     },
     transform: jsonSchemaTransform,
   });
@@ -134,7 +166,22 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   // Registered before helmet so the docs UI keeps its own, looser CSP; helmet's
   // hooks only apply to routes registered after it.
-  await app.register(swaggerUi, { routePrefix: '/docs', staticCSP: true });
+  await app.register(swaggerUi, {
+    routePrefix: '/docs',
+    staticCSP: true,
+    uiConfig: {
+      docExpansion: 'list',
+      filter: true,
+      defaultModelsExpandDepth: -1,
+      tryItOutEnabled: true,
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
+    theme: {
+      title: 'LinkedIn Profile API · Docs',
+      css: [{ filename: 'theme.css', content: docsThemeCss }],
+    },
+  });
 
   await app.register(helmet, {
     contentSecurityPolicy: {

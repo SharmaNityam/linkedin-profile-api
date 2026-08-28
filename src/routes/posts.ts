@@ -11,7 +11,8 @@ import {
 const UrlInput = z
   .string()
   .min(1)
-  .describe('LinkedIn profile URL, e.g. https://www.linkedin.com/in/sharmanityam/');
+  .describe('LinkedIn profile URL, e.g. https://www.linkedin.com/in/sharmanityam/')
+  .meta({ example: 'https://www.linkedin.com/in/sharmanityam/' });
 
 const CountInput = z.coerce
   .number()
@@ -21,7 +22,8 @@ const CountInput = z.coerce
   .default(POSTS_DEFAULT_COUNT)
   .describe(
     `How many of the newest posts to return (1–${POSTS_MAX_COUNT}, default ${POSTS_DEFAULT_COUNT})`,
-  );
+  )
+  .meta({ example: POSTS_DEFAULT_COUNT });
 
 const errorResponses = {
   400: ErrorResponse.describe('The URL is not a LinkedIn member profile URL, or count is invalid'),
@@ -43,6 +45,9 @@ export const postsRoutes: FastifyPluginAsyncZod<{ services: LinkedInService }> =
       schema: {
         tags: ['posts'],
         summary: "Fetch a member's newest posts",
+        description:
+          "Looks up a public LinkedIn member's activity and returns their newest posts, newest first, including reshares, images, articles and reaction counts.",
+        security: [{ cookieAuth: [] }],
         querystring: z.object({ url: UrlInput, count: CountInput }),
         response: { 200: PostsResponse, ...errorResponses },
       },
@@ -56,6 +61,8 @@ export const postsRoutes: FastifyPluginAsyncZod<{ services: LinkedInService }> =
       schema: {
         tags: ['posts'],
         summary: "Fetch a member's newest posts (JSON body)",
+        description: 'Same as GET /v1/posts, with the URL and count passed as a JSON body instead.',
+        security: [{ cookieAuth: [] }],
         body: z.object({ url: UrlInput, count: CountInput }),
         response: { 200: PostsResponse, ...errorResponses },
       },
