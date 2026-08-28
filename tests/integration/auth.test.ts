@@ -215,6 +215,23 @@ describe('CSRF guards', () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it.each(['https://evil.example', 'null', 'http://localhost:3001'])(
+    'rejects a mutating request declaring origin %s',
+    async (origin) => {
+      const { app, auth } = await harness();
+      const cookie = await signedInCookie(app, auth, { email: EMAIL, phone: PHONE });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/profile',
+        payload: { url: 'jane-doe' },
+        headers: { cookie, origin },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toMatchObject({ error: { code: 'FORBIDDEN_ORIGIN' } });
+    },
+  );
+
   it('rejects a POST that is not application/json', async () => {
     const { app } = await harness();
     const res = await app.inject({
@@ -222,6 +239,20 @@ describe('CSRF guards', () => {
       url: '/auth/login',
       payload: 'email=jane@gmail.com',
       headers: { 'content-type': 'text/plain' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
+  });
+
+  // A cross-site HTML form can post an empty body just as easily as a filled
+  // one; the content type is the tell, so it is checked whenever it is sent.
+  it('rejects an empty form-encoded POST', async () => {
+    const { app } = await harness();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/signup',
+      payload: '',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
@@ -331,6 +362,8 @@ describe('rate limiting', () => {
     const fourth = await signup(4);
     expect(fourth.statusCode).toBe(429);
     expect(fourth.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+    // The client is told how long to wait, not left to guess.
+    expect(Number(fourth.headers['retry-after'])).toBeGreaterThan(0);
   });
 
   it('never limits the playground or /health', async () => {

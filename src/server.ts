@@ -183,13 +183,24 @@ function toErrorResponse(err: unknown): { status: number } & ErrorResponse {
     };
   }
   const e = err as {
+    code?: string;
     statusCode?: number;
     validation?: unknown;
     message?: string;
     error?: ErrorResponse['error'];
   };
   if (e.statusCode === 429 && e.error) return { status: 429, error: e.error };
-  if (e.validation || e.statusCode === 400) {
+  // Fastify's own body-parsing failures — an unsupported or malformed
+  // content type (415), a body larger than the limit (413). All of them are
+  // the caller sending something we cannot accept, which is a 400 here; the
+  // envelope stays one shape rather than leaking Fastify's status codes.
+  if (
+    e.validation ||
+    e.statusCode === 400 ||
+    e.statusCode === 413 ||
+    e.statusCode === 415 ||
+    e.code?.startsWith('FST_ERR_CTP_')
+  ) {
     return {
       status: 400,
       error: { code: 'INVALID_REQUEST', message: e.message ?? 'Invalid request' },

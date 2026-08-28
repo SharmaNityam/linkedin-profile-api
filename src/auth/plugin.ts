@@ -104,8 +104,12 @@ const auth: FastifyPluginAsync<AuthPluginOptions> = async (app, options) => {
       });
     }
 
-    if (!hasBody(request)) return;
-    const contentType = request.headers['content-type'] ?? '';
+    // Checked whenever the header is sent, empty body or not: a cross-site
+    // form can post nothing at all, and the content type is what gives it
+    // away. Absent means no body was intended (a bare `POST /auth/logout`),
+    // which is not something a form can produce.
+    const contentType = request.headers['content-type'];
+    if (contentType === undefined) return;
     if (!contentType.toLowerCase().startsWith('application/json')) {
       throw new AppError('INVALID_REQUEST', 'Expected application/json');
     }
@@ -153,10 +157,4 @@ function readClaims(session: Session): SessionClaims | undefined {
 /** Trailing slashes are not significant in an `Origin`; treat them as equal. */
 function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/+$/, '').toLowerCase();
-}
-
-function hasBody(request: FastifyRequest): boolean {
-  if (request.headers['transfer-encoding'] !== undefined) return true;
-  const length = request.headers['content-length'];
-  return length !== undefined && length !== '0';
 }
