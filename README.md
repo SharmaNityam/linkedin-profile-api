@@ -98,16 +98,16 @@ Accounts:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `NODE_ENV` | `development` | `development` \| `test` \| `production`. Production additionally **requires** `DATABASE_URL` and a non-localhost `APP_ORIGIN`, and puts `Secure` on the session cookie |
+| `NODE_ENV` | `development` | `development` \| `test` \| `production`. Production additionally **requires** `DATABASE_URL`, `RESEND_API_KEY` and a non-localhost `APP_ORIGIN`, and puts `Secure` on the session cookie |
 | `DATABASE_URL` | - | Postgres connection string. **Required when `NODE_ENV=production`.** Unset elsewhere means the in-memory repositories, with a startup warning. TLS is verified for every host except loopback, so a hosted database needs no extra flag and a local one needs no certificate |
 | `SESSION_KEY` | - | **Required.** The session cookie's encryption key: 32 bytes as 64 hex characters, `openssl rand -hex 32`. Changing it invalidates every cookie in circulation |
 | `APP_ORIGIN` | `http://localhost:3000` | The only `Origin` a `POST`/`PUT`/`PATCH`/`DELETE` may declare. Must be the public origin in production |
-| `RESEND_API_KEY` | - | Resend key for the verification email. Unset falls back to writing the code to the log at `debug`, which is fine locally and **not** fine in production |
+| `RESEND_API_KEY` | - | Resend key for the verification email. Unset falls back to writing the code to the log at `debug`, which is fine locally and **not** fine in production — so it is **required when `NODE_ENV=production`**, and the app refuses to start without it |
 | `EMAIL_FROM` | `LinkedIn Profile API <onboarding@resend.dev>` | The `From:` header. Resend rejects sender domains it has not verified; the default shared sender needs none |
 | `ABSTRACT_API_KEY` | - | Abstract Phone Validation v1 key. Unset means every number comes back `skipped` |
 | `PHONE_VALIDATION_FAIL_MODE` | `open` | What to do when the provider gives no verdict (no key, no quota, its 5xx). `open` accepts and reports `phoneValidation: "skipped"`; `closed` rejects with `400 PHONE_REJECTED` |
 | `ALLOWED_EMAIL_DOMAINS` | built-in list | Comma-separated override for the accepted mailbox providers. The built-in list is the consumer Google, Microsoft and Yahoo domains in [`src/auth/email-domains.ts`](src/auth/email-domains.ts) |
-| `AUTH_RATE_LIMIT_PER_HOUR` | `5` | Per-IP hourly budget on `/auth/*`, the endpoints an anonymous caller can reach |
+| `AUTH_RATE_LIMIT_PER_HOUR` | `20` | Per-IP hourly budget on `/auth/*`, the endpoints an anonymous caller can reach |
 | `PASSWORD_HASHER` | `argon2` | Which algorithm new passwords are written with: `argon2` (argon2id, 19 MiB, t=2, p=1, native binding) or `scrypt` (N=2^17, pure node). Both verify either format, so switching re-hashes nothing and signs nobody out |
 
 Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY`, `RESEND_API_KEY` and `ABSTRACT_API_KEY` by length, and strips the password out of `DATABASE_URL` while leaving the host and database name readable.
@@ -191,7 +191,7 @@ Public: `GET /`, `GET /docs`, `GET /openapi.json`, `GET /health` and every `/aut
 
 All six account endpoints are also in the Swagger UI at `/docs` under the `auth` tag, generated from the same zod schemas that validate them ([`src/schema/auth.ts`](src/schema/auth.ts)).
 
-The four endpoints an anonymous caller can reach (`signup`, `verify-email`, `login`, `phone`) carry their own budget of `AUTH_RATE_LIMIT_PER_HOUR` per IP per hour, keyed by IP rather than by account because at that point there is no account yet. Those are the ones worth hammering: address enumeration, code guessing, password spraying, and the mail provider's quota. `logout` and `me` fall under the ordinary per-minute limit.
+The four endpoints an anonymous caller can reach (`signup`, `verify-email`, `login`, `phone`) carry their own budget of `AUTH_RATE_LIMIT_PER_HOUR` (default 20) per IP per hour, keyed by IP rather than by account because at that point there is no account yet. Those are the ones worth hammering: address enumeration, code guessing, password spraying, and the mail provider's quota. The default is loosely set because the budget is shared by everyone behind one NAT, and a mistyped password or a code that arrived late should not lock a whole office out for an hour. `me` falls under the ordinary per-minute limit; `logout` is exempt from both, because being over budget must never trap someone in a session they cannot end.
 
 ### `POST /auth/signup`
 
@@ -752,10 +752,10 @@ Marked `sync: false`, so Render prompts for them once and they are never read fr
 | `LI_AT` | Every LinkedIn call | The service will not start |
 | `DATABASE_URL` | Accounts | The service will not start (`NODE_ENV=production` requires it) |
 | `SESSION_KEY` | The session cookie | The service will not start. `openssl rand -hex 32` |
-| `RESEND_API_KEY` | Mailing verification codes | Codes are written to the log instead of sent, so nobody outside the log can sign up. **Set this in production** |
+| `RESEND_API_KEY` | Mailing verification codes | The service will not start (`NODE_ENV=production` requires it, so codes are never written to the log there) |
 | `ABSTRACT_API_KEY` | Filtering non-mobile numbers | Every number is `skipped` and, under the default fail-open, accepted |
 
-Set in the blueprint itself, since none of them is a secret: `NODE_ENV=production`, `APP_ORIGIN=https://linkedin-profile-api-c925.onrender.com` (production refuses to start on a localhost origin), `EMAIL_FROM`, `PHONE_VALIDATION_FAIL_MODE=open`, `AUTH_RATE_LIMIT_PER_HOUR=5`, `PASSWORD_HASHER=argon2`, `RATE_LIMIT_PER_MINUTE=10`, `CACHE_TTL_SECONDS=900`.
+Set in the blueprint itself, since none of them is a secret: `NODE_ENV=production`, `APP_ORIGIN=https://linkedin-profile-api-c925.onrender.com` (production refuses to start on a localhost origin), `EMAIL_FROM`, `PHONE_VALIDATION_FAIL_MODE=open`, `AUTH_RATE_LIMIT_PER_HOUR=20`, `PASSWORD_HASHER=argon2`, `RATE_LIMIT_PER_MINUTE=10`, `CACHE_TTL_SECONDS=900`.
 
 `APP_ORIGIN` has to match the origin the playground is actually served from, or every state-changing request the page makes is rejected with `403 FORBIDDEN_ORIGIN`. If the service is renamed or moved to a custom domain, that value moves with it.
 

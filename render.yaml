@@ -13,7 +13,7 @@ services:
       - key: SESSION_KEY
         sync: false # openssl rand -hex 32
       - key: RESEND_API_KEY
-        sync: false # unset logs verification codes instead of mailing them
+        sync: false # required in production; without it the app refuses to start
       - key: ABSTRACT_API_KEY
         sync: false # unset skips every phone check
       - key: NODE_ENV
@@ -25,7 +25,7 @@ services:
       - key: PHONE_VALIDATION_FAIL_MODE
         value: open # accept when the provider gives no verdict
       - key: AUTH_RATE_LIMIT_PER_HOUR
-        value: '5'
+        value: '20'
       - key: PASSWORD_HASHER
         value: argon2
       - key: RATE_LIMIT_PER_MINUTE

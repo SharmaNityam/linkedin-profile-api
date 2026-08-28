@@ -68,8 +68,10 @@ export class ResendMailer implements MailSender {
 
 /**
  * The no-provider fallback: the code goes to the log instead of a mailbox, so
- * local development works without a Resend key. Never selected in production —
- * anyone who can read the logs can complete anyone's signup.
+ * local development works without a Resend key. Anyone who can read the logs
+ * can complete anyone's signup, so this must never run in production — and it
+ * cannot: `loadConfig` requires `RESEND_API_KEY` when `NODE_ENV=production`,
+ * which is the only condition under which `main.ts` picks `ResendMailer`.
  */
 export class LogMailer implements MailSender {
   constructor(private readonly log: LogFn) {}

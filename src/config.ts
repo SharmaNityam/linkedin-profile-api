@@ -39,7 +39,10 @@ const baseSchema = z.object({
   /** Session cookie key: 32 bytes of hex (`openssl rand -hex 32`). */
   SESSION_KEY: z
     .string()
-    .regex(/^[0-9a-f]{64}$/i, 'SESSION_KEY must be 32 bytes as 64 hex chars (openssl rand -hex 32)'),
+    .regex(
+      /^[0-9a-f]{64}$/i,
+      'SESSION_KEY must be 32 bytes as 64 hex chars (openssl rand -hex 32)',
+    ),
   /** The origin the browser app is served from; used for the CSRF origin check and cookie scope. */
   APP_ORIGIN: z.string().url().default('http://localhost:3000'),
   RESEND_API_KEY: z.string().optional(),
@@ -49,16 +52,17 @@ const baseSchema = z.object({
   PHONE_VALIDATION_FAIL_MODE: z.enum(['open', 'closed']).default('open'),
   /** Comma-separated override for the built-in consumer email domain allowlist. */
   ALLOWED_EMAIL_DOMAINS: z.string().optional(),
-  AUTH_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(5),
+  AUTH_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(20),
   PASSWORD_HASHER: z.enum(['argon2', 'scrypt']).default('argon2'),
 });
 
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1']);
 
 /**
- * Production must not silently run on the in-memory repositories or trust a
- * localhost origin — both would look healthy while dropping accounts or
- * accepting cross-site writes.
+ * Production must not silently run on the in-memory repositories, trust a
+ * localhost origin, or fall back to the mailer that logs codes — each would
+ * look healthy while dropping accounts, accepting cross-site writes, or
+ * handing every verification code to anyone who can read the logs.
  */
 const envSchema = baseSchema.superRefine((env, ctx) => {
   if (env.NODE_ENV !== 'production') return;
@@ -68,6 +72,15 @@ const envSchema = baseSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['DATABASE_URL'],
       message: 'DATABASE_URL is required when NODE_ENV=production',
+    });
+  }
+
+  if (!env.RESEND_API_KEY) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['RESEND_API_KEY'],
+      message:
+        'RESEND_API_KEY is required when NODE_ENV=production (without it verification codes go to the log)',
     });
   }
 
