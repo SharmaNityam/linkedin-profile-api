@@ -20,6 +20,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/app.css" />
+<script>
+  (() => { try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {} })();
+</script>
 </head>
 <body>
 <header class="top">
@@ -27,7 +30,7 @@
     <a class="brand" href="/">LinkedIn Profile API</a>
     <nav aria-label="Resources">
       <span class="me" id="me" hidden></span>
-      <a href="/docs">Docs</a><span class="sep">·</span><a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
+      <button class="btn-text" id="theme" type="button" aria-label="Switch theme">Theme</button><span class="sep">·</span><a href="/docs">Docs</a><span class="sep">·</span><a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
     </nav>
   </div>
 </header>
@@ -784,6 +787,21 @@
     else input.focus();
   });
 })();
+</script>
+<script>
+  (() => {
+    const btn = document.getElementById('theme'); if (!btn) return;
+    const order = ['system', 'light', 'dark'];
+    const read = () => { try { const t = localStorage.getItem('theme'); return t === 'light' || t === 'dark' ? t : 'system'; } catch { return 'system'; } };
+    const apply = (t) => {
+      if (t === 'system') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+      try { t === 'system' ? localStorage.removeItem('theme') : localStorage.setItem('theme', t); } catch {}
+      btn.textContent = t === 'system' ? 'Auto' : t === 'light' ? 'Light' : 'Dark';
+      btn.setAttribute('aria-label', 'Theme: ' + btn.textContent + '. Switch');
+    };
+    apply(read());
+    btn.addEventListener('click', () => apply(order[(order.indexOf(read()) + 1) % order.length]));
+  })();
 </script>
 </body>
 </html>

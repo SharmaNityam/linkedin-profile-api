@@ -9,8 +9,9 @@
   --muted: #a1a1a1;
   /* --muted and --faint both clear 4.5:1 on --bg, --surface and --surface-2. */
   --faint: #828282;
-  --accent: #3ecf8e;
-  --accent-ink: #06140d;
+  --accent: #7cf27c;
+  --accent-ink: #0a0a0a;
+  --accent-text: #7cf27c;
   --err: #f87171;
   --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -29,13 +30,13 @@
     --text: #171717;
     --muted: #666666;
     --faint: #6d6d6d;
-    --accent: #1f9d61;
+    --accent: #7cf27c;
+    --accent-ink: #0a0a0a;
+    --accent-text: #1a8f3c;
     --err: #b91c1c;
   }
 }
-/* Nothing in the product sets data-theme yet — there is no theme control in
-   either header — so this block is reachable only from devtools. Kept so the
-   override keeps working if a toggle is ever added. */
+/* Explicit choice from the header theme control; wins over the OS setting. */
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #ffffff;
@@ -46,7 +47,9 @@
   --text: #171717;
   --muted: #666666;
   --faint: #6d6d6d;
-  --accent: #1f9d61;
+  --accent: #7cf27c;
+  --accent-ink: #0a0a0a;
+  --accent-text: #1a8f3c;
   --err: #b91c1c;
 }
 
@@ -62,7 +65,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
-a:hover { color: var(--accent); text-decoration: underline; }
+a:hover { color: var(--accent-text); text-decoration: underline; }
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -118,13 +121,13 @@ form.lookup input::placeholder { color: var(--faint); }
 .btn {
   height: 40px; padding: 0 16px; border: var(--border-w) solid transparent; border-radius: 8px;
   font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
-  background: var(--text); color: var(--bg);
+  background: var(--accent); color: var(--accent-ink);
   min-width: 80px;
   transition-property: background-color, opacity, scale;
   transition-duration: 150ms;
   transition-timing-function: ease-out;
 }
-.btn:hover:not([disabled]) { background: color-mix(in srgb, var(--text) 85%, var(--bg)); }
+.btn:hover:not([disabled]) { background: color-mix(in srgb, var(--accent) 86%, #ffffff); }
 .btn:active:not([disabled]) { scale: 0.96; }
 .btn.quiet { background: var(--surface-2); color: var(--text); border-color: var(--border); }
 .btn.quiet:hover:not([disabled]) { background: var(--surface-2); border-color: var(--border-strong); }
@@ -215,7 +218,7 @@ ul.quiet a::after, ul.quiet .btn-text::after { content: ""; position: absolute; 
   ul.quiet a::after, ul.quiet .btn-text::after { inset: -12px 0; }
 }
 ul.quiet.actions a { font-size: 13px; color: var(--muted); }
-ul.quiet.actions a:hover { color: var(--accent); }
+ul.quiet.actions a:hover { color: var(--accent-text); }
 .sections a { font-size: 13px; color: var(--muted); }
 .sections a[aria-current="true"] { color: var(--text); }
 #view > [id] { scroll-margin-top: 24px; }
@@ -291,7 +294,7 @@ section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--mute
 .timeline .o { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
 .timeline .d { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 .timeline .desc { margin: 8px 0 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
-.now { color: var(--accent); font-weight: 500; margin-left: 8px; }
+.now { color: var(--accent-text); font-weight: 500; margin-left: 8px; }
 
 /* several roles at one company: a hairline connector with a dot per role */
 .roles { list-style: none; margin: 12px 0 0; padding: 0 0 0 16px; position: relative; }
@@ -337,7 +340,7 @@ section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--mute
 .article-card .a-h { color: var(--muted); white-space: nowrap; }
 .quote { margin: 12px 0 0; padding: 12px; border-left: var(--border-w) solid var(--border); }
 .stats { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
-.stats .open:hover { color: var(--accent); }
+.stats .open:hover { color: var(--accent-text); }
 
 /* json */
 .json-actions { display: flex; justify-content: flex-end; gap: 16px; padding: 12px 20px 0; }
