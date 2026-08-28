@@ -284,8 +284,10 @@ ul.quiet.actions a:hover { color: var(--accent); }
 .kind { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
 
 .body { margin: 0; font-size: 14px; white-space: pre-wrap; }
-/* Free text keeps a readable measure; structured rows stay full width. */
-.body, .ptext, .timeline .desc { max-width: 68ch; }
+/* Free text keeps a readable measure; structured rows stay full width. 58ch
+   is ~476px here, which measures 67-76 characters a line in real copy — `ch`
+   is the width of a zero, and prose averages narrower than that. */
+.body, .ptext, .timeline .desc { max-width: 58ch; }
 [data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .more { background: none; border: 0; padding: 8px 0 0; cursor: pointer; font-size: 13px; color: var(--muted); }
 .more:hover { color: var(--text); text-decoration: underline; }
