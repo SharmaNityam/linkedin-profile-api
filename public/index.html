@@ -142,8 +142,10 @@
   .btn[disabled] { opacity: .6; cursor: progress; }
 
   .bar { display: flex; justify-content: space-between; align-items: center; margin: 14px 0; min-height: 30px; }
+  .bar[hidden] { display: none; }
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .card.is-landing { margin-top: 26px; }
 
   /* images: wrap = skeleton until load, then fade in; fallback on error */
   .img-wrap { position: relative; overflow: hidden; background: var(--surface-2); display: block; }
@@ -181,6 +183,19 @@
   .about { margin: 18px 0 0; padding-top: 18px; border-top: 1px solid var(--border); white-space: pre-wrap; color: var(--text-2); font-size: 14.5px; }
   [data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .more { background: none; border: 0; color: var(--accent-text); cursor: pointer; padding: 6px 0 0; font-size: 13px; font-weight: 500; }
+
+  /* landing / empty state */
+  .empty { padding: 26px 24px 24px; }
+  .empty .lead { margin: 0; font-size: 15px; color: var(--text-2); max-width: 62ch; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; }
+  .ex {
+    background: none; border: 1px solid var(--border-strong); border-radius: 999px;
+    color: var(--muted); font-family: var(--mono); font-size: 12.5px; padding: 5px 12px; cursor: pointer;
+  }
+  .ex:hover { color: var(--text); border-color: var(--faint); }
+  .endpoints { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12.5px; }
+  .endpoints a { color: var(--muted); font-family: var(--mono); text-decoration: none; }
+  .endpoints a:hover { color: var(--text); }
 
   /* section nav */
   .secnav { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 10px; background: var(--bg); scrollbar-width: none; }
@@ -288,10 +303,10 @@
   .pill.busy::before { background: var(--faint); }
 
   pre.snippet { margin: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; white-space: pre; line-height: 1.55; }
-  .snippet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .copy { background: none; border: 1px solid var(--border-strong); color: var(--muted); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; }
   .copy:hover { color: var(--text); border-color: var(--faint); }
   .copy[data-done="true"] { color: var(--ok); border-color: var(--ok); }
+  .copy.ghost { border-color: var(--border); }
 
   .tabs { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 2px; }
   .tabs[hidden] { display: none; }
@@ -302,10 +317,9 @@
   .json { padding: 16px 20px; margin: 0; background: var(--surface); overflow: auto; max-height: 78vh; line-height: 1.55; font-size: 12.5px; }
   .j-k { color: var(--j-key); } .j-s { color: var(--j-str); } .j-n { color: var(--accent-text); } .j-b { color: var(--j-bool); } .j-null { color: var(--muted); }
   .json-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  .json-head .acts { display: flex; gap: 6px; }
 
   /* states */
-  .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
-  .empty .glyph { font-family: var(--mono); color: var(--faint); font-size: 13px; margin-bottom: 8px; }
   .error { padding: 20px 24px; }
   .error p { margin: 10px 0 0; color: var(--text-2); }
   .skel { background: var(--surface-2); border-radius: 6px; }
@@ -337,12 +351,12 @@
   </header>
 
   <form class="lookup" id="form" autocomplete="off">
-    <label class="sr" for="url">LinkedIn profile URL</label>
+    <label class="sr" for="url">LinkedIn profile, company or activity URL</label>
     <input id="url" name="url" type="text" placeholder="https://www.linkedin.com/in/username" spellcheck="false" inputmode="url" />
     <button class="btn" id="go" type="submit">Fetch</button>
   </form>
 
-  <div class="bar">
+  <div class="bar" id="bar" hidden>
     <span class="pill" id="status" hidden></span>
     <div class="tabs" role="tablist" id="tabs" hidden>
       <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
@@ -353,7 +367,7 @@
   <nav class="secnav" id="secnav" aria-label="Sections" hidden></nav>
 
   <main id="main">
-    <div class="card" id="view"><div class="empty">Enter a LinkedIn profile URL.</div></div>
+    <div class="card is-landing" id="view"></div>
   </main>
 </div>
 
@@ -364,11 +378,16 @@
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
-  const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), secnav = $('#secnav');
+  const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar'), secnav = $('#secnav');
   const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let data = null, kind = 'profile', tab = 'view', secObserver = null, uid = 0;
 
+  const EXAMPLES = [
+    'linkedin.com/in/sharmanityam',
+    'linkedin.com/company/anthropicresearch',
+    'linkedin.com/in/sharmanityam/recent-activity/all/',
+  ];
   const KIND_LABEL = { profile: 'Profile', company: 'Company', posts: 'Posts' };
 
   // ---- dates
@@ -488,6 +507,17 @@
   function block(key, title, items, body) {
     if (!items?.length) return '';
     return `<section class="block" id="sec-${key}" data-label="${esc(title)}"><h3>${title}<span class="count">${items.length}</span></h3>${body}</section>`;
+  }
+
+  function renderLanding() {
+    uid = 0;
+    view.classList.add('is-landing');
+    view.innerHTML = `
+      <div class="empty">
+        <p class="lead">Paste a LinkedIn profile, company or activity URL. Returns structured JSON from LinkedIn's own API.</p>
+        <div class="examples">${EXAMPLES.map((e) => `<button class="ex" type="button" data-example="${esc(e)}">${esc(e)}</button>`).join('')}</div>
+        <p class="endpoints"><a href="/docs">GET /v1/profile · /v1/company · /v1/posts</a></p>
+      </div>`;
   }
 
   function renderProfile(p) {
@@ -714,14 +744,30 @@
     }
     return out + esc(json.slice(last));
   }
+  // The signed rendition list is most of the payload and rarely what you want to
+  // paste; every image keeps its `url`, which is the largest rendition anyway.
+  function withoutVariants(value) {
+    if (Array.isArray(value)) return value.map(withoutVariants);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).filter(([k]) => k !== 'variants').map(([k, v]) => [k, withoutVariants(v)]));
+    }
+    return value;
+  }
   function renderJson(d) {
     const text = JSON.stringify(d, null, 2);
-    view.innerHTML = `<div class="json-head"><span>${esc(text.length.toLocaleString())} bytes · application/json</span><button class="copy" type="button" data-copy="#json-src">Copy JSON</button></div><pre class="json" id="json-src">${highlight(text)}</pre>`;
+    view.innerHTML = `<div class="json-head">
+      <span>${esc(num(text.length))} bytes · application/json</span>
+      <span class="acts">
+        <button class="copy" type="button" data-copy-json="trimmed">Copy JSON</button>
+        <button class="copy ghost" type="button" data-copy-json="full">Copy full JSON</button>
+      </span>
+    </div><pre class="json" id="json-src">${highlight(text)}</pre>`;
   }
 
   const RENDER = { profile: renderProfile, company: renderCompany, posts: renderPosts };
   function renderView() {
     if (!data) return;
+    view.classList.remove('is-landing');
     tab === 'json' ? renderJson(data) : RENDER[kind](data);
     buildSecNav();
   }
@@ -733,16 +779,19 @@
     secnav.innerHTML = '';
   }
 
-  function setStatus(cls, text) { statusEl.hidden = false; statusEl.className = `pill ${cls}`; statusEl.textContent = text; }
+  function setStatus(cls, text) { bar.hidden = false; statusEl.hidden = false; statusEl.className = `pill ${cls}`; statusEl.textContent = text; }
 
   function showLoading() {
+    view.classList.remove('is-landing');
     view.innerHTML = `<div class="skel skel-banner"></div><div class="skel-wrap"><div class="skel skel-avatar"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
     setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
   }
   function showError(status, body) {
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
+    view.classList.remove('is-landing');
     view.innerHTML = `<div class="error"><span class="pill err">${esc(status)} · ${esc(e.code)}</span><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet" style="margin-top:12px">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
   }
+
   // Which endpoint a pasted URL belongs to. Company, school and showcase pages
   // are one lookup; an activity feed is another; everything else is a member.
   function kindOf(raw) {
@@ -757,6 +806,11 @@
     posts: (u) => `/v1/posts?url=${encodeURIComponent(u)}&count=10`,
   };
 
+  const cacheAge = (iso) => {
+    const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    if (!Number.isFinite(min) || min < 1) return '<1 min';
+    return min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`;
+  };
 
   async function lookup(raw) {
     const url = raw.trim();
@@ -780,7 +834,11 @@
         showError(res.status, body);
         return;
       }
-      data = body; setStatus('ok', `200 · ${ms} ms${body.meta?.cached ? ' · cached' : ''}`); tabsEl.hidden = false; renderView();
+      data = body;
+      const cached = body.meta?.cached ? ` · cached · ${cacheAge(body.meta.fetchedAt)}` : '';
+      setStatus('ok', `200 · ${ms} ms${cached}`);
+      tabsEl.hidden = false;
+      renderView();
     } catch (err) {
       setStatus('err', 'network error'); showError('-', { error: { code: 'NETWORK', message: String(err.message || err) } });
     } finally { go.disabled = false; }
@@ -793,17 +851,21 @@
     for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
     renderView();
   });
+  // Delegated so re-rendered markup needs no re-binding: example chips, clamp
+  // toggles, the skills overflow chip, the copy buttons.
   document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('[data-copy]'); if (!btn) return;
-    const src = $(btn.dataset.copy); if (!src) return;
-    try { await navigator.clipboard.writeText(src.innerText); btn.dataset.done = 'true'; btn.textContent = 'Copied'; setTimeout(() => { btn.dataset.done = 'false'; btn.textContent = btn.dataset.copy === '#json-src' ? 'Copy JSON' : 'Copy'; }, 1500); } catch {}
-  });
-  // Delegated so re-rendered markup needs no re-binding: clamp toggles, the skills overflow chip, the copy-URL button.
-  document.addEventListener('click', async (e) => {
+    const example = e.target.closest('[data-example]');
+    if (example) { lookup(example.dataset.example); return; }
     const clamp = e.target.closest('[data-clamp]');
     if (clamp) { const t = $(clamp.dataset.clamp); if (t) t.dataset.clamped = 'false'; clamp.remove(); return; }
     const more = e.target.closest('[data-skills-more]');
     if (more) { for (const chip of more.parentElement.querySelectorAll('span[hidden]')) chip.hidden = false; more.remove(); return; }
+    const json = e.target.closest('[data-copy-json]');
+    if (json) {
+      const full = json.dataset.copyJson === 'full';
+      flash(json, JSON.stringify(full ? data : withoutVariants(data), null, 2), full ? 'Copy full JSON' : 'Copy JSON');
+      return;
+    }
     const copyUrl = e.target.closest('[data-copy-url]');
     if (copyUrl) {
       try {
@@ -813,6 +875,13 @@
       } catch {}
     }
   });
+  async function flash(btn, text, label) {
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.dataset.done = 'true'; btn.textContent = 'Copied';
+      setTimeout(() => { btn.dataset.done = 'false'; btn.textContent = label; }, 1500);
+    } catch {}
+  }
   secnav.addEventListener('click', (e) => {
     const a = e.target.closest('a[data-sec]'); if (!a) return;
     e.preventDefault();
@@ -824,6 +893,7 @@
     else if (e.key === 'Escape') { input.value = ''; }
   });
 
+  renderLanding();
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) lookup(initial); else input.focus();
 })();
