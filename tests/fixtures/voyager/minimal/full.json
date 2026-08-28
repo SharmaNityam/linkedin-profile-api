@@ -105,7 +105,7 @@
     {
       "entityUrn": "urn:li:col:pg2pos",
       "$type": "com.linkedin.restli.common.CollectionResponse",
-      "*elements": ["urn:li:pos:3"]
+      "*elements": ["urn:li:pos:3", "urn:li:pos:4"]
     },
     {
       "entityUrn": "urn:li:pos:3",
@@ -114,6 +114,14 @@
       "companyName": "Stealth Startup",
       "*employmentType": "urn:li:fsd_employmentType:18",
       "dateRange": { "start": { "year": 2021 }, "end": { "year": 2021 } }
+    },
+    {
+      "entityUrn": "urn:li:pos:4",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "title": "Founding Intern",
+      "companyName": "Stealth Startup",
+      "*employmentType": "urn:li:fsd_employmentType:18",
+      "dateRange": { "start": { "year": 2020 }, "end": { "year": 2020 } }
     },
     {
       "entityUrn": "urn:li:fsd_company:9",
