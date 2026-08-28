@@ -57,6 +57,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       schema: {
         tags: ['auth'],
         summary: 'What kind of access gate this deployment uses',
+        description:
+          "Always returns { gate: 'email' } today; lets a client detect the access model without hardcoding it.",
         response: { 200: AuthConfigResponse },
       },
       config: { rateLimit: false },
@@ -70,6 +72,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       schema: {
         tags: ['auth'],
         summary: 'Mail a one-time code to an address',
+        description:
+          'Sends a 6-digit one-time code to the given address. Follow with POST /auth/verify to exchange it for a session cookie.',
         body: RequestCodeBody,
         response: { 200: RequestCodeResponse, ...errorResponses, 502: ErrorResponse },
       },
@@ -96,6 +100,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       schema: {
         tags: ['auth'],
         summary: 'Confirm the emailed code and start a session',
+        description:
+          "Verifies the code sent by POST /auth/request-code and sets the `sid` session cookie on success. That cookie authorises every /v1/* request from this origin — including Swagger UI's \"Try it out\".",
         body: VerifyBody,
         response: { 200: MeResponse, ...errorResponses },
       },
@@ -116,6 +122,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       schema: {
         tags: ['auth'],
         summary: 'The verified viewer for this session',
+        description: 'Returns the signed-in email for the current `sid` cookie, or 401 if absent.',
         response: { 200: MeResponse, 401: ErrorResponse },
       },
     },
@@ -131,6 +138,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       schema: {
         tags: ['auth'],
         summary: 'Clear the session cookie',
+        description: 'Ends the current session by deleting the `sid` cookie.',
         response: { 200: LogoutResponse },
       },
       config: { rateLimit: false },

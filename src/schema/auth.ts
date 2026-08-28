@@ -10,7 +10,9 @@ import { z } from 'zod';
 const EmailAddress = z.string().trim().toLowerCase().pipe(z.email().max(254));
 
 export const RequestCodeBody = z.object({
-  email: EmailAddress.describe('Address to send the one-time code to'),
+  email: EmailAddress.describe('Address to send the one-time code to').meta({
+    example: 'you@example.com',
+  }),
 });
 export type RequestCodeBody = z.infer<typeof RequestCodeBody>;
 
@@ -18,8 +20,14 @@ export const RequestCodeResponse = z.object({ status: z.literal('code_sent') });
 export type RequestCodeResponse = z.infer<typeof RequestCodeResponse>;
 
 export const VerifyBody = z.object({
-  email: EmailAddress,
-  code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+  email: EmailAddress.describe('Address the code was sent to').meta({
+    example: 'you@example.com',
+  }),
+  code: z
+    .string()
+    .regex(/^\d{6}$/, 'Code must be 6 digits')
+    .describe('The 6-digit code emailed to you')
+    .meta({ example: '123456' }),
 });
 export type VerifyBody = z.infer<typeof VerifyBody>;
 

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/server.js';
@@ -18,6 +19,12 @@ import type { CompanyResponse } from '../../src/schema/company.js';
 import type { Meta } from '../../src/schema/common.js';
 import type { PostsResponse } from '../../src/schema/post.js';
 import type { ProfileResponse } from '../../src/schema/profile.js';
+
+const packageVersion = (
+  JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
+    version: string;
+  }
+).version;
 
 const meta: Meta = {
   source: 'voyager',
@@ -260,6 +267,40 @@ describe('HTTP API', () => {
       'https://linkedin-profile-api-c925.onrender.com/?url=',
     );
   });
+
+  it('OpenAPI info.version matches package.json', async () => {
+    const res = await app.inject({ url: '/openapi.json' });
+    const doc = res.json<{ info: { version: string } }>();
+    expect(doc.info.version).toBe(packageVersion);
+  });
+
+  it('OpenAPI advertises the live server first', async () => {
+    const res = await app.inject({ url: '/openapi.json' });
+    const doc = res.json<{ servers: Array<{ url: string }> }>();
+    expect(doc.servers[0]?.url).toBe('https://linkedin-profile-api-c925.onrender.com');
+  });
+
+  it('OpenAPI tags are in the documented order', async () => {
+    const res = await app.inject({ url: '/openapi.json' });
+    const doc = res.json<{ tags: Array<{ name: string }> }>();
+    expect(doc.tags.map((tag) => tag.name)).toEqual([
+      'profile',
+      'company',
+      'posts',
+      'auth',
+      'ops',
+    ]);
+  });
+
+  it('OpenAPI declares cookieAuth and requires it on /v1/profile', async () => {
+    const res = await app.inject({ url: '/openapi.json' });
+    const doc = res.json<{
+      components: { securitySchemes: { cookieAuth: { in: string } } };
+      paths: { '/v1/profile': { get: { security: Array<Record<string, unknown>> } } };
+    }>();
+    expect(doc.components.securitySchemes.cookieAuth.in).toBe('cookie');
+    expect(doc.paths['/v1/profile'].get.security).toEqual([{ cookieAuth: [] }]);
+  });
 });
 
 describe('rate limiting', () => {
@@ -347,7 +388,7 @@ describe('helmet', () => {
     await app.close();
   });
 
-  it('still serves the docs UI', async () => {
+  it('still serves the docs UI, with its custom title', async () => {
     const app = await buildApp({
       services: {} as unknown as LinkedInService,
       auth: testAuth().auth,
@@ -357,6 +398,7 @@ describe('helmet', () => {
     const res = await app.inject({ url: '/docs/' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/html');
+    expect(res.body).toContain('LinkedIn Profile API · Docs');
     await app.close();
   });
 });
