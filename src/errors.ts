@@ -17,7 +17,8 @@ export type ErrorCode =
   | 'FORBIDDEN_ORIGIN'
   | 'INVALID_CODE'
   | 'MAIL_FAILED'
-  | 'EMAIL_DOMAIN_NOT_ALLOWED';
+  | 'EMAIL_DOMAIN_NOT_ALLOWED'
+  | 'TOO_MANY_ACCOUNTS';
 
 const STATUS: Record<ErrorCode, number> = {
   INVALID_URL: 400,
@@ -35,6 +36,7 @@ const STATUS: Record<ErrorCode, number> = {
   INVALID_CODE: 400,
   MAIL_FAILED: 502,
   EMAIL_DOMAIN_NOT_ALLOWED: 400,
+  TOO_MANY_ACCOUNTS: 403,
 };
 
 export class AppError extends Error {

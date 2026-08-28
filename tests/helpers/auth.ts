@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { canonicalEmail } from '../../src/auth/email.js';
 import type { MailSender } from '../../src/auth/mailer.js';
 import { OtpStore } from '../../src/auth/otp.js';
+import { LoginRegistry } from '../../src/auth/registry.js';
 import type { BuildAppAuthOptions } from '../../src/server.js';
 
 /** A valid 32-byte key, fixed so tests are deterministic. */
@@ -21,6 +22,7 @@ export interface TestAuth {
   auth: BuildAppAuthOptions;
   mailer: RecordingMailer;
   store: OtpStore;
+  registry: LoginRegistry;
 }
 
 /** Covers every domain used by an email literal anywhere in the test suite. */
@@ -33,15 +35,19 @@ export interface TestAuthOverrides {
   perEmailPerHour: number;
   /** Domains /auth/request-code accepts. Permissive by default, see PERMISSIVE_DOMAINS. */
   allowedEmailDomains: string[];
+  /** Per IP, distinct verified accounts inside the trailing 7 days. Generous by default. */
+  accountsPerIp: number;
 }
 
 /** A ready-to-use `auth` option for `buildApp`, generous limits by default. */
 export function testAuth(overrides: Partial<TestAuthOverrides> = {}): TestAuth {
   const mailer = new RecordingMailer();
   const store = new OtpStore(overrides.perEmailPerHour ?? 1000);
+  const registry = new LoginRegistry();
   return {
     mailer,
     store,
+    registry,
     auth: {
       store,
       mailer,
@@ -50,6 +56,8 @@ export function testAuth(overrides: Partial<TestAuthOverrides> = {}): TestAuth {
       secureCookies: false,
       otpRateLimitPerHour: overrides.otpRateLimitPerHour ?? 1000,
       allowedEmailDomains: overrides.allowedEmailDomains ?? PERMISSIVE_DOMAINS,
+      registry,
+      accountsPerIp: overrides.accountsPerIp ?? 1000,
     },
   };
 }

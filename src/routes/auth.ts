@@ -4,6 +4,7 @@ import { canonicalEmail } from '../auth/email.js';
 import { domainNotAllowedMessage, isDomainAllowed } from '../auth/domains.js';
 import type { MailSender } from '../auth/mailer.js';
 import type { OtpStore, VerifyResult } from '../auth/otp.js';
+import type { LoginRegistry } from '../auth/registry.js';
 import { AppError } from '../errors.js';
 import {
   AuthConfigResponse,
@@ -22,7 +23,14 @@ export interface AuthRoutesOptions {
   otpRateLimitPerHour: number;
   /** Domains `/auth/request-code` accepts, lowercased and trimmed. */
   allowedEmailDomains: string[];
+  /** Tracks which emails have verified from which IPs, for the per-IP account cap. */
+  registry: LoginRegistry;
+  /** Per IP, distinct verified accounts inside the trailing 7 days. */
+  accountsPerIp: number;
 }
+
+/** How far back `emailsFor` looks when checking an IP's account budget. */
+const ACCOUNT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const errorResponses = {
   400: ErrorResponse.describe(
@@ -33,7 +41,7 @@ const errorResponses = {
 
 export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
   app,
-  { store, mailer, otpRateLimitPerHour, allowedEmailDomains },
+  { store, mailer, otpRateLimitPerHour, allowedEmailDomains, registry, accountsPerIp },
 ) => {
   /**
    * Anonymous callers hit these, so they're budgeted per IP and per hour on
@@ -85,6 +93,16 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       if (!isDomainAllowed(email, allowedEmailDomains)) {
         throw new AppError('EMAIL_DOMAIN_NOT_ALLOWED', domainNotAllowedMessage(allowedEmailDomains));
       }
+
+      const since = new Date(Date.now() - ACCOUNT_WINDOW_MS);
+      const accounts = registry.emailsFor(req.ip, since);
+      if (!accounts.has(email) && accounts.size >= accountsPerIp) {
+        throw new AppError(
+          'TOO_MANY_ACCOUNTS',
+          `This network already has ${accounts.size} accounts; sign in with one of them`,
+        );
+      }
+
       const outcome = store.issue(email);
       if (outcome.status === 'rate_limited') {
         throw new AppError(
@@ -114,6 +132,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
       const result = store.verify(email, req.body.code);
       if (result !== 'ok') throw new AppError('INVALID_CODE', invalidCodeMessage(result));
       req.session.set('viewer', { email });
+      registry.record(req.ip, email);
+      req.log.info({ email, ip: req.ip }, 'sign-in');
       return { email };
     },
   );

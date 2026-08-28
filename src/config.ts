@@ -60,6 +60,8 @@ const rawEnvSchema = z.object({
         .map((d) => d.trim().toLowerCase())
         .filter(Boolean),
     ),
+  /** Per IP, distinct verified accounts inside the trailing 7 days. */
+  ACCOUNTS_PER_IP: z.coerce.number().int().positive().default(10),
 });
 
 const envSchema = rawEnvSchema

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import type { MailSender } from './auth/mailer.js';
 import type { OtpStore } from './auth/otp.js';
 import { authPlugin, requireViewer } from './auth/plugin.js';
+import type { LoginRegistry } from './auth/registry.js';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
 import type { LinkedInService } from './linkedin/service.js';
@@ -36,6 +37,10 @@ export interface BuildAppAuthOptions {
   otpRateLimitPerHour: number;
   /** Domains `/auth/request-code` accepts, lowercased and trimmed. */
   allowedEmailDomains: string[];
+  /** Tracks which emails have verified from which IPs, for the per-IP account cap. */
+  registry: LoginRegistry;
+  /** Per IP, distinct verified accounts inside the trailing 7 days. */
+  accountsPerIp: number;
 }
 
 export interface BuildAppOptions {
@@ -192,6 +197,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     mailer: options.auth.mailer,
     otpRateLimitPerHour: options.auth.otpRateLimitPerHour,
     allowedEmailDomains: options.auth.allowedEmailDomains,
+    registry: options.auth.registry,
+    accountsPerIp: options.auth.accountsPerIp,
   });
 
   // Encapsulated so requireViewer() gates only /v1/*, not /auth/* or /health.
