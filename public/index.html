@@ -359,7 +359,7 @@
   // ---- renderers
   const initialOf = (name) => esc((name || '?').trim()[0] || '?');
   const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${esc(v.width)}w`).join(', ') : '';
-  // Wrapped image: skeleton until `load`, fallback on `error`. `fallback` is the HTML to show on error.
+  // Wrapped image: skeleton until load, `fallback` HTML on error.
   function img({ image, alt = '', cls, eager = false, sizes, fallback, style = '' }) {
     const box = style ? ` style="${esc(style)}"` : '';
     if (!image?.url) return `<span class="img-wrap ${cls}"${box}>${fallback}</span>`;
@@ -393,7 +393,7 @@
   const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
   const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 
-  // Long free text is clamped to 4 lines behind a "Show more" toggle (see the delegated [data-clamp] handler).
+  // Long free text is clamped to 4 lines behind a "Show more" toggle.
   const CLAMP_AT = 280;
   function desc(text, cls = 'desc') {
     if (!text) return '';
@@ -616,7 +616,7 @@
     trimClamps(view);
   }
 
-  // Tokenise the raw JSON first, then escape each token, escaping first would turn quotes into &quot; and break string detection.
+  // Tokenise before escaping; escaping first would break string detection.
   function highlight(json) {
     const re = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
     let out = '', last = 0, m;
@@ -862,8 +862,7 @@
       setTimeout(() => { btn.textContent = label; }, 1500);
     } catch {}
   }
-  // Delegated so re-rendered markup needs no re-binding: example links, clamp
-  // toggles, the skills overflow toggle, the copy buttons.
+  // Delegated so re-rendered markup needs no re-binding.
   document.addEventListener('click', (e) => {
     const auth = e.target.closest('[data-auth]');
     if (auth) {
