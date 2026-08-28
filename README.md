@@ -7,12 +7,19 @@ A small HTTPS service that takes a LinkedIn URL and returns structured JSON. Thr
 It is a pure reverse-engineering of **Voyager**, the private JSON API that LinkedIn's own web app calls. Every request goes straight to LinkedIn's endpoints over HTTP; there is no browser, no HTML parsing and no third-party service involved.
 
 ```bash
-curl "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
-curl "https://linkedin-profile-api-c925.onrender.com/v1/company?url=https://www.linkedin.com/company/anthropicresearch/"
-curl "https://linkedin-profile-api-c925.onrender.com/v1/posts?url=https://www.linkedin.com/in/sharmanityam/&count=5"
+# Prove you control an inbox: request a code, then verify it to get a cookie.
+curl -X POST https://linkedin-profile-api-c925.onrender.com/auth/request-code \
+  -H 'content-type: application/json' -d '{"email":"you@example.com"}'
+curl -X POST https://linkedin-profile-api-c925.onrender.com/auth/verify \
+  -H 'content-type: application/json' -d '{"email":"you@example.com","code":"123456"}' \
+  -c cookies.txt
+
+curl -b cookies.txt "https://linkedin-profile-api-c925.onrender.com/v1/profile?url=https://www.linkedin.com/in/sharmanityam/"
+curl -b cookies.txt "https://linkedin-profile-api-c925.onrender.com/v1/company?url=https://www.linkedin.com/company/anthropicresearch/"
+curl -b cookies.txt "https://linkedin-profile-api-c925.onrender.com/v1/posts?url=https://www.linkedin.com/in/sharmanityam/&count=5"
 ```
 
-There is no sign-up and no key: every endpoint is open, and the only thing standing between a caller and LinkedIn is a per-IP rate limit.
+There is no sign-up, no password and no third-party login: proving you control an inbox is enough. `/v1/*` sits behind an email one-time-code gate (see [Access](#access)); past that, a per-IP-or-per-email rate limit is the only thing standing between a caller and LinkedIn.
 
 - **Live docs:** `https://linkedin-profile-api-c925.onrender.com/docs` (Swagger UI, generated from the response schema)
 - **OpenAPI:** `https://linkedin-profile-api-c925.onrender.com/openapi.json`
@@ -24,6 +31,7 @@ There is no sign-up and no key: every endpoint is open, and the only thing stand
 ## Contents
 
 - [Quick start](#quick-start)
+- [Access](#access)
 - [API](#api)
   - [`GET|POST /v1/profile`](#getpost-v1profile)
   - [`GET|POST /v1/company`](#getpost-v1company)
@@ -85,14 +93,51 @@ Everything the service reads is declared and validated in [`src/config.ts`](src/
 | `MAX_CONCURRENT_UPSTREAM` | `2` | Concurrent requests to LinkedIn |
 | `VOYAGER_POSTS_QUERY_ID` | `20c70fe0314184158516a7ec004c0408` | The `voyagerFeedDashProfileUpdates` persisted-query hash used by `/v1/posts`. LinkedIn rotates these; see [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid) |
 | `LOG_LEVEL` | `info` | pino log level |
+| `SESSION_KEY` | - | 64 hex chars (32 bytes), required. Encrypts and signs the `sid` cookie; generate with `openssl rand -hex 32`. Rotating it signs every caller out |
+| `SMTP_USER` / `SMTP_PASS` | - | Gmail account and app password used to mail codes. Required when `NODE_ENV=production`; in development, an unset pair falls back to logging the code instead of mailing it (see [Access](#access)) |
+| `SMTP_HOST` / `SMTP_PORT` | `smtp.gmail.com` / `465` | SMTP endpoint for outgoing mail |
+| `EMAIL_FROM` | `SMTP_USER` | `From` address on the code email |
+| `APP_ORIGIN` | `http://localhost:3000` | The only `Origin` a mutating request may declare; anything else is rejected (CSRF defence for the cookie) |
+| `OTP_RATE_LIMIT_PER_HOUR` | `10` | Per-IP budget for `/auth/request-code` and `/auth/verify` |
+| `OTP_PER_EMAIL_PER_HOUR` | `5` | Per-address budget for code issuance, independent of IP |
 
-Secrets never reach the log: `redactConfig` masks `LI_AT` by length and reports only the length of `LI_COOKIES`.
+Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY` and `SMTP_PASS` by length and reports only the length of `LI_COOKIES`.
+
+---
+
+## Access
+
+`/v1/*` is behind an email one-time-code gate: no password, no phone number, no database. Proving control of an inbox is the only credential.
+
+1. `POST /auth/request-code {"email"}` mails a 6-digit code to that address and always answers `200 {"status":"code_sent"}` (except when the per-address rate limit is hit, see below — the response never otherwise reveals whether the address has been seen before).
+2. `POST /auth/verify {"email","code"}` checks the code and, on success, sets a signed and encrypted `sid` cookie (`httpOnly`, `sameSite=lax`, 30-day expiry) and returns `{"email"}`.
+3. Every `/v1/*` request needs that cookie; a request without one, or with an expired/invalid one, gets `401 UNAUTHENTICATED`.
+4. `GET /auth/me` reports the signed-in address or `401`; `POST /auth/logout` clears the cookie.
+
+Codes are 6 digits, expire in 10 minutes, allow 5 attempts, and are single-use. They live in memory only: a server restart invalidates every *pending* code (an in-flight sign-in has to start over), but it does **not** invalidate already-issued cookies — a session survives a restart. The only way to revoke every session at once is to rotate `SESSION_KEY`, which invalidates every cookie in existence.
+
+### Setting up Gmail as the mailer
+
+1. Turn on 2-Step Verification on the Gmail account that will send codes.
+2. Create an [App Password](https://myaccount.google.com/apppasswords) for it (a 16-character code, not the account password).
+3. Set `SMTP_USER` to the Gmail address and `SMTP_PASS` to the app password. `SMTP_HOST`/`SMTP_PORT` default to Gmail's `smtp.gmail.com:465` and don't need to change for Gmail.
+
+In development, leaving `SMTP_USER`/`SMTP_PASS` unset is fine: the server logs the code at `warn` level instead of mailing it, so local sign-in works without any SMTP setup. In production (`NODE_ENV=production`) both are required and the process refuses to start without them.
+
+### Limits, and what this does and doesn't prove
+
+- **Per-IP**: `OTP_RATE_LIMIT_PER_HOUR` (default 10) on `/auth/request-code` and `/auth/verify`.
+- **Per-address**: `OTP_PER_EMAIL_PER_HOUR` (default 5) on code issuance, independent of IP, so one address can't be hammered from many IPs.
+- **Gmail's own cap**: a personal Gmail account can send roughly 500 messages a day; this service does not track that separately, so a burst of sign-ins can exhaust it.
+- **CSRF**: a mutating request whose `Origin` header is present and doesn't match `APP_ORIGIN` is rejected with `403 FORBIDDEN_ORIGIN`; a mutating request with a body must declare `application/json`.
+- **What it proves**: the caller can read mail sent to the address they typed. **What it doesn't prove**: identity, that the address is theirs long-term, or anything beyond that one inbox at that one moment. It keeps casual, anonymous use off the LinkedIn-backed endpoints; it is not account security.
+- The interactive playground at `/` does not yet have a sign-in panel, so calling `/v1/*` from it currently returns `401` until that ships; `curl`/API callers use the flow above directly.
 
 ---
 
 ## API
 
-Nothing is authenticated. `GET /`, `GET /docs`, `GET /openapi.json` and `GET /health` are exempt from the rate limit; every `/v1/*` request, and every request to a path that matches no route, is counted against the per-IP budget of `RATE_LIMIT_PER_MINUTE` (default 10) and answers `429 RATE_LIMITED` with `Retry-After` once it is spent.
+`GET /`, `GET /docs`, `GET /openapi.json`, `GET /health` and the `/auth/*` endpoints noted above are exempt from the rate limit or budgeted separately (see [Access](#access)); every `/v1/*` request needs the session cookie and is counted against `RATE_LIMIT_PER_MINUTE` (default 10) — per verified email once signed in, per IP otherwise — and answers `429 RATE_LIMITED` with `Retry-After` once it is spent. Every request to a path that matches no route is counted against the same budget too.
 
 Every endpoint is in the Swagger UI at `/docs`, generated from the same zod schemas that validate the responses.
 
@@ -372,8 +417,12 @@ All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 | 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two). Also returned by `/v1/posts` for a member it cannot resolve |
 | 404 | `COMPANY_NOT_FOUND` | Same, for a company or school page |
 | 429 | `RATE_LIMITED` | This API's per-IP limit, or LinkedIn's own. The local limiter **always** sets `Retry-After`, because it knows exactly when the window resets. When the 429 came from LinkedIn it is only passed through if LinkedIn sent one, so that case can arrive without the header |
+| 400 | `INVALID_CODE` | The OTP code is wrong, expired, or its 5-attempt budget is spent (`/auth/verify`) |
+| 401 | `UNAUTHENTICATED` | No valid `sid` cookie on a `/v1/*` or `/auth/me` request |
+| 403 | `FORBIDDEN_ORIGIN` | A mutating request's `Origin` header didn't match `APP_ORIGIN` |
 | 500 | `INTERNAL_ERROR` | An unhandled failure. Deliberately opaque; the diagnosis is in the log |
 | 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape). On `/v1/posts` a stale persisted-query hash surfaces here, with a message naming `VOYAGER_POSTS_QUERY_ID` |
+| 502 | `MAIL_FAILED` | The code could not be mailed (SMTP error); the cause is logged, never returned |
 | 503 | `LINKEDIN_SESSION_EXPIRED` | The `LI_AT` cookie needs rotating |
 
 ### `GET /health`

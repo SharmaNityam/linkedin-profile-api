@@ -14,3 +14,15 @@ services:
         value: '10'
       - key: CACHE_TTL_SECONDS
         value: '900'
+      - key: SESSION_KEY
+        sync: false # 64 hex chars, e.g. `openssl rand -hex 32`; set in the dashboard
+      - key: SMTP_USER
+        sync: false # Gmail address that sends OTP codes; set in the dashboard
+      - key: SMTP_PASS
+        sync: false # Gmail app password; set in the dashboard
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: '465'
+      - key: APP_ORIGIN
+        value: https://linkedin-profile-api-c925.onrender.com
