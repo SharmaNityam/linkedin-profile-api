@@ -26,9 +26,44 @@
   </div>
 </header>
 
-<main id="main" data-state="landing">
+<main id="main" data-state="signin">
   <div class="shell signin" id="card"></div>
 </main>
+
+<style>
+/* Local, login.html-scoped rules — fold into app.css once agreed:
+   1) main[data-state="signin"] is a state value only this page ever sets,
+      so it top-anchors the sign-in card instead of the landing page's
+      centred layout (stops the card jumping when its height changes).
+   2) The rest are scoped under .signin / #card / #panel so they only
+      touch this page's markup (.field, .auth-row, .auth-stack, .tabs,
+      .btn-text classes are not used anywhere in index.html). */
+main[data-state="signin"] { justify-content: flex-start; }
+main[data-state="signin"] > .shell { padding-top: clamp(48px, 18vh, 160px); }
+
+.auth-stack label, .auth-row label { font-size: 13px; color: var(--muted); }
+.auth-stack { gap: 4px; }
+.auth-stack .field + label { margin-top: 8px; }
+.auth-err { margin: 8px 0 0; }
+.auth-row { flex-wrap: wrap; }
+.auth-row label { flex-basis: 100%; }
+
+/* H1 fix, scoped to the two sign-in fields: restore a visible keyboard
+   focus ring (app.css:133 removes outline entirely on .field:focus). */
+#panel .field:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: 2px;
+  border-color: var(--text);
+}
+
+/* M7 fix, scoped to this page's tabs/text buttons: 44px hit area
+   without changing the visible box. */
+.signin .btn-text, .signin .tabs button { position: relative; }
+.signin .btn-text::after, .signin .tabs button::after {
+  content: ""; position: absolute; inset: 50% 0 auto 0;
+  height: 44px; transform: translateY(-50%); min-width: 44px;
+}
+</style>
 
 <script>
 (() => {
@@ -56,15 +91,15 @@
     }).join('')}</div>`;
   }
 
-  const errLine = '<p class="auth-err" id="err" hidden></p>';
+  const errLine = '<p class="auth-err" id="err" role="alert" aria-live="polite" hidden></p>';
 
   function emailPanel() {
     if (step === 'code') return `
       <p class="auth-note">Sent to ${esc(signInEmail)}</p>
       <form id="form" autocomplete="off">
         <div class="auth-row">
-          <label class="sr" for="code">Six-digit code</label>
-          <input class="field" id="code" name="code" type="text" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+          <label for="code">Six-digit code</label>
+          <input class="field" id="code" name="code" type="text" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-describedby="err" />
           <button class="btn" type="submit">Verify</button>
         </div>
         ${errLine}
@@ -75,8 +110,8 @@
       ${domains.length ? `<p class="auth-note faint">Accepted: ${esc(domains.join(', '))}</p>` : ''}
       <form id="form" autocomplete="off">
         <div class="auth-row">
-          <label class="sr" for="email">Email address</label>
-          <input class="field" id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false" />
+          <label for="email">Email address</label>
+          <input class="field" id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false" aria-describedby="err" />
           <button class="btn" type="submit">Send code</button>
         </div>
         ${errLine}
@@ -87,13 +122,13 @@
     <p class="auth-note">Sign in with the shared tester credential.</p>
     <form id="form" autocomplete="off">
       <div class="auth-stack">
-        <label class="sr" for="admin-email">Email address</label>
-        <input class="field" id="admin-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" spellcheck="false" />
-        <label class="sr" for="password">Password</label>
-        <input class="field" id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" />
+        <label for="admin-email">Email address</label>
+        <input class="field" id="admin-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" spellcheck="false" aria-describedby="err" />
+        <label for="password">Password</label>
+        <input class="field" id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" aria-describedby="err" />
+        ${errLine}
         <button class="btn wide" type="submit">Sign in</button>
       </div>
-      ${errLine}
     </form>`;
 
   function render() {
@@ -115,6 +150,9 @@
     if (!el) return;
     el.textContent = text ?? '';
     el.hidden = !text;
+    for (const f of card.querySelectorAll('.field')) {
+      if (text) f.setAttribute('aria-invalid', 'true'); else f.removeAttribute('aria-invalid');
+    }
   }
   function failed(res, body) {
     const e = body?.error;
