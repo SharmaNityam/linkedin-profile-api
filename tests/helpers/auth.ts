@@ -23,11 +23,16 @@ export interface TestAuth {
   store: OtpStore;
 }
 
+/** Covers every domain used by an email literal anywhere in the test suite. */
+const PERMISSIVE_DOMAINS = ['example.com', 'gmail.com', 'yahoo.com', 'outlook.com', 'myyahoo.com'];
+
 export interface TestAuthOverrides {
   /** Per IP, on /auth/request-code and /auth/verify. Generous by default. */
   otpRateLimitPerHour: number;
   /** Per email address, on code issuance. Generous by default. */
   perEmailPerHour: number;
+  /** Domains /auth/request-code accepts. Permissive by default, see PERMISSIVE_DOMAINS. */
+  allowedEmailDomains: string[];
 }
 
 /** A ready-to-use `auth` option for `buildApp`, generous limits by default. */
@@ -44,6 +49,7 @@ export function testAuth(overrides: Partial<TestAuthOverrides> = {}): TestAuth {
       appOrigin: TEST_APP_ORIGIN,
       secureCookies: false,
       otpRateLimitPerHour: overrides.otpRateLimitPerHour ?? 1000,
+      allowedEmailDomains: overrides.allowedEmailDomains ?? PERMISSIVE_DOMAINS,
     },
   };
 }

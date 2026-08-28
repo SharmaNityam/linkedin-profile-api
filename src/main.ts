@@ -75,6 +75,7 @@ async function main(): Promise<void> {
       appOrigin: config.APP_ORIGIN,
       secureCookies: config.NODE_ENV === 'production',
       otpRateLimitPerHour: config.OTP_RATE_LIMIT_PER_HOUR,
+      allowedEmailDomains: config.ALLOWED_EMAIL_DOMAINS,
     },
     rateLimitPerMinute: config.RATE_LIMIT_PER_MINUTE,
     logger,

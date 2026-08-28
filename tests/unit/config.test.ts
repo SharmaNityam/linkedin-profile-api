@@ -101,6 +101,21 @@ describe('loadConfig', () => {
       loadConfig({ ...base, BREVO_API_KEY: 'brevo-key', SMTP_USER: 'a@b.com' }).EMAIL_FROM,
     ).toBe('a@b.com');
   });
+
+  it('defaults ALLOWED_EMAIL_DOMAINS', () => {
+    const config = loadConfig(base);
+    expect(config.ALLOWED_EMAIL_DOMAINS).toEqual([
+      'gmail.com',
+      'yahoo.com',
+      'outlook.com',
+      'myyahoo.com',
+    ]);
+  });
+
+  it('parses ALLOWED_EMAIL_DOMAINS as a trimmed, lowercased list', () => {
+    const config = loadConfig({ ...base, ALLOWED_EMAIL_DOMAINS: ' Proton.me, Example.com ,,' });
+    expect(config.ALLOWED_EMAIL_DOMAINS).toEqual(['proton.me', 'example.com']);
+  });
 });
 
 describe('redactConfig', () => {

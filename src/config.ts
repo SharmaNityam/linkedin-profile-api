@@ -50,6 +50,16 @@ const rawEnvSchema = z.object({
   OTP_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(10),
   /** Per email address, on code issuance. */
   OTP_PER_EMAIL_PER_HOUR: z.coerce.number().int().positive().default(5),
+  /** Comma list of domains `/auth/request-code` accepts, lowercased and trimmed. */
+  ALLOWED_EMAIL_DOMAINS: z
+    .string()
+    .default('gmail.com,yahoo.com,outlook.com,myyahoo.com')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean),
+    ),
 });
 
 const envSchema = rawEnvSchema

@@ -34,6 +34,8 @@ export interface BuildAppAuthOptions {
   secureCookies: boolean;
   /** Per IP, on `/auth/request-code` and `/auth/verify`. */
   otpRateLimitPerHour: number;
+  /** Domains `/auth/request-code` accepts, lowercased and trimmed. */
+  allowedEmailDomains: string[];
 }
 
 export interface BuildAppOptions {
@@ -189,6 +191,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     store: options.auth.store,
     mailer: options.auth.mailer,
     otpRateLimitPerHour: options.auth.otpRateLimitPerHour,
+    allowedEmailDomains: options.auth.allowedEmailDomains,
   });
 
   // Encapsulated so requireViewer() gates only /v1/*, not /auth/* or /health.

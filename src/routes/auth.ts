@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { canonicalEmail } from '../auth/email.js';
+import { domainNotAllowedMessage, isDomainAllowed } from '../auth/domains.js';
 import type { MailSender } from '../auth/mailer.js';
 import type { OtpStore, VerifyResult } from '../auth/otp.js';
 import { AppError } from '../errors.js';
@@ -19,16 +20,20 @@ export interface AuthRoutesOptions {
   mailer: MailSender;
   /** Per-IP budget for the endpoints an anonymous caller can reach. */
   otpRateLimitPerHour: number;
+  /** Domains `/auth/request-code` accepts, lowercased and trimmed. */
+  allowedEmailDomains: string[];
 }
 
 const errorResponses = {
-  400: ErrorResponse.describe('Invalid email, or the code is wrong, expired or exhausted'),
+  400: ErrorResponse.describe(
+    'Invalid email, a disallowed domain, or the code is wrong, expired or exhausted',
+  ),
   429: ErrorResponse.describe('Rate limited'),
 };
 
 export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
   app,
-  { store, mailer, otpRateLimitPerHour },
+  { store, mailer, otpRateLimitPerHour, allowedEmailDomains },
 ) => {
   /**
    * Anonymous callers hit these, so they're budgeted per IP and per hour on
@@ -77,6 +82,9 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
     },
     async (req) => {
       const email = canonicalEmail(req.body.email);
+      if (!isDomainAllowed(email, allowedEmailDomains)) {
+        throw new AppError('EMAIL_DOMAIN_NOT_ALLOWED', domainNotAllowedMessage(allowedEmailDomains));
+      }
       const outcome = store.issue(email);
       if (outcome.status === 'rate_limited') {
         throw new AppError(
