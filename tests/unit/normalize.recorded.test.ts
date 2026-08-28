@@ -87,6 +87,22 @@ describe.each(RECORDED)('recorded fixture: %s', (slug) => {
     }
   });
 
+  it('groups experience without dropping or duplicating any role', () => {
+    expect(profile.experienceGroups.every((g) => g.roles.length >= 1)).toBe(true);
+    const totalRoles = profile.experienceGroups.reduce((sum, g) => sum + g.roles.length, 0);
+    expect(totalRoles).toBe(profile.experience.length);
+  });
+
+  it('preserves experience order across groups', () => {
+    for (let i = 0; i < profile.experienceGroups.length - 1; i++) {
+      const firstRole = profile.experienceGroups[i]!.roles[0]!;
+      const nextGroupFirstRole = profile.experienceGroups[i + 1]!.roles[0]!;
+      expect(profile.experience.indexOf(firstRole)).toBeLessThan(
+        profile.experience.indexOf(nextGroupFirstRole),
+      );
+    }
+  });
+
   it('returns all skills when the inline collection was capped', () => {
     const graph = new EntityGraph(full);
     const root = graph.rootElements().find((e) => e.$type === TYPES.profile);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProfile } from '../../src/linkedin/voyager/normalize.js';
+import { groupExperience, normalizeProfile } from '../../src/linkedin/voyager/normalize.js';
 import { SchemaDriftError } from '../../src/errors.js';
 import { ProfileResponse } from '../../src/schema/profile.js';
 import { loadFixture } from '../helpers/fixtures.js';
@@ -90,6 +90,14 @@ describe('normalizeProfile (minimal fixture)', () => {
         employmentType: 'Internship',
         startDate: { year: 2021 },
         endDate: { year: 2021 },
+      }),
+      expect.objectContaining({
+        title: 'Founding Intern',
+        companyName: 'Stealth Startup',
+        company: null,
+        employmentType: 'Internship',
+        startDate: { year: 2020 },
+        endDate: { year: 2020 },
       }),
     ]);
   });
@@ -185,8 +193,60 @@ describe('normalizeProfile (minimal fixture)', () => {
     expect(bare.fullName).toBe('X');
     expect(bare.location).toBeNull();
     expect(bare.experience).toEqual([]);
+    expect(bare.experienceGroups).toEqual([]);
     expect(bare.profileImage).toBeNull();
     expect(bare.pronouns).toBeNull();
+  });
+});
+
+describe('experienceGroups', () => {
+  const profile = normalizeProfile({ full, topCard });
+
+  it('groups consecutive same-company roles, preserving order', () => {
+    expect(profile.experienceGroups.map((g) => g.name)).toEqual(['Acme', 'Stealth Startup']);
+    expect(profile.experienceGroups.map((g) => g.roles.length)).toEqual([2, 2]);
+  });
+
+  it('nulls a mixed field, keeps a uniform one', () => {
+    const [acme, stealth] = profile.experienceGroups;
+    // Senior Engineer is Full-time, Engineer has no employmentType: mixed.
+    expect(acme!.employmentType).toBeNull();
+    expect(acme!.location).toBeNull();
+    // Both Stealth Startup roles are Internship: uniform.
+    expect(stealth!.employmentType).toBe('Internship');
+  });
+
+  it('is current with a null endDate when any role is current, and spans the earliest to latest role', () => {
+    const [acme, stealth] = profile.experienceGroups;
+    expect(acme!.isCurrent).toBe(true);
+    expect(acme!.endDate).toBeNull();
+    expect(acme!.startDate).toEqual({ year: 2022, month: 1 });
+
+    expect(stealth!.isCurrent).toBe(false);
+    expect(stealth!.startDate).toEqual({ year: 2020 });
+    expect(stealth!.endDate).toEqual({ year: 2021 });
+  });
+
+  it('computes totalMonths inclusively, using "now" for a current group', () => {
+    const groups = groupExperience(profile.experience, new Date(2025, 0, 15));
+    const [acme, stealth] = groups;
+    expect(acme!.totalMonths).toBe(37); // 2022-01 through 2025-01 inclusive
+    expect(stealth!.totalMonths).toBe(24); // 2020-01 through 2021-12 inclusive, unaffected by `now`
+  });
+
+  it('keeps non-consecutive roles at the same company as separate groups', () => {
+    const acme = profile.experience.find((e) => e.companyName === 'Acme')!;
+    const stealth = profile.experience.find((e) => e.companyName === 'Stealth Startup')!;
+    const groups = groupExperience([acme, stealth, acme]);
+    expect(groups).toHaveLength(3);
+    expect(groups.map((g) => g.roles.length)).toEqual([1, 1, 1]);
+  });
+
+  it('never merges roles with an empty grouping key', () => {
+    const noCompany = { ...profile.experience[0]!, companyName: null, company: null };
+    const groups = groupExperience([noCompany, noCompany]);
+    expect(groups).toHaveLength(2);
+    expect(groups.every((g) => g.key === '')).toBe(true);
   });
 });
 

@@ -37,6 +37,22 @@ export const Experience = z.object({
   isCurrent: z.boolean(),
 });
 
+export const ExperienceGroup = z.object({
+  key: z.string(),
+  name: z.string(),
+  company: Organization.nullable(),
+  employmentType: z
+    .string()
+    .nullable()
+    .describe('Only set when identical across every role in the group'),
+  location: z.string().nullable().describe('Only set when identical across every role in the group'),
+  startDate: PartialDate.nullable().describe('Earliest role start in the group'),
+  endDate: PartialDate.nullable().describe('Latest role end; null when any role is current'),
+  isCurrent: z.boolean(),
+  totalMonths: z.number().int().nonnegative().describe('Inclusive month span across all roles'),
+  roles: z.array(Experience),
+});
+
 export const Education = z.object({
   schoolName: z.string().nullable(),
   school: Organization.nullable(),
@@ -127,6 +143,7 @@ export const ProfileResponse = z.object({
   profileImage: Image.nullable(),
   backgroundImage: Image.nullable(),
   experience: z.array(Experience),
+  experienceGroups: z.array(ExperienceGroup),
   education: z.array(Education),
   skills: z.array(Skill),
   certifications: z.array(Certification),
