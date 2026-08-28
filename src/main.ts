@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import pino from 'pino';
+import { deriveAdminCredential } from './auth/admin.js';
 import {
   BrevoMailer,
   LogMailer,
@@ -67,6 +68,12 @@ async function main(): Promise<void> {
     mailer = new LogMailer(mailLog);
   }
 
+  const admin =
+    config.ADMIN_EMAIL && config.ADMIN_PASSWORD
+      ? deriveAdminCredential(config.ADMIN_EMAIL, config.ADMIN_PASSWORD)
+      : undefined;
+  logger.info({ admin: admin !== undefined }, 'admin login configured');
+
   const app = await buildApp({
     services,
     auth: {
@@ -79,6 +86,7 @@ async function main(): Promise<void> {
       allowedEmailDomains: config.ALLOWED_EMAIL_DOMAINS,
       registry: new LoginRegistry(),
       accountsPerIp: config.ACCOUNTS_PER_IP,
+      ...(admin ? { admin } : {}),
     },
     rateLimitPerMinute: config.RATE_LIMIT_PER_MINUTE,
     logger,

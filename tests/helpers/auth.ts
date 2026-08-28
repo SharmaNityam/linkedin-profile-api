@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { AdminCredential } from '../../src/auth/admin.js';
 import { canonicalEmail } from '../../src/auth/email.js';
 import type { MailSender } from '../../src/auth/mailer.js';
 import { OtpStore } from '../../src/auth/otp.js';
@@ -37,6 +38,8 @@ export interface TestAuthOverrides {
   allowedEmailDomains: string[];
   /** Per IP, distinct verified accounts inside the trailing 7 days. Generous by default. */
   accountsPerIp: number;
+  /** The shared tester credential for POST /auth/login. Unset (401 always) by default. */
+  admin: AdminCredential;
 }
 
 /** A ready-to-use `auth` option for `buildApp`, generous limits by default. */
@@ -58,6 +61,7 @@ export function testAuth(overrides: Partial<TestAuthOverrides> = {}): TestAuth {
       allowedEmailDomains: overrides.allowedEmailDomains ?? PERMISSIVE_DOMAINS,
       registry,
       accountsPerIp: overrides.accountsPerIp ?? 1000,
+      ...(overrides.admin ? { admin: overrides.admin } : {}),
     },
   };
 }

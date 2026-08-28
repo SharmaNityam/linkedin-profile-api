@@ -3,16 +3,19 @@ import type { FastifyPluginAsync, FastifyRequest, preHandlerAsyncHookHandler } f
 import fp from 'fastify-plugin';
 import { AppError } from '../errors.js';
 
+export type Role = 'user' | 'admin';
+
 declare module '@fastify/secure-session' {
   interface SessionData {
-    viewer: { email: string };
+    /** `role` is optional so a cookie signed before it existed still decodes. */
+    viewer: { email: string; role?: Role };
   }
 }
 
 declare module 'fastify' {
   interface FastifyRequest {
     /** The verified viewer for this request, or `null` when unset/unresolved. */
-    viewer: { email: string } | null;
+    viewer: { email: string; role: Role } | null;
   }
 }
 
@@ -60,7 +63,10 @@ const authPluginFn: FastifyPluginAsync<AuthPluginOptions> = async (app, options)
     const path = request.url.split('?', 1)[0] ?? '';
     if (path.startsWith('/v1/') || path.startsWith('/auth/')) {
       const viewer = request.session.get('viewer');
-      request.viewer = viewer && typeof viewer.email === 'string' ? viewer : null;
+      request.viewer =
+        viewer && typeof viewer.email === 'string'
+          ? { email: viewer.email, role: viewer.role === 'admin' ? 'admin' : 'user' }
+          : null;
     }
 
     if (!MUTATING_METHODS.has(request.method)) return;

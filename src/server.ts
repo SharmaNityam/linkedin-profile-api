@@ -12,6 +12,7 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import type { AdminCredential } from './auth/admin.js';
 import type { MailSender } from './auth/mailer.js';
 import type { OtpStore } from './auth/otp.js';
 import { authPlugin, requireViewer } from './auth/plugin.js';
@@ -41,6 +42,8 @@ export interface BuildAppAuthOptions {
   registry: LoginRegistry;
   /** Per IP, distinct verified accounts inside the trailing 7 days. */
   accountsPerIp: number;
+  /** The shared tester credential for POST /auth/login. Undefined when not configured. */
+  admin?: AdminCredential;
 }
 
 export interface BuildAppOptions {
@@ -199,6 +202,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     allowedEmailDomains: options.auth.allowedEmailDomains,
     registry: options.auth.registry,
     accountsPerIp: options.auth.accountsPerIp,
+    ...(options.auth.admin ? { admin: options.auth.admin } : {}),
   });
 
   // Encapsulated so requireViewer() gates only /v1/*, not /auth/* or /health.
