@@ -50,8 +50,6 @@
 
       <p class="recent-row" id="recent-row" hidden></p>
 
-      <form class="auth" id="auth" hidden></form>
-
       <div class="bar" id="bar" hidden>
         <div class="tabs" role="tablist" id="tabs" hidden>
           <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
@@ -78,12 +76,11 @@
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
   const mainEl = $('#main'), hero = $('#hero'), tryEl = $('#try');
   const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar');
-  const authForm = $('#auth'), meEl = $('#me');
+  const meEl = $('#me');
   const recentEl = $('#recent'), recentRow = $('#recent-row');
   const sectionsEl = $('#sections'), statusBox = $('#statusbox');
 
-  let data = null, kind = 'profile', tab = 'view', uid = 0;
-  let viewer = null, step = 'email', signInEmail = '', pendingUrl = null, authOpen = false;
+  let data = null, kind = 'profile', tab = 'view', uid = 0, viewer = null;
 
   // Labelled by endpoint, not by path, so the line stays one short row.
   const EXAMPLES = [
@@ -463,92 +460,22 @@
     renderSections();
   }
 
-  // ---- sign-in: an address, then the emailed code, then a line in the header
+  // ---- sign-in: one line in the header, and a page of its own
+  const loginHref = (url) => {
+    const back = url ? `${location.pathname}?url=${encodeURIComponent(url)}` : location.pathname + location.search;
+    return `/login?next=${encodeURIComponent(back)}`;
+  };
+
   function renderAuth() {
-    meEl.hidden = !viewer;
-    if (viewer) meEl.innerHTML = `${esc(viewer.email)}<span class="sep">·</span><button class="btn-text" type="button" data-auth="logout">Sign out</button><span class="sep">·</span>`;
-    authForm.hidden = !!viewer || !authOpen;
-    if (authForm.hidden) { authForm.innerHTML = ''; return; }
-    authForm.innerHTML = step === 'code' ? `
-      <h2 class="auth-title">Enter the code</h2>
-      <p class="auth-note">Sent to ${esc(signInEmail)}</p>
-      <div class="auth-row">
-        <label class="sr" for="code">Six-digit code</label>
-        <input id="code" name="code" type="text" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
-        <button class="btn" type="submit">Verify</button>
-      </div>
-      <p class="auth-links"><button class="btn-text" type="button" data-auth="resend">Resend</button><span class="sep">·</span><button class="btn-text" type="button" data-auth="restart">Change email</button></p>` : `
-      <h2 class="auth-title">Verify your email</h2>
-      <p class="auth-note">We'll send a 6-digit code. No password, no account.</p>
-      <div class="auth-row">
-        <label class="sr" for="email">Email address</label>
-        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false" />
-        <button class="btn quiet" type="submit">Send code</button>
-      </div>`;
+    meEl.hidden = false;
+    meEl.innerHTML = viewer
+      ? `${esc(viewer.email)}<span class="sep">·</span><button class="btn-text" type="button" data-auth="logout">Sign out</button><span class="sep">·</span>`
+      : `<a href="${esc(loginHref())}">Sign in</a><span class="sep">·</span>`;
   }
-
-  const authInput = () => $('input', authForm);
-  function authError(text) {
-    $('.auth-err', authForm)?.remove();
-    if (!text) return;
-    const p = document.createElement('p');
-    p.className = 'auth-err';
-    p.textContent = text;
-    $('.auth-row', authForm).insertAdjacentElement('afterend', p);
-  }
-  function authFailed(res, body) {
-    const e = body?.error;
-    let msg = e?.message ?? `Request failed (${res.status}).`;
-    // The per-address message already names the wait; the per-IP one does not.
-    if (e?.code === 'RATE_LIMITED' && !/try again/i.test(msg)) {
-      const secs = Number(e.details?.retryAfterSeconds ?? res.headers.get('retry-after'));
-      if (Number.isFinite(secs) && secs > 0) msg += ` Try again in ${Math.ceil(secs / 60)} min.`;
-    }
-    authError(msg);
-  }
-  const postJson = (path, body) => fetch(path, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(body),
-  });
-  const readBody = async (res) => { try { return await res.json(); } catch { return null; } };
-
-  async function runAuth(work) {
-    const btn = $('button[type=submit]', authForm);
-    authError('');
-    btn.disabled = true;
-    try { await work(); } catch (err) { authError(String(err.message || err)); }
-    finally { if (btn.isConnected) btn.disabled = false; }
-  }
-
-  const requestCode = (email) => runAuth(async () => {
-    const res = await postJson('/auth/request-code', { email });
-    const body = await readBody(res);
-    if (!res.ok) return authFailed(res, body);
-    signInEmail = email;
-    step = 'code';
-    renderAuth();
-    authInput().focus();
-  });
-
-  const verifyCode = (code) => runAuth(async () => {
-    const res = await postJson('/auth/verify', { email: signInEmail, code });
-    const body = await readBody(res);
-    if (!res.ok) return authFailed(res, body);
-    viewer = body;
-    step = 'email';
-    signInEmail = '';
-    authOpen = false;
-    renderAuth();
-    const next = pendingUrl;
-    pendingUrl = null;
-    next ? lookup(next) : input.focus();
-  });
 
   async function signOut() {
     try { await fetch('/auth/logout', { method: 'POST', headers: { accept: 'application/json' }, credentials: 'same-origin' }); } catch {}
-    viewer = null; step = 'email'; signInEmail = ''; pendingUrl = null; authOpen = false;
+    viewer = null;
     results.clear();
     clearResults();
     renderAuth();
@@ -563,13 +490,10 @@
     renderAuth();
   }
 
-  // Needing an identity is a prompt, not a failure: the landing block stays put,
-  // keeps the URL, and the card below it collects the address.
+  // Signing in happens on its own page; the URL that needed an identity rides
+  // along as `next`, so returning here replays it as a deep link.
   function promptSignIn(url) {
-    viewer = null; pendingUrl = url; step = 'email'; authOpen = true;
-    clearResults();
-    renderAuth();
-    authInput().focus();
+    location.assign(loginHref(url));
   }
 
   // Which endpoint a pasted URL belongs to. Company, school and showcase pages
@@ -774,12 +698,6 @@
     const hit = results.get(normalise(url));
     hit ? restore(url, hit) : lookup(url, 'none');
   });
-  authForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const value = authInput().value.trim();
-    if (!value) { authInput().focus(); return; }
-    step === 'code' ? verifyCode(value) : requestCode(value);
-  });
   for (const b of tabsEl.children) b.addEventListener('click', () => {
     tab = b.dataset.tab;
     for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
@@ -795,14 +713,7 @@
   }
   // Delegated so re-rendered markup needs no re-binding.
   document.addEventListener('click', (e) => {
-    const auth = e.target.closest('[data-auth]');
-    if (auth) {
-      const act = auth.dataset.auth;
-      if (act === 'logout') signOut();
-      else if (act === 'resend') requestCode(signInEmail);
-      else { step = 'email'; renderAuth(); authInput().focus(); }
-      return;
-    }
+    if (e.target.closest('[data-auth="logout"]')) { signOut(); return; }
     const recent = e.target.closest('[data-recent]');
     // A modified click is the browser's to handle: it opens the deep link.
     if (recent && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); lookup(recent.dataset.recent); return; }
