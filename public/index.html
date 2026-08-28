@@ -82,27 +82,54 @@
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   h1, h2, h3 { font-weight: 600; margin: 0; }
 
-  .wrap { max-width: 680px; margin: 0 auto; padding: 0 24px 64px; }
-
-  header.top {
-    display: flex; align-items: center; justify-content: space-between;
-    height: 56px; border-bottom: 1px solid var(--border);
+  header.top { border-bottom: 1px solid var(--border); }
+  header.top .hdr {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    max-width: 680px; margin: 0 auto; padding: 0 24px; height: 64px;
   }
-  header.top .brand { font-size: 14px; font-weight: 600; }
-  header.top nav { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+  header.top .brand { font-size: 14px; font-weight: 600; white-space: nowrap; }
+  header.top nav {
+    display: flex; align-items: center; min-width: 0;
+    font-size: 13px; color: var(--muted); white-space: nowrap;
+  }
 
-  form.lookup { display: flex; gap: 8px; margin-top: 24px; }
-  form.lookup input, form.auth input {
-    min-width: 0; height: 40px; padding: 0 12px; font-size: 14px;
+  /* One column, centred in the viewport until there is something to show. */
+  main {
+    display: flex; flex-direction: column; align-items: center;
+    min-height: calc(100vh - 64px);
+  }
+  main > .shell { width: 100%; max-width: 560px; padding: 24px; }
+  main[data-state="landing"] { justify-content: center; }
+  main[data-state="results"] { justify-content: flex-start; }
+  main[data-state="results"] > .shell { max-width: 680px; padding: 0 24px 64px; }
+
+  .hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; }
+  .hero p { margin: 0; font-size: 15px; color: var(--muted); }
+
+  /* the URL row: one bordered box holding the input and the button */
+  form.lookup {
+    display: flex; align-items: center; margin: 24px 0 0;
+    height: 44px; padding-right: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  form.lookup:focus-within { border-color: var(--border-strong); }
+  form.lookup input {
+    flex: 1; min-width: 0; height: 100%; padding: 0 12px;
+    font-size: 14px; background: none; border: 0; border-radius: 8px 0 0 8px;
+  }
+  form.lookup .btn { height: 36px; }
+  form.auth input {
+    flex: 1; min-width: 0; height: 40px; padding: 0 12px; font-size: 14px;
     background: var(--bg); color: var(--text);
     border: 1px solid var(--border); border-radius: 8px;
   }
-  form.lookup input { flex: 1; }
   form.lookup input::placeholder, form.auth input::placeholder { color: var(--faint); }
-  form.lookup input:focus, form.auth input:focus { outline: none; border-color: var(--border-strong); }
+  form.lookup input:focus, form.lookup input:focus-visible { outline: none; }
+  form.auth input:focus { outline: none; border-color: var(--border-strong); }
   .btn {
     height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: 8px;
-    font-size: 14px; font-weight: 500; cursor: pointer;
+    font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
     background: var(--accent); color: var(--accent-ink);
   }
   .btn.quiet { background: var(--surface-2); color: var(--text); border-color: var(--border); }
@@ -113,23 +140,23 @@
   }
   .btn-text:hover { color: var(--text); text-decoration: underline; }
 
-  /* sign-in row: only while signed out or mid-verification */
-  form.auth { margin: 16px 0 0; }
-  form.auth input { height: 36px; width: 240px; }
-  form.auth input[maxlength="6"] { width: 120px; }
-  form.auth .btn { height: 36px; }
-  .auth-row { display: flex; align-items: center; gap: 12px; }
-  .auth-note, .auth-err { margin: 8px 0 0; font-size: 13px; }
-  .auth-note { color: var(--muted); }
-  .auth-note + .auth-row { margin-top: 8px; }
-  .auth-err { color: var(--err); }
-  .me { color: var(--muted); }
+  /* sign-in card: only once a lookup actually needs an identity */
+  form.auth {
+    margin: 24px 0 0; padding: 20px;
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  form.auth[hidden] { display: none; }
+  .auth-title { font-size: 15px; }
+  .auth-note, .auth-err { font-size: 13px; }
+  .auth-note { margin: 8px 0 0; color: var(--muted); }
+  .auth-err { margin: 8px 0 0; color: var(--err); }
+  .auth-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .auth-links { margin: 12px 0 0; font-size: 13px; }
+  .me { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 
-  /* intro: plain lines under the search, no card */
-  .intro { margin: 16px 0 0; font-size: 13px; color: var(--muted); }
-  .intro + .intro { margin-top: 8px; }
-  .intro a { color: var(--muted); }
-  .intro a:hover { color: var(--text); text-decoration: underline; }
+  /* the example line under the URL row */
+  .try { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+  .try[hidden], .hero[hidden] { display: none; }
   .sep { color: var(--faint); margin: 0 8px; }
   .ex { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; color: var(--text); }
   .ex:hover { text-decoration: underline; }
@@ -253,46 +280,52 @@
   .error .code { font-size: 13px; color: var(--err); }
   .error p { margin: 8px 0 0; font-size: 14px; }
 
-  @media (max-width: 560px) {
-    form.lookup { flex-wrap: wrap; }
-    form.lookup input { flex-basis: 100%; }
-    .auth-row { flex-wrap: wrap; }
+  @media (max-width: 480px) {
+    header.top .hdr { padding: 0 16px; }
+    main > .shell { padding: 16px; }
+    main[data-state="results"] > .shell { padding: 0 16px 64px; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
+<header class="top">
+  <div class="hdr">
     <a class="brand" href="/">LinkedIn Profile API</a>
     <nav aria-label="Resources">
-      <a href="/docs">Docs</a>
-      <a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
       <span class="me" id="me" hidden></span>
+      <a href="/docs">Docs</a><span class="sep">·</span><a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
     </nav>
-  </header>
-
-  <form class="lookup" id="form" autocomplete="off">
-    <label class="sr" for="url">LinkedIn profile, company or activity URL</label>
-    <input id="url" name="url" type="text" placeholder="https://www.linkedin.com/in/username" spellcheck="false" inputmode="url" />
-    <button class="btn" id="go" type="submit">Fetch</button>
-  </form>
-
-  <form class="auth" id="auth" hidden></form>
-
-  <div id="intro"></div>
-
-  <div class="bar" id="bar" hidden>
-    <div class="tabs" role="tablist" id="tabs" hidden>
-      <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
-      <button role="tab" aria-selected="false" data-tab="json">JSON</button>
-    </div>
-    <span class="status" id="status" hidden></span>
   </div>
+</header>
 
-  <main id="main">
+<main id="main" data-state="landing">
+  <div class="shell">
+    <div class="hero" id="hero">
+      <h1>LinkedIn Profile API</h1>
+      <p>Turn a LinkedIn profile, company or activity URL into JSON.</p>
+    </div>
+
+    <form class="lookup" id="form" autocomplete="off">
+      <label class="sr" for="url">LinkedIn profile, company or activity URL</label>
+      <input id="url" name="url" type="text" placeholder="linkedin.com/in/username" spellcheck="false" inputmode="url" />
+      <button class="btn" id="go" type="submit">Fetch</button>
+    </form>
+
+    <p class="try" id="try"></p>
+
+    <form class="auth" id="auth" hidden></form>
+
+    <div class="bar" id="bar" hidden>
+      <div class="tabs" role="tablist" id="tabs" hidden>
+        <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
+        <button role="tab" aria-selected="false" data-tab="json">JSON</button>
+      </div>
+      <span class="status" id="status" hidden></span>
+    </div>
+
     <div class="card" id="view" hidden></div>
-  </main>
-</div>
+  </div>
+</main>
 
 <script>
 (() => {
@@ -300,19 +333,20 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view'), intro = $('#intro');
+  const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
+  const mainEl = $('#main'), hero = $('#hero'), tryEl = $('#try');
   const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar');
   const authForm = $('#auth'), meEl = $('#me');
 
   let data = null, kind = 'profile', tab = 'view', uid = 0;
-  let viewer = null, step = 'email', signInEmail = '', pendingUrl = null;
+  let viewer = null, step = 'email', signInEmail = '', pendingUrl = null, authOpen = false;
 
-  // Shown as the bare path so all three fit one line; the full URL is what runs.
+  // Labelled by endpoint, not by path, so the line stays one short row.
   const EXAMPLES = [
-    'linkedin.com/in/sharmanityam',
-    'linkedin.com/company/anthropicresearch',
-    'linkedin.com/in/sharmanityam/recent-activity/all/',
-  ].map((u) => [u, u.replace('linkedin.com', '')]);
+    ['linkedin.com/in/sharmanityam', 'profile'],
+    ['linkedin.com/company/anthropicresearch', 'company'],
+    ['linkedin.com/in/sharmanityam/recent-activity/all/', 'posts'],
+  ];
   const KIND_LABEL = { profile: 'Profile', company: 'Company', posts: 'Posts' };
 
   // ---- dates
@@ -436,11 +470,14 @@
     return `<section class="block pad"><h2>${title}<span class="count">${items.length}</span></h2>${body}</section>`;
   }
 
-  function renderIntro() {
-    intro.innerHTML = `
-      <p class="intro">Paste a LinkedIn profile, company or activity URL. Returns structured JSON from LinkedIn's own API.</p>
-      <p class="intro">${EXAMPLES.map(([url, label]) => `<button class="ex" type="button" data-example="${esc(url)}">${esc(label)}</button>`).join('<span class="sep">·</span>')}</p>
-      <p class="intro"><a href="/docs">GET /v1/profile · /v1/company · /v1/posts</a></p>`;
+  function renderTry() {
+    tryEl.innerHTML = `Try: ${EXAMPLES.map(([url, label]) => `<button class="ex" type="button" data-example="${esc(url)}">${esc(label)}</button>`).join('<span class="sep">·</span>')}`;
+  }
+
+  // Landing centres the block and shows the pitch; results drop it and go top-aligned.
+  function setState(next) {
+    mainEl.dataset.state = next;
+    hero.hidden = tryEl.hidden = next !== 'landing';
   }
 
   function renderProfile(p) {
@@ -677,28 +714,25 @@
   // ---- sign-in: an address, then the emailed code, then a line in the header
   function renderAuth() {
     meEl.hidden = !viewer;
-    if (viewer) {
-      meEl.innerHTML = `${esc(viewer.email)}<span class="sep">·</span><button class="btn-text" type="button" data-auth="logout">Sign out</button>`;
-      authForm.hidden = true;
-      authForm.innerHTML = '';
-      return;
-    }
-    authForm.hidden = false;
+    if (viewer) meEl.innerHTML = `${esc(viewer.email)}<span class="sep">·</span><button class="btn-text" type="button" data-auth="logout">Sign out</button><span class="sep">·</span>`;
+    authForm.hidden = !!viewer || !authOpen;
+    if (authForm.hidden) { authForm.innerHTML = ''; return; }
     authForm.innerHTML = step === 'code' ? `
-      <p class="auth-note">Code sent to ${esc(signInEmail)}</p>
+      <h2 class="auth-title">Enter the code</h2>
+      <p class="auth-note">Sent to ${esc(signInEmail)}</p>
       <div class="auth-row">
         <label class="sr" for="code">Six-digit code</label>
         <input id="code" name="code" type="text" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
         <button class="btn" type="submit">Verify</button>
-        <button class="btn-text" type="button" data-auth="resend">Resend</button>
-        <button class="btn-text" type="button" data-auth="restart">Change email</button>
-      </div>` : `
+      </div>
+      <p class="auth-links"><button class="btn-text" type="button" data-auth="resend">Resend</button><span class="sep">·</span><button class="btn-text" type="button" data-auth="restart">Change email</button></p>` : `
+      <h2 class="auth-title">Verify your email</h2>
+      <p class="auth-note">We'll send a 6-digit code. No password, no account.</p>
       <div class="auth-row">
         <label class="sr" for="email">Email address</label>
         <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false" />
         <button class="btn quiet" type="submit">Send code</button>
-      </div>
-      <p class="auth-note">We email a 6-digit code. No password, no account.</p>`;
+      </div>`;
   }
 
   const authInput = () => $('input', authForm);
@@ -753,6 +787,7 @@
     viewer = body;
     step = 'email';
     signInEmail = '';
+    authOpen = false;
     renderAuth();
     const next = pendingUrl;
     pendingUrl = null;
@@ -761,11 +796,12 @@
 
   async function signOut() {
     try { await fetch('/auth/logout', { method: 'POST', headers: { accept: 'application/json' }, credentials: 'same-origin' }); } catch {}
-    viewer = null; step = 'email'; signInEmail = ''; data = null;
+    viewer = null; step = 'email'; signInEmail = ''; data = null; pendingUrl = null; authOpen = false;
     view.hidden = true; view.innerHTML = '';
-    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true; intro.hidden = false;
+    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
+    setState('landing');
     renderAuth();
-    authInput().focus();
+    input.focus();
   }
 
   async function loadViewer() {
@@ -776,12 +812,13 @@
     renderAuth();
   }
 
-  // A 401 from /v1/* is a prompt, not a failure: keep the URL and fetch it once verified.
+  // Needing an identity is a prompt, not a failure: the landing block stays put,
+  // keeps the URL, and the card below it collects the address.
   function promptSignIn(url) {
-    viewer = null; pendingUrl = url; step = 'email';
+    viewer = null; pendingUrl = url; step = 'email'; authOpen = true; data = null;
     view.hidden = true; view.innerHTML = '';
-    tabsEl.hidden = true; intro.hidden = false;
-    setStatus('', 'Verify your email to fetch');
+    bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
+    setState('landing');
     renderAuth();
     authInput().focus();
   }
@@ -811,13 +848,14 @@
     const url = raw.trim();
     if (!url) { input.focus(); return; }
     input.value = url;
+    if (!viewer) { promptSignIn(url); return; }
     kind = kindOf(url);
     history.replaceState(null, '', `?url=${encodeURIComponent(url)}`);
 
     data = null; tab = 'view'; go.disabled = true;
     tabView.textContent = KIND_LABEL[kind];
     for (const b of tabsEl.children) b.setAttribute('aria-selected', String(b.dataset.tab === 'view'));
-    intro.hidden = true; tabsEl.hidden = true;
+    setState('results'); tabsEl.hidden = true;
     setStatus('', 'Fetching…');
     showLoading();
     const t0 = performance.now();
@@ -893,15 +931,12 @@
     else if (e.key === 'Escape') { (typing ? document.activeElement : input).value = ''; }
   });
 
-  renderIntro();
+  renderTry();
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) input.value = initial;
   loadViewer().then(() => {
-    if (viewer) initial ? lookup(initial) : input.focus();
-    else {
-      if (initial) { pendingUrl = initial; setStatus('', 'Verify your email to fetch'); }
-      authInput().focus();
-    }
+    if (initial) lookup(initial);
+    else input.focus();
   });
 })();
 </script>
