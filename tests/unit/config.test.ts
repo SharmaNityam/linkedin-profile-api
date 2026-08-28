@@ -41,7 +41,15 @@ describe('loadConfig', () => {
     expect(config.PASSWORD_HASHER).toBe('argon2');
     expect(config.APP_ORIGIN).toBe('http://localhost:3000');
     expect(config.EMAIL_FROM).toBe('LinkedIn Profile API <onboarding@resend.dev>');
+    expect(config.EMAIL_VERIFICATION).toBe('required');
     expect(config.DATABASE_URL).toBeUndefined();
+  });
+
+  it('accepts EMAIL_VERIFICATION=off and rejects anything else', () => {
+    expect(loadConfig({ ...base, EMAIL_VERIFICATION: 'off' }).EMAIL_VERIFICATION).toBe('off');
+    expect(() => loadConfig({ ...base, EMAIL_VERIFICATION: 'optional' })).toThrow(
+      /EMAIL_VERIFICATION/,
+    );
   });
 
   it('rejects unknown enum values', () => {
@@ -81,6 +89,22 @@ describe('loadConfig', () => {
     // verification code to the log.
     expect(() => loadConfig({ ...prod, RESEND_API_KEY: undefined })).toThrow(/RESEND_API_KEY/);
     expect(loadConfig(prod).APP_ORIGIN).toBe('https://api.example.com');
+  });
+
+  // Nothing is ever mailed in that mode, so there is no mailer to fall back
+  // from and no code that could reach the log.
+  it('stops requiring a mail key in production once verification is off', () => {
+    const prod = {
+      ...base,
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgres://u:p@h/db',
+      APP_ORIGIN: 'https://api.example.com',
+    };
+
+    expect(() => loadConfig({ ...prod, EMAIL_VERIFICATION: 'required' })).toThrow(/RESEND_API_KEY/);
+    const config = loadConfig({ ...prod, EMAIL_VERIFICATION: 'off' });
+    expect(config.EMAIL_VERIFICATION).toBe('off');
+    expect(config.RESEND_API_KEY).toBeUndefined();
   });
 });
 

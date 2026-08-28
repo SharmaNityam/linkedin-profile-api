@@ -692,6 +692,94 @@ describe('AuthService', () => {
     });
   });
 
+  /**
+   * With `emailVerification: 'off'` the mailbox is never proved, so the code
+   * step disappears entirely: signup is the account, and a taken address is
+   * reported instead of hidden.
+   */
+  describe('without email verification', () => {
+    beforeEach(() => {
+      service = new AuthService({
+        repos,
+        hasher,
+        mailer,
+        phoneValidator: validator,
+        allowedDomains: ['gmail.com', 'outlook.com'],
+        failMode: 'open',
+        emailVerification: 'off',
+        now,
+      });
+    });
+
+    it('creates a verified account and a session, mailing nothing', async () => {
+      const result = await service.signup(EMAIL, PASSWORD);
+
+      const user = await mustFind(EMAIL);
+      expect(user.emailVerifiedAt).toEqual(clock);
+      expect(user.passwordHash).toBe(digest(PASSWORD));
+      expect(result?.claims).toEqual({
+        userId: user.id,
+        sessionVersion: user.sessionVersion,
+        issuedAt: clock.getTime(),
+      });
+      expect(result?.me).toEqual({
+        email: EMAIL,
+        emailVerified: true,
+        phoneVerified: false,
+        createdAt: user.createdAt.toISOString(),
+      });
+
+      expect(mailer.sent).toHaveLength(0);
+      expect(await pendingFor(EMAIL)).toEqual([]);
+    });
+
+    it('signs the new account straight in', async () => {
+      const result = await service.signup(EMAIL, PASSWORD);
+      expect((await service.resolve(result?.claims))?.id).toBe((await mustFind(EMAIL)).id);
+    });
+
+    it('reports a second signup for the same mailbox as taken', async () => {
+      await service.signup(EMAIL, PASSWORD);
+
+      const err = await appError(() => service.signup(ALIAS, 'a-different-password'));
+
+      expect(err.code).toBe('EMAIL_TAKEN');
+      expect(err.status).toBe(409);
+      // The first password still owns the account.
+      expect((await mustFind(EMAIL)).passwordHash).toBe(digest(PASSWORD));
+    });
+
+    it('still enforces the domain allowlist and the password policy', async () => {
+      expect((await appError(() => service.signup('john@example.com', PASSWORD))).code).toBe(
+        'EMAIL_DOMAIN_NOT_ALLOWED',
+      );
+      expect((await appError(() => service.signup(EMAIL, 'short1'))).code).toBe('INVALID_REQUEST');
+      expect(await repos.users.findByCanonicalEmail(canonicalEmail(EMAIL))).toBeNull();
+    });
+
+    it('refuses to verify an email, since no code was ever sent', async () => {
+      await service.signup(EMAIL, PASSWORD);
+
+      const err = await appError(() => service.verifyEmail(EMAIL, '000000'));
+
+      expect(err.code).toBe('INVALID_REQUEST');
+      expect(err.message).toBe('Email verification is disabled');
+    });
+
+    it('leaves login and the phone step exactly as they are', async () => {
+      const signup = await service.signup(EMAIL, PASSWORD);
+      const user = await mustFind(EMAIL);
+
+      const phoned = await service.setPhone(user.id, PHONE);
+      expect(phoned.phoneValidation).toBe('accepted');
+      expect(phoned.me.phoneVerified).toBe(true);
+
+      const login = await service.login(ALIAS, PASSWORD);
+      expect(login.claims.userId).toBe(signup?.claims.userId);
+      expect(login.me.phoneVerified).toBe(true);
+    });
+  });
+
   describe('me', () => {
     it('exposes only the four public fields', async () => {
       const user = await signupAndVerify();
