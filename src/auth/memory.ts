@@ -26,13 +26,23 @@ function missingUser(id: string): AppError {
   return new AppError('INTERNAL_ERROR', `No user with id ${id}`);
 }
 
+/** Generic to the caller, specific in the log, which is where `cause` goes. */
+function duplicateEmail(cause: unknown): AppError {
+  const err = new AppError('INTERNAL_ERROR', 'Could not create the account');
+  err.cause = cause;
+  return err;
+}
+
 class MemoryUserRepository implements UserRepository {
   private readonly byId = new Map<string, User>();
 
   async create(user: NewUser): Promise<User> {
     for (const existing of this.byId.values()) {
       if (existing.emailCanonical === user.emailCanonical) {
-        throw new AppError('INTERNAL_ERROR', 'An account with that email already exists');
+        // Deliberately says nothing about *why*: this message reaches the
+        // caller in a 500 body, and "that email is taken" is the one fact the
+        // whole signup flow is built to withhold.
+        throw duplicateEmail(new Error(`canonical email ${user.emailCanonical} already exists`));
       }
     }
 

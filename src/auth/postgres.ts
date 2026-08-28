@@ -80,7 +80,13 @@ class PostgresUserRepository implements UserRepository {
       return toUser(rows[0]!);
     } catch (err) {
       if (isUniqueViolation(err, EMAIL_CONSTRAINT)) {
-        throw new AppError('INTERNAL_ERROR', 'An account with that email already exists');
+        // Deliberately says nothing about *why*: this message reaches the
+        // caller in a 500 body, and "that email is taken" is the one fact the
+        // whole signup flow is built to withhold. The driver's own error is
+        // attached as `cause`, so the log still says which constraint tripped.
+        const conflict = new AppError('INTERNAL_ERROR', 'Could not create the account');
+        conflict.cause = err;
+        throw conflict;
       }
       throw err;
     }
