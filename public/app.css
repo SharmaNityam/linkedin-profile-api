@@ -75,9 +75,12 @@ section.block > h2 .count, .timeline .d, .facts, pre.json, pre.snippet {
 }
 
 header.top { border-bottom: var(--border-w) solid var(--border); }
+/* One line system for the whole page: a 680px content column inside a 24px
+   gutter. The header, the landing block, the narrow result and the wide
+   layout's middle column all resolve to the same left edge. */
 header.top .hdr {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  max-width: 680px; margin: 0 auto; padding: 0 24px; height: 64px;
+  max-width: 728px; margin: 0 auto; padding: 0 24px; height: 64px;
 }
 header.top .brand { font-size: 14px; font-weight: 600; white-space: nowrap; }
 header.top nav {
@@ -90,10 +93,10 @@ main {
   display: flex; flex-direction: column; align-items: center;
   min-height: calc(100vh - 64px);
 }
-main > .shell { width: 100%; max-width: 560px; padding: 24px; }
+main > .shell { width: 100%; max-width: 728px; padding: 24px; }
 main[data-state="landing"] { justify-content: center; }
 main[data-state="results"] { justify-content: flex-start; }
-main[data-state="results"] > .shell { max-width: 680px; padding: 0 24px 64px; }
+main[data-state="results"] > .shell { max-width: 728px; padding: 0 24px 64px; }
 
 .hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; line-height: 1.15; }
 .hero p { margin: 0; font-size: 15px; color: var(--muted); }
@@ -201,6 +204,8 @@ ul.quiet > li { display: flex; align-items: baseline; justify-content: space-bet
 ul.quiet a { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 ul.quiet > li > span { font-size: 13px; }
 ul.quiet .t { font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* The actions are not more status fields: a gap says so without a divider. */
+ul.quiet.actions { margin-top: 16px; }
 ul.quiet.actions > li { padding: 6px 0; }
 /* A rail row's hit area is the whole row, so rows sit edge to edge instead of
    overlapping; on a touch pointer the row grows to 44px. */
@@ -248,6 +253,9 @@ ul.quiet.actions a:hover { color: var(--accent); }
   color: var(--faint); font-weight: 500; font-size: 14px;
 }
 .avatar { width: 48px; height: 48px; border-radius: 50%; flex: none; font-size: 16px; }
+/* Every image gets the same neutral edge, so a light photo cannot bleed into
+   the surface behind it. Border, not shadow — this sheet has no shadows. */
+.avatar, .pimgs .cell { box-sizing: border-box; border: var(--border-w) solid var(--border); }
 .logo { width: 40px; height: 40px; border-radius: 6px; border: var(--border-w) solid var(--border); flex: none; }
 .logo > img, .org > img { object-fit: contain; }
 .org { border-radius: 6px; border: var(--border-w) solid var(--border); }
@@ -265,6 +273,8 @@ ul.quiet.actions a:hover { color: var(--accent); }
 .kind { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
 
 .body { margin: 0; font-size: 14px; white-space: pre-wrap; }
+/* Free text keeps a readable measure; structured rows stay full width. */
+.body, .ptext, .timeline .desc { max-width: 68ch; }
 [data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .more { background: none; border: 0; padding: 8px 0 0; cursor: pointer; font-size: 13px; color: var(--muted); }
 .more:hover { color: var(--text); text-decoration: underline; }
@@ -313,7 +323,10 @@ section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--mute
 .pimgs[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
 .pimgs[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
 .pimgs .cell { aspect-ratio: 4 / 3; }
-.pimgs[data-n="1"] .cell { max-height: 400px; }
+/* A lone image owns the full column whatever its proportions: the height cap
+   letterboxes a tall one instead of shrinking the box back into the column. */
+.pimgs[data-n="1"] { grid-template-columns: minmax(0, 1fr); }
+.pimgs[data-n="1"] .cell { justify-self: stretch; max-height: 400px; }
 .pimgs[data-n="1"] .cell > img { object-fit: contain; }
 .article-card {
   display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
@@ -329,7 +342,11 @@ section.block > h2 .count { font-weight: 400; font-size: 13px; color: var(--mute
 .json-actions { display: flex; justify-content: flex-end; gap: 16px; padding: 12px 20px 0; }
 .card > .json-actions + .json { border-top: 0; }
 pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
-.json { margin: 0; padding: 12px 20px 20px; overflow: auto; max-height: 70vh; }
+/* The pane is a window on a much longer payload; the fade says so. */
+.json {
+  margin: 0; padding: 12px 20px 20px; overflow: auto; max-height: 70vh;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+}
 .snippet { margin: 12px 0 0; padding: 12px; background: var(--bg); border: var(--border-w) solid var(--border); border-radius: 6px; overflow-x: auto; }
 .j-k { color: var(--text); } .j-s { color: var(--muted); } .j-n, .j-b, .j-null { color: var(--faint); }
 
@@ -346,21 +363,27 @@ pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 
   main[data-state="results"] > .shell { padding: 0 16px 64px; }
 }
 
-/* Three columns from 1100px: an index of the result and the recents on the
+/* Three columns from 1216px: an index of the result and the recents on the
    left, the result in the middle, the request's own numbers on the right. The
-   landing block keeps its single centred column — there is nothing to index
-   yet — and the status line stays inline until the rail takes it over. */
-@media (min-width: 1100px) {
+   breakpoint is the width at which all three tracks and the gutter fit at
+   their full size, so the middle column never has to shrink off the shared
+   680px line. Below it the recents collapse into one row under the search and
+   the status goes back inline. */
+@media (min-width: 1216px) {
   main[data-state="results"] > .shell {
     display: grid;
-    grid-template-columns: 220px minmax(0, 680px) 200px;
+    grid-template-columns: 220px minmax(0, 680px) 220px;
     gap: 24px;
     align-items: start;
-    max-width: 1196px;
+    max-width: none;
+    justify-content: center;
   }
   main[data-state="results"] .rail {
     display: flex; flex-direction: column; gap: 24px;
     margin-top: 24px; position: sticky; top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   main[data-state="results"] .recent-row { display: none; }
   main[data-state="results"] .status[data-mirrored="true"] { display: none; }
