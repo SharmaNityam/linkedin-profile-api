@@ -77,6 +77,14 @@ describe('HTTP API', () => {
     expect(res.body).toContain('LinkedIn Profile API');
     expect(res.body).toContain('/v1/profile');
     expect(res.body).toContain('bindImages');
+    expect(res.body).toContain('href="/app.css"');
+  });
+
+  it('GET /app.css serves the shared stylesheet', async () => {
+    const res = await app.inject({ url: '/app.css' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/css');
+    expect(res.body).toContain('--accent:');
   });
 
   it('GET /health', async () => {
@@ -323,6 +331,7 @@ describe('rate limiting', () => {
     await app.ready();
     for (let i = 0; i < 30; i += 1) {
       expect((await app.inject({ url: '/' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/app.css' })).statusCode).toBe(200);
       expect((await app.inject({ url: '/health' })).statusCode).toBe(200);
       expect((await app.inject({ url: '/health?x=1' })).statusCode).toBe(200);
       expect((await app.inject({ url: '/openapi.json?x=1' })).statusCode).toBe(200);

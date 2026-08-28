@@ -110,12 +110,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     keyGenerator: (req) => req.viewer?.email ?? req.ip,
     // Path matched alone, query string excluded, so `/health?x=1` is exempt
     // just like `/health`. Covers everything `@fastify/static` serves too
-    // (just `/` and `/index.html`: the playground is a single file).
+    // (`/`, `/index.html` and the stylesheet that page pulls in).
     allowList: (req) => {
       const path = req.url.split('?', 1)[0] ?? '';
       return (
         path === '/' ||
         path === '/index.html' ||
+        path === '/app.css' ||
         path === '/health' ||
         path === '/openapi.json' ||
         path === '/docs' ||
@@ -144,7 +145,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         imgSrc: ["'self'", 'https://media.licdn.com', 'data:'],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ['https://fonts.gstatic.com'],
-        // The playground is a single file: its script and styles are inline.
+        // The playground's stylesheet is same-origin; its script is inline.
         scriptSrc: ["'self'", "'unsafe-inline'"],
         connectSrc: ["'self'"],
       },
@@ -175,8 +176,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     // every unmatched GET and answer it with `reply.callNotFound()`, which
     // skips the not-found route's own hooks — so an unknown path would come
     // back unbudgeted, and 404s are exactly what URL guessing generates. The
-    // folder is a single file baked into the image, so globbing it once at
-    // boot costs nothing and nothing is ever added at runtime.
+    // folder is a handful of files baked into the image, so globbing it once
+    // at boot costs nothing and nothing is ever added at runtime.
     wildcard: false,
   });
 
