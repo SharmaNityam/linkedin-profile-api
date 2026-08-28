@@ -29,32 +29,43 @@
 
 <main id="main" data-state="landing">
   <div class="shell">
-    <div class="hero" id="hero">
-      <h1>LinkedIn Profile API</h1>
-      <p>Turn a LinkedIn profile, company or activity URL into JSON.</p>
+    <div class="rail rail-left">
+      <nav class="sections" id="sections" aria-label="Sections" hidden></nav>
+      <section class="recent" id="recent" hidden></section>
     </div>
 
-    <form class="lookup" id="form" autocomplete="off">
-      <label class="sr" for="url">LinkedIn profile, company or activity URL</label>
-      <input id="url" name="url" type="text" placeholder="linkedin.com/in/username" spellcheck="false" inputmode="url" />
-      <button class="btn" id="go" type="submit">Fetch</button>
-    </form>
-
-    <p class="try" id="try"></p>
-
-    <section class="recent" id="recent" hidden></section>
-
-    <form class="auth" id="auth" hidden></form>
-
-    <div class="bar" id="bar" hidden>
-      <div class="tabs" role="tablist" id="tabs" hidden>
-        <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
-        <button role="tab" aria-selected="false" data-tab="json">JSON</button>
+    <div class="mid">
+      <div class="hero" id="hero">
+        <h1>LinkedIn Profile API</h1>
+        <p>Turn a LinkedIn profile, company or activity URL into JSON.</p>
       </div>
-      <span class="status" id="status" hidden></span>
+
+      <form class="lookup" id="form" autocomplete="off">
+        <label class="sr" for="url">LinkedIn profile, company or activity URL</label>
+        <input id="url" name="url" type="text" placeholder="linkedin.com/in/username" spellcheck="false" inputmode="url" />
+        <button class="btn" id="go" type="submit">Fetch</button>
+      </form>
+
+      <p class="try" id="try"></p>
+
+      <p class="recent-row" id="recent-row" hidden></p>
+
+      <form class="auth" id="auth" hidden></form>
+
+      <div class="bar" id="bar" hidden>
+        <div class="tabs" role="tablist" id="tabs" hidden>
+          <button role="tab" aria-selected="true" data-tab="view" id="tab-view">Profile</button>
+          <button role="tab" aria-selected="false" data-tab="json">JSON</button>
+        </div>
+        <span class="status" id="status" hidden></span>
+      </div>
+
+      <div class="card" id="view" hidden></div>
     </div>
 
-    <div class="card" id="view" hidden></div>
+    <div class="rail rail-right">
+      <section class="statusbox" id="statusbox" hidden></section>
+    </div>
   </div>
 </main>
 
@@ -67,7 +78,9 @@
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
   const mainEl = $('#main'), hero = $('#hero'), tryEl = $('#try');
   const statusEl = $('#status'), tabsEl = $('#tabs'), tabView = $('#tab-view'), bar = $('#bar');
-  const authForm = $('#auth'), meEl = $('#me'), recentEl = $('#recent');
+  const authForm = $('#auth'), meEl = $('#me');
+  const recentEl = $('#recent'), recentRow = $('#recent-row');
+  const sectionsEl = $('#sections'), statusBox = $('#statusbox');
 
   let data = null, kind = 'profile', tab = 'view', uid = 0;
   let viewer = null, step = 'email', signInEmail = '', pendingUrl = null, authOpen = false;
@@ -196,9 +209,9 @@
     return values.size === 1 && only ? only : null;
   }
 
-  function block(title, items, body) {
+  function block(title, items, body, id) {
     if (!items?.length) return '';
-    return `<section class="block pad"><h2>${title}<span class="count">${items.length}</span></h2>${body}</section>`;
+    return `<section class="block pad"${id ? ` id="${id}"` : ''}><h2>${title}<span class="count">${items.length}</span></h2>${body}</section>`;
   }
 
   function renderTry() {
@@ -246,7 +259,7 @@
       <li><div class="col"><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${desc(r.description)}</div></li>`).join('')}</ul>`);
 
     view.innerHTML = `
-      <div class="pad">
+      <div class="pad" id="personal">
         <div class="identity">
           ${img({ image: p.profileImage, alt: p.fullName, cls: 'avatar', eager: true, sizes: '48px', fallback: initialHtml(p.fullName, p.fullName) })}
           <div class="who">
@@ -257,23 +270,23 @@
         </div>
         <p class="links"><a href="${esc(p.url)}" rel="noopener" target="_blank">View on LinkedIn</a><span class="sep">·</span><button class="btn-text" type="button" data-copy-url="${esc(p.url)}">Copy link</button></p>
       </div>
-      ${p.about ? `<section class="block pad"><h2>About</h2>${desc(p.about, 'body')}</section>` : ''}
-      ${block('Experience', p.experience, `<ul class="timeline">${groupRuns(p.experience, expKey).map(position).join('')}</ul>`)}
+      ${p.about ? `<section class="block pad" id="about"><h2>About</h2>${desc(p.about, 'body')}</section>` : ''}
+      ${block('Experience', p.experience, `<ul class="timeline">${groupRuns(p.experience, expKey).map(position).join('')}</ul>`, 'experience')}
       ${block('Education', p.education, `<ul class="timeline">${p.education.map((e) => `
         <li>${logo(e.school, e.schoolName)}<div class="col">
           <p class="t">${orgLink(e.school, e.schoolName ?? '')}</p>
           <p class="o">${esc([e.degree, e.fieldOfStudy].filter(Boolean).join(', '))}</p>
           <p class="d">${dots([range(e.startDate, e.endDate).replace(/ · .*$/, ''), e.grade ? `Grade ${e.grade}` : null])}</p>
           ${desc(e.activities)}${desc(e.description)}
-        </div></li>`).join('')}</ul>`)}
-      ${block('Skills', p.skills, `<div class="chips">${p.skills.map((s, i) => `<span${i >= SKILL_CAP ? ' hidden' : ''}>${esc(s.name)}</span>`).join('')}</div>${extra > 0 ? `<button class="more" type="button" data-skills-more>Show ${extra} more</button>` : ''}`)}
+        </div></li>`).join('')}</ul>`, 'education')}
+      ${block('Skills', p.skills, `<div class="chips">${p.skills.map((s, i) => `<span${i >= SKILL_CAP ? ' hidden' : ''}>${esc(s.name)}</span>`).join('')}</div>${extra > 0 ? `<button class="more" type="button" data-skills-more>Show ${extra} more</button>` : ''}`, 'skills')}
       ${block('Licenses &amp; certifications', p.certifications, `<ul class="timeline">${p.certifications.map((c) => `
         <li>${logo(c.organization, c.authority)}<div class="col">
           <p class="t">${c.url ? `<a href="${esc(c.url)}" rel="noopener" target="_blank">${esc(c.name)}</a>` : esc(c.name)}</p>
           <p class="o">${esc(c.authority ?? '')}</p>
           <p class="d">${dots([c.issuedAt ? `Issued ${fmt(c.issuedAt)}` : null, c.expiresAt ? `Expires ${fmt(c.expiresAt)}` : null, c.licenseNumber ? `No. ${c.licenseNumber}` : null])}</p>
-        </div></li>`).join('')}</ul>`)}
-      ${block('Languages', p.languages, `<dl class="kv">${p.languages.map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(PROF[l.proficiency] ?? l.proficiency ?? '—')}</dd>`).join('')}</dl>`)}
+        </div></li>`).join('')}</ul>`, 'certifications')}
+      ${block('Languages', p.languages, `<dl class="kv">${p.languages.map((l) => `<dt>${esc(l.name)}</dt><dd>${esc(PROF[l.proficiency] ?? l.proficiency ?? '—')}</dd>`).join('')}</dl>`, 'languages')}
       ${block('Volunteering', p.volunteering, `<ul class="timeline">${p.volunteering.map((v) => `
         <li>${logo(v.organization, v.organizationName)}<div class="col">
           <p class="t">${esc(v.role)}</p>
@@ -307,7 +320,7 @@
     ]);
 
     view.innerHTML = `
-      <div class="pad">
+      <div class="pad" id="personal">
         <div class="identity">
           ${img({ image: c.logo, alt: c.name, cls: 'avatar org', eager: true, sizes: '48px', fallback: initialHtml(c.name, c.name) })}
           <div class="who">
@@ -318,8 +331,8 @@
         </div>
         <p class="links">${c.websiteUrl ? `<a href="${esc(c.websiteUrl)}" rel="noopener nofollow" target="_blank">${esc(host(c.websiteUrl))}</a><span class="sep">·</span>` : ''}<a href="${esc(c.url)}" rel="noopener" target="_blank">View on LinkedIn</a></p>
       </div>
-      ${c.description ? `<section class="block pad"><h2>About</h2>${desc(c.description, 'body')}</section>` : ''}
-      ${block('Specialities', c.specialities, `<div class="chips">${c.specialities.map((s) => `<span>${esc(s)}</span>`).join('')}</div>`)}
+      ${c.description ? `<section class="block pad" id="about"><h2>About</h2>${desc(c.description, 'body')}</section>` : ''}
+      ${block('Specialities', c.specialities, `<div class="chips">${c.specialities.map((s) => `<span>${esc(s)}</span>`).join('')}</div>`, 'details')}
     `;
     bindImages(view);
     trimClamps(view);
@@ -368,18 +381,18 @@
   function renderPosts(r) {
     uid = 0;
     view.innerHTML = `
-      <div class="pad activity">
+      <div class="pad activity" id="personal">
         <a href="${esc(r.url)}" rel="noopener" target="_blank">${esc(r.url.replace(/^https:\/\/www\./, ''))}</a>
         <span class="count">${r.posts.length} of ${r.count} requested</span>
       </div>
-      ${r.posts.map((p) => `
+      <div id="posts">${r.posts.map((p) => `
         <div class="post pad">
           ${author(p, p.isReshare && !p.reshared)}
           ${desc(p.text, 'ptext')}
           ${media(p)}
           ${p.reshared ? `<div class="quote">${author(p.reshared, false)}${desc(p.reshared.text, 'ptext')}${media(p.reshared)}</div>` : ''}
           ${statsRow(p)}
-        </div>`).join('')}`;
+        </div>`).join('')}</div>`;
     bindImages(view);
     trimClamps(view);
   }
@@ -421,6 +434,7 @@
     view.hidden = false;
     delete view.dataset.loading;
     tab === 'json' ? renderJson(data) : RENDER[kind](data);
+    renderSections();
   }
 
   function setStatus(cls, text) { bar.hidden = false; statusEl.hidden = false; statusEl.className = `status ${cls}`; statusEl.textContent = text; }
@@ -439,12 +453,14 @@
       <p class="cold" id="cold" hidden>Still working. This runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>
     </div>`;
     setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
+    renderSections();
   }
   function showError(status, body) {
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
     view.hidden = false;
     delete view.dataset.loading;
     view.innerHTML = `<div class="pad error"><p class="code">${esc(status)} · ${esc(e.code)}</p><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
+    renderSections();
   }
 
   // ---- sign-in: an address, then the emailed code, then a line in the header
@@ -571,11 +587,14 @@
   };
 
   const took = (ms) => ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
-  const cacheAge = (iso) => {
-    const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  // "cached", or "cached<sep>4 min" once the entry has an age worth naming.
+  function cachedFor(meta, sep = ' ') {
+    if (!meta?.cached) return null;
+    const min = Math.round((Date.now() - Date.parse(meta.fetchedAt)) / 60000);
     if (!Number.isFinite(min) || min < 1) return 'cached';
-    return min < 60 ? `cached ${min} min` : min < 1440 ? `cached ${Math.round(min / 60)} h` : `cached ${Math.round(min / 1440)} d`;
-  };
+    const age = min < 60 ? `${min} min` : min < 1440 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} d`;
+    return `cached${sep}${age}`;
+  }
 
   // One key per page: the same URL typed with or without the scheme, the www
   // host or a trailing slash is one entry.
@@ -607,19 +626,75 @@
     const entry = { url, kind: k, label: LABEL_OF[k](d) || url, at: new Date().toISOString() };
     writeRecent([entry, ...readRecent().filter((r) => r.url !== url)].slice(0, RECENT_MAX));
   }
+  const recentLink = (r) => `<a href="?url=${encodeURIComponent(r.url)}" data-recent="${esc(r.url)}">${esc(r.label)}</a>`;
+  const ROW_MAX = 5;
   function renderRecent() {
     const list = readRecent();
-    recentEl.hidden = !list.length;
-    if (!list.length) { recentEl.innerHTML = ''; return; }
+    recentEl.hidden = recentRow.hidden = !list.length;
+    if (!list.length) { recentEl.innerHTML = recentRow.innerHTML = ''; return; }
+    recentRow.innerHTML = `Recent: ${list.slice(0, ROW_MAX).map(recentLink).join('<span class="sep">·</span>')}`;
     recentEl.innerHTML = `<h2 class="panel-h">Recent</h2>
-      <ul class="quiet">${list.map((r) => `<li>
-        <a href="?url=${encodeURIComponent(r.url)}" data-recent="${esc(r.url)}">${esc(r.label)}</a>
-        <span class="t">${esc(ago(r.at))}</span>
-      </li>`).join('')}</ul>
+      <ul class="quiet">${list.map((r) => `<li>${recentLink(r)}<span class="t">${esc(ago(r.at))}</span></li>`).join('')}</ul>
       <p class="panel-foot"><button class="btn-text" type="button" data-recent-clear>Clear</button></p>`;
   }
 
-  const statusLine = (hit) => dots([String(hit.status), took(hit.ms), hit.data.meta?.cached ? cacheAge(hit.data.meta.fetchedAt) : null]);
+  const statusLine = (hit) => dots([String(hit.status), took(hit.ms), cachedFor(hit.data.meta)]);
+
+  // The right rail carries what the tabs row shows inline on a narrow screen,
+  // plus the actions that belong to the request rather than to the result.
+  function renderStatusBox(hit) {
+    statusBox.hidden = !hit;
+    delete statusEl.dataset.mirrored;
+    if (!hit) { statusBox.innerHTML = ''; return; }
+    statusEl.dataset.mirrored = 'true';
+    const cached = cachedFor(hit.data.meta, ' · ');
+    statusBox.innerHTML = `<h2 class="panel-h">Status</h2>
+      <ul class="quiet">
+        <li><span>HTTP</span><span class="t">${esc(hit.status)}</span></li>
+        <li><span>Time</span><span class="t">${esc(took(hit.ms))}</span></li>
+        ${cached ? `<li><span>Cache</span><span class="t">${esc(cached)}</span></li>` : ''}
+      </ul>
+      <ul class="quiet actions">
+        <li><button class="btn-text" type="button" data-copy-json="full">Copy JSON</button></li>
+        <li><button class="btn-text" type="button" data-copy-json="trimmed">Copy trimmed</button></li>
+        ${hit.data.url ? `<li><a href="${esc(hit.data.url)}" rel="noopener" target="_blank">View on LinkedIn</a></li>` : ''}
+      </ul>`;
+  }
+
+  // ---- the left rail's index of the result on screen
+  const SECTION_IDS = ['personal', 'about', 'experience', 'education', 'skills', 'certifications', 'languages', 'posts', 'details'];
+  const HEAD_LABEL = { profile: 'Personal', company: 'Overview', posts: 'Activity' };
+  // A section is named by its own heading; the two that have none are named
+  // after what they hold.
+  function sectionLabel(el) {
+    const h2 = $('h2', el);
+    if (h2) return h2.firstChild.textContent.trim();
+    return el.id === 'personal' ? HEAD_LABEL[kind] : 'Posts';
+  }
+
+  let observer = null, visible = new Set(), order = [];
+  function setActive(id) {
+    for (const a of sectionsEl.querySelectorAll('a')) a.setAttribute('aria-current', String(a.dataset.jump === id));
+  }
+  function renderSections() {
+    observer?.disconnect();
+    visible = new Set();
+    const els = [...view.querySelectorAll('[id]')].filter((el) => SECTION_IDS.includes(el.id));
+    order = els.map((el) => el.id);
+    sectionsEl.hidden = els.length < 2;
+    if (sectionsEl.hidden) { sectionsEl.innerHTML = ''; return; }
+    sectionsEl.innerHTML = `<h2 class="panel-h">Sections</h2>
+      <ul class="quiet">${els.map((el) => `<li><a href="#${el.id}" data-jump="${el.id}">${esc(sectionLabel(el))}</a></li>`).join('')}</ul>`;
+    setActive(order[0]);
+    // The section being read is the lowest one reaching into the top of the
+    // viewport, so a section scrolling out yields to the one taking its place.
+    observer = new IntersectionObserver((entries) => {
+      for (const e of entries) e.isIntersecting ? visible.add(e.target.id) : visible.delete(e.target.id);
+      const active = order.filter((id) => visible.has(id)).pop();
+      if (active) setActive(active);
+    }, { rootMargin: '0px 0px -60% 0px' });
+    for (const el of els) observer.observe(el);
+  }
 
   function showKind() {
     tabView.textContent = KIND_LABEL[kind];
@@ -630,6 +705,7 @@
     data = null;
     view.hidden = true; view.innerHTML = ''; delete view.dataset.loading;
     bar.hidden = true; statusEl.hidden = true; tabsEl.hidden = true;
+    renderStatusBox(null); renderSections();
     setState('landing');
   }
   // Puts a stored result back on screen, request free.
@@ -639,6 +715,7 @@
     showKind();
     setState('results'); tabsEl.hidden = false;
     setStatus('', statusLine(hit));
+    renderStatusBox(hit);
     renderView();
   }
 
@@ -659,6 +736,7 @@
     showKind();
     setState('results'); tabsEl.hidden = true;
     setStatus('', 'Fetching…');
+    renderStatusBox(null);
     showLoading();
     const t0 = performance.now();
     try {
@@ -677,6 +755,7 @@
       results.set(key, hit);
       remember(key, kind, body);
       setStatus('', statusLine(hit));
+      renderStatusBox(hit);
       tabsEl.hidden = false;
       renderView();
     } catch (err) {
@@ -706,7 +785,8 @@
     for (const x of tabsEl.children) x.setAttribute('aria-selected', String(x === b));
     renderView();
   });
-  async function flash(btn, text, label) {
+  async function flash(btn, text) {
+    const label = btn.dataset.label ?? (btn.dataset.label = btn.textContent);
     try {
       await navigator.clipboard.writeText(text);
       btn.textContent = 'Copied';
@@ -727,6 +807,8 @@
     // A modified click is the browser's to handle: it opens the deep link.
     if (recent && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); lookup(recent.dataset.recent); return; }
     if (e.target.closest('[data-recent-clear]')) { writeRecent([]); return; }
+    const jump = e.target.closest('[data-jump]');
+    if (jump) { e.preventDefault(); $(`#${jump.dataset.jump}`)?.scrollIntoView({ block: 'start' }); return; }
     const example = e.target.closest('[data-example]');
     if (example) { lookup(example.dataset.example); return; }
     const clamp = e.target.closest('[data-clamp]');
@@ -736,11 +818,11 @@
     const json = e.target.closest('[data-copy-json]');
     if (json) {
       const full = json.dataset.copyJson === 'full';
-      flash(json, JSON.stringify(full ? data : withoutVariants(data), null, 2), full ? 'Copy full' : 'Copy');
+      flash(json, JSON.stringify(full ? data : withoutVariants(data), null, 2));
       return;
     }
     const copyUrl = e.target.closest('[data-copy-url]');
-    if (copyUrl) flash(copyUrl, copyUrl.dataset.copyUrl, 'Copy link');
+    if (copyUrl) flash(copyUrl, copyUrl.dataset.copyUrl);
   });
   document.addEventListener('keydown', (e) => {
     const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '');

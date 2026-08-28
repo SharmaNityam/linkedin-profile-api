@@ -146,14 +146,26 @@ form.auth[hidden] { display: none; }
 .ex { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; color: var(--text); }
 .ex:hover { text-decoration: underline; }
 
-/* recent lookups: a quiet list of links, newest first */
-.recent { margin: 24px 0 0; }
-.recent[hidden] { display: none; }
+/* The rails are the wide layout's own furniture: below 1100px the recents
+   collapse into one row under the search and the status goes back inline. */
+.rail { display: none; }
+.mid { min-width: 0; }
+.recent-row { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.recent-row[hidden], .sections[hidden], .statusbox[hidden] { display: none; }
+.recent-row a { color: var(--text); }
 .panel-h { font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
 ul.quiet { list-style: none; margin: 0; padding: 0; }
 ul.quiet > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; }
 ul.quiet a { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ul.quiet > li > span { font-size: 13px; }
 ul.quiet .t { font-size: 12px; color: var(--muted); white-space: nowrap; }
+ul.quiet.actions > li { padding: 4px 0; }
+ul.quiet.actions a { font-size: 13px; color: var(--muted); }
+ul.quiet.actions a:hover { color: var(--accent); }
+.sections a { font-size: 13px; color: var(--muted); }
+.sections a[aria-current="true"] { color: var(--text); }
+#view > [id] { scroll-margin-top: 24px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 .panel-foot { margin: 8px 0 0; }
 
 /* Fixed rows: the tabs, the status line and the loading card each keep
@@ -282,4 +294,24 @@ pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 
   header.top .hdr { padding: 0 16px; }
   main > .shell { padding: 16px; }
   main[data-state="results"] > .shell { padding: 0 16px 64px; }
+}
+
+/* Three columns from 1100px: an index of the result and the recents on the
+   left, the result in the middle, the request's own numbers on the right. The
+   landing block keeps its single centred column — there is nothing to index
+   yet — and the status line stays inline until the rail takes it over. */
+@media (min-width: 1100px) {
+  main[data-state="results"] > .shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 680px) 200px;
+    gap: 24px;
+    align-items: start;
+    max-width: 1196px;
+  }
+  main[data-state="results"] .rail {
+    display: flex; flex-direction: column; gap: 24px;
+    margin-top: 24px; position: sticky; top: 24px;
+  }
+  main[data-state="results"] .recent-row { display: none; }
+  main[data-state="results"] .status[data-mirrored="true"] { display: none; }
 }
