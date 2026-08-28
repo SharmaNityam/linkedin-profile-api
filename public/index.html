@@ -417,13 +417,17 @@
   function renderView() {
     if (!data) return;
     view.hidden = false;
+    delete view.dataset.loading;
     tab === 'json' ? renderJson(data) : RENDER[kind](data);
   }
 
   function setStatus(cls, text) { bar.hidden = false; statusEl.hidden = false; statusEl.className = `status ${cls}`; statusEl.textContent = text; }
 
+  // The reserved height belongs to the loading state only, so the card does not
+  // jump when the skeleton is swapped for the real thing.
   function showLoading() {
     view.hidden = false;
+    view.dataset.loading = 'true';
     view.innerHTML = `<div class="pad">
       <div class="identity"><span class="skel avatar"></span><div class="who">
         <div class="skel skel-line" style="width:40%;height:20px"></div>
@@ -437,6 +441,7 @@
   function showError(status, body) {
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
     view.hidden = false;
+    delete view.dataset.loading;
     view.innerHTML = `<div class="pad error"><p class="code">${esc(status)} · ${esc(e.code)}</p><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
   }
 
