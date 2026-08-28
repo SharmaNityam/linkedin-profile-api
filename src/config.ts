@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { DEFAULT_POSTS_QUERY_ID } from './linkedin/voyager/endpoints.js';
 
-const envSchema = z.object({
+const rawEnvSchema = z.object({
   // Quotes are stripped so a value pasted as LI_AT="…" works whether it comes
   // from dotenv (which unquotes) or `docker --env-file` (which doesn't).
   LI_AT: z
@@ -31,7 +31,31 @@ const envSchema = z.object({
     .default(
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
     ),
+
+  NODE_ENV: z.string().default('development'),
+
+  // Email-OTP gate on /v1/*
+  SESSION_KEY: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i, 'SESSION_KEY must be 64 hex characters (32 bytes)'),
+  SMTP_USER: z.string().email('SMTP_USER must be a valid email').optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  EMAIL_FROM: z.string().optional(),
+  APP_ORIGIN: z.string().default('http://localhost:3000'),
+  /** Per IP, on /auth/request-code and /auth/verify. */
+  OTP_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(10),
+  /** Per email address, on code issuance. */
+  OTP_PER_EMAIL_PER_HOUR: z.coerce.number().int().positive().default(5),
 });
+
+const envSchema = rawEnvSchema
+  .refine((v) => v.NODE_ENV !== 'production' || (v.SMTP_USER && v.SMTP_PASS), {
+    message: 'SMTP_USER and SMTP_PASS are required when NODE_ENV=production',
+    path: ['SMTP_USER'],
+  })
+  .transform((v) => ({ ...v, EMAIL_FROM: v.EMAIL_FROM ?? v.SMTP_USER }));
 
 export type Config = z.infer<typeof envSchema>;
 
@@ -50,5 +74,7 @@ export function redactConfig(config: Config): Record<string, unknown> {
     ...config,
     LI_AT: `(${config.LI_AT.length} chars, redacted)`,
     LI_COOKIES: config.LI_COOKIES ? `(${config.LI_COOKIES.length} chars)` : undefined,
+    SESSION_KEY: `(${config.SESSION_KEY.length} chars, redacted)`,
+    SMTP_PASS: config.SMTP_PASS ? `(${config.SMTP_PASS.length} chars, redacted)` : undefined,
   };
 }
