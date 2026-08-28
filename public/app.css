@@ -101,38 +101,30 @@ main[data-state="results"] > .shell { max-width: 728px; padding: 0 24px 64px; }
 .hero h1 { font-size: 24px; letter-spacing: normal; margin: 0 0 8px; line-height: 1.15; }
 .hero p { margin: 0; font-size: 15px; color: var(--muted); }
 
-/* the URL row: one bordered box holding the input and the button */
-form.lookup {
-  display: flex; align-items: center; margin: 24px 0 0;
-  height: 48px; padding-right: 4px;
-  background: var(--bg);
-  border: var(--border-w) solid var(--border); border-radius: 8px;
-}
-/* The input fills the bar, so the ring belongs to the bar: it hugs the border
-   the eye already reads as the control. --text on --bg is 16.9:1 / 17.9:1. */
-form.lookup:focus-within {
-  border-color: var(--text);
-  outline: 1px solid var(--text);
-  outline-offset: 2px;
-}
+/* the URL row: a field and a button, 8px apart */
+form.lookup { display: flex; align-items: center; gap: 8px; margin: 24px 0 0; }
 form.lookup input {
-  flex: 1; min-width: 0; height: 100%; padding: 0 12px;
-  font-size: 14px; background: none; border: 0; border-radius: 8px 0 0 8px;
+  flex: 1; min-width: 0; height: 44px; padding: 0 14px;
+  font-size: 15px; background: var(--surface); color: var(--text);
+  border: var(--border-w) solid var(--border); border-radius: 8px;
+  transition: border-color 120ms ease-out;
 }
-form.lookup input:focus-visible { outline: none; }
-/* Concentric: the bar's 8px radius less its 4px inset leaves the button 4px. */
-form.lookup .btn { height: 40px; border-radius: 4px; }
+form.lookup input:hover { border-color: var(--border-strong); }
+form.lookup input:focus-visible { outline: none; border-color: var(--text); }
+form.lookup .btn { height: 44px; }
+form.lookup input::placeholder { color: var(--faint); }
+.btn { height: 40px; border-radius: 4px; }
 form.lookup input::placeholder { color: var(--faint); }
 .btn {
   height: 40px; padding: 0 16px; border: var(--border-w) solid transparent; border-radius: 8px;
   font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer;
-  background: var(--accent); color: var(--accent-ink);
+  background: var(--text); color: var(--bg);
   min-width: 80px;
   transition-property: background-color, opacity, scale;
   transition-duration: 150ms;
   transition-timing-function: ease-out;
 }
-.btn:hover:not([disabled]) { background: color-mix(in srgb, var(--accent) 88%, var(--text)); }
+.btn:hover:not([disabled]) { background: color-mix(in srgb, var(--text) 85%, var(--bg)); }
 .btn:active:not([disabled]) { scale: 0.96; }
 .btn.quiet { background: var(--surface-2); color: var(--text); border-color: var(--border); }
 .btn.quiet:hover:not([disabled]) { background: var(--surface-2); border-color: var(--border-strong); }
@@ -171,11 +163,7 @@ main[data-state="signin"] > .shell { padding-top: clamp(48px, 18vh, 160px); }
   border: var(--border-w) solid var(--border); border-radius: 8px;
 }
 .field::placeholder { color: var(--faint); }
-.field:focus-visible {
-  border-color: var(--text);
-  outline: 1px solid var(--text);
-  outline-offset: 2px;
-}
+.field:focus-visible { outline: none; border-color: var(--text); }
 .auth-note, .auth-err { font-size: 13px; }
 .auth-note { margin: 8px 0 0; color: var(--muted); }
 .auth-note.faint { margin-top: 4px; color: var(--faint); }
