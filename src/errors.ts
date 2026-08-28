@@ -5,22 +5,47 @@
 export type ErrorCode =
   | 'INVALID_URL'
   | 'INVALID_REQUEST'
+  | 'NOT_FOUND'
   | 'PROFILE_NOT_FOUND'
+  | 'COMPANY_NOT_FOUND'
   | 'RATE_LIMITED'
   | 'LINKEDIN_SESSION_EXPIRED'
   | 'UPSTREAM_ERROR'
   | 'SCHEMA_DRIFT'
-  | 'INTERNAL_ERROR';
+  | 'INTERNAL_ERROR'
+  // Account gating.
+  | 'UNAUTHENTICATED'
+  | 'INVALID_CREDENTIALS'
+  | 'EMAIL_UNVERIFIED'
+  | 'PHONE_REQUIRED'
+  | 'FORBIDDEN_ORIGIN'
+  | 'PHONE_TAKEN'
+  | 'INVALID_PHONE'
+  | 'INVALID_CODE'
+  | 'EMAIL_DOMAIN_NOT_ALLOWED'
+  | 'PHONE_REJECTED';
 
 const STATUS: Record<ErrorCode, number> = {
   INVALID_URL: 400,
   INVALID_REQUEST: 400,
+  NOT_FOUND: 404,
   PROFILE_NOT_FOUND: 404,
+  COMPANY_NOT_FOUND: 404,
   RATE_LIMITED: 429,
   LINKEDIN_SESSION_EXPIRED: 503,
   UPSTREAM_ERROR: 502,
   SCHEMA_DRIFT: 502,
   INTERNAL_ERROR: 500,
+  UNAUTHENTICATED: 401,
+  INVALID_CREDENTIALS: 401,
+  EMAIL_UNVERIFIED: 403,
+  PHONE_REQUIRED: 403,
+  FORBIDDEN_ORIGIN: 403,
+  PHONE_TAKEN: 409,
+  INVALID_PHONE: 400,
+  INVALID_CODE: 400,
+  EMAIL_DOMAIN_NOT_ALLOWED: 400,
+  PHONE_REJECTED: 400,
 };
 
 export class AppError extends Error {
@@ -48,6 +73,16 @@ export class ProfileNotFoundError extends AppError {
       'PROFILE_NOT_FOUND',
       `LinkedIn reports that profile "${publicIdentifier}" can't be accessed. It may not exist, or its visibility may be restricted.`,
       { publicIdentifier },
+    );
+  }
+}
+
+export class CompanyNotFoundError extends AppError {
+  constructor(universalName: string) {
+    super(
+      'COMPANY_NOT_FOUND',
+      `LinkedIn reports that company "${universalName}" can't be accessed. It may not exist, or the name may be wrong.`,
+      { universalName },
     );
   }
 }

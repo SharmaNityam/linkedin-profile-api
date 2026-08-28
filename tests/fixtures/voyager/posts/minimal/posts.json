@@ -1,0 +1,171 @@
+{
+  "data": {
+    "data": {
+      "feedDashProfileUpdatesByMemberShareFeed": {
+        "$type": "com.linkedin.voyager.dash.feed.FeedCollectionResponse",
+        "*elements": [
+          "urn:li:fsd_update:(urn:li:activity:7390255662376824832,MEMBER_SHARES,EMPTY,DEFAULT,false)",
+          "urn:li:fsd_update:(urn:li:activity:7193517581419380736,MEMBER_SHARES,EMPTY,DEFAULT,false)",
+          "urn:li:fsd_update:(urn:li:activity:7358006675577978882,MEMBER_SHARES,EMPTY,DEFAULT,false)"
+        ],
+        "paging": { "start": 0, "count": 20, "total": 0 },
+        "metadata": { "paginationToken": "cGFnZS0x" }
+      }
+    }
+  },
+  "included": [
+    {
+      "entityUrn": "urn:li:fsd_update:(urn:li:activity:7390255662376824832,MEMBER_SHARES,EMPTY,DEFAULT,false)",
+      "$type": "com.linkedin.voyager.dash.feed.Update",
+      "metadata": {
+        "backendUrn": "urn:li:activity:7390255662376824832",
+        "trackingId": "aaaaaaaaaaaaaaaaaaaaaa=="
+      },
+      "header": null,
+      "actor": {
+        "name": { "text": "Jane Doe" },
+        "description": { "text": "Engineer" },
+        "navigationContext": {
+          "actionTarget": "https://www.linkedin.com/in/jane-doe?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAtest"
+        }
+      },
+      "commentary": { "text": { "text": "Shipping a thing today." } },
+      "content": {
+        "articleComponent": null,
+        "celebrationComponent": null,
+        "linkedInVideoComponent": null,
+        "imageComponent": {
+          "images": [
+            {
+              "attributes": [
+                {
+                  "detailData": {
+                    "vectorImage": {
+                      "rootUrl": "https://media.licdn.com/dms/image/v2/D5622AQabc/feedshare-shrink_",
+                      "artifacts": [
+                        {
+                          "width": 1179,
+                          "height": 1179,
+                          "fileIdentifyingUrlPathSegment": "1280/one.jpg"
+                        },
+                        {
+                          "width": 800,
+                          "height": 800,
+                          "fileIdentifyingUrlPathSegment": "800/one.jpg"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "socialContent": {
+        "shareUrl": "https://www.linkedin.com/posts/activity-7390255662376824832-abcd?utm_source=share&utm_medium=member_desktop"
+      },
+      "*socialDetail": "urn:li:fsd_socialDetail:(urn:li:activity:7390255662376824832,urn:li:activity:7390255662376824832,urn:li:highlightedReply:-)",
+      "resharedUpdate": null
+    },
+    {
+      "entityUrn": "urn:li:fsd_socialDetail:(urn:li:activity:7390255662376824832,urn:li:activity:7390255662376824832,urn:li:highlightedReply:-)",
+      "$type": "com.linkedin.voyager.dash.social.SocialDetail",
+      "*totalSocialActivityCounts": "urn:li:fsd_socialActivityCounts:urn:li:ugcPost:7390255662376824831"
+    },
+    {
+      "entityUrn": "urn:li:fsd_socialActivityCounts:urn:li:ugcPost:7390255662376824831",
+      "$type": "com.linkedin.voyager.dash.feed.SocialActivityCounts",
+      "numLikes": 5,
+      "numComments": 1,
+      "numShares": 0,
+      "reactionTypeCounts": [
+        { "count": 4, "reactionType": "LIKE" },
+        { "count": 1, "reactionType": "PRAISE" }
+      ]
+    },
+    {
+      "entityUrn": "urn:li:fsd_update:(urn:li:activity:7193517581419380736,MEMBER_SHARES,EMPTY,DEFAULT,false)",
+      "$type": "com.linkedin.voyager.dash.feed.Update",
+      "metadata": {
+        "backendUrn": "urn:li:activity:7193517581419380736",
+        "trackingId": "bbbbbbbbbbbbbbbbbbbbbb=="
+      },
+      "header": { "text": { "text": "Jane Doe reposted this" } },
+      "actor": {
+        "name": { "text": "Other Person" },
+        "description": { "text": "Designer at Example" },
+        "navigationContext": {
+          "actionTarget": "https://www.linkedin.com/in/other-person?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAother"
+        }
+      },
+      "commentary": { "text": { "text": "The original words." } },
+      "content": {
+        "articleComponent": null,
+        "celebrationComponent": null,
+        "linkedInVideoComponent": null,
+        "imageComponent": null
+      },
+      "socialContent": {
+        "shareUrl": "https://www.linkedin.com/posts/activity-7193517581419380736-efgh?utm_source=share"
+      },
+      "resharedUpdate": null
+    },
+    {
+      "entityUrn": "urn:li:fsd_update:(urn:li:activity:7358006675577978882,MEMBER_SHARES,EMPTY,DEFAULT,false)",
+      "$type": "com.linkedin.voyager.dash.feed.Update",
+      "metadata": {
+        "backendUrn": "urn:li:activity:7358006675577978882",
+        "trackingId": "cccccccccccccccccccccc=="
+      },
+      "header": null,
+      "actor": {
+        "name": { "text": "Jane Doe" },
+        "description": { "text": "Engineer" },
+        "navigationContext": {
+          "actionTarget": "https://www.linkedin.com/in/jane-doe?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAtest"
+        }
+      },
+      "commentary": { "text": { "text": "My take" } },
+      "content": {
+        "articleComponent": null,
+        "celebrationComponent": null,
+        "linkedInVideoComponent": null,
+        "imageComponent": null
+      },
+      "socialContent": {
+        "shareUrl": "https://www.linkedin.com/posts/activity-7358006675577978882-ijkl?utm_source=share"
+      },
+      "resharedUpdate": {
+        "$type": "com.linkedin.voyager.dash.feed.Update",
+        "entityUrn": "urn:li:fsd_update:(urn:li:activity:7357640117460516864,MEMBER_SHARES,EMPTY,DEFAULT,false)",
+        "metadata": {
+          "backendUrn": "urn:li:activity:7357640117460516864",
+          "trackingId": "dddddddddddddddddddddd=="
+        },
+        "header": null,
+        "actor": {
+          "name": { "text": "Other Person" },
+          "description": { "text": "Designer at Example" },
+          "navigationContext": {
+            "actionTarget": "https://www.linkedin.com/in/other-person?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAother"
+          }
+        },
+        "commentary": { "text": { "text": "Worth a read." } },
+        "content": {
+          "celebrationComponent": null,
+          "linkedInVideoComponent": null,
+          "imageComponent": null,
+          "articleComponent": {
+            "navigationContext": { "actionTarget": "https://example.com/a?trk=feed" },
+            "title": { "text": "An article" }
+          }
+        },
+        "socialContent": {
+          "shareUrl": "https://www.linkedin.com/posts/activity-7357640117460516864-mnop?utm_source=share"
+        },
+        "resharedUpdate": null
+      }
+    }
+  ]
+}

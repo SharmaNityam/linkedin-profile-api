@@ -60,15 +60,6 @@
   }
   nav.links a:hover { color: var(--text); background: var(--surface-2); }
 
-  /* ---- hero ---- */
-  .hero { padding: 56px 0 28px; }
-  .hero h1 {
-    font-family: var(--display); font-weight: 600; font-size: clamp(30px, 4.6vw, 46px);
-    line-height: 1.08; letter-spacing: -0.025em; margin: 0 0 12px; max-width: 760px;
-  }
-  .hero h1 em { font-style: normal; color: var(--accent); }
-  .hero p { margin: 0; color: var(--muted); max-width: 640px; font-size: 16px; }
-
   form.lookup {
     margin-top: 32px; display: flex; gap: 10px;
     background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 6px;
@@ -88,29 +79,56 @@
   .btn:hover { filter: brightness(1.06); }
   .btn:active { transform: translateY(1px); }
   .btn[disabled] { opacity: .6; cursor: progress; }
-  .btn.ghost { background: transparent; color: var(--muted); border-color: var(--border-strong); padding: 6px 10px; font-weight: 500; font-size: 13px; }
-  .btn.ghost:hover { color: var(--text); border-color: var(--faint); filter: none; }
-
-  .examples { display: flex; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; color: var(--faint); font-size: 13px; }
-  .chip {
-    background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 4px 11px; cursor: pointer;
-    font-family: var(--mono); font-size: 12.5px;
-  }
-  .chip:hover { border-color: var(--accent); color: var(--text); }
 
   .bar { display: flex; justify-content: space-between; align-items: center; margin: 14px 0; min-height: 30px; }
-  /* ---- result grid ---- */
-  .result { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; padding: 20px 0 80px; align-items: start; }
-  @media (max-width: 900px) { .result { grid-template-columns: 1fr; } .side { order: -1; } }
+
+  /* ---- account panel ---- */
+  aside.auth { margin-top: 24px; padding: 14px 16px; }
+  .auth-title { font-family: var(--display); font-weight: 600; font-size: 14.5px; margin: 0; }
+  .auth-help { color: var(--muted); font-size: 13px; margin: 2px 0 12px; }
+  .auth-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .auth-form input {
+    flex: 1 1 190px; min-width: 0; background: var(--bg); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 9px 12px; font-size: 14px;
+  }
+  .auth-form input::placeholder { color: var(--faint); }
+  .auth-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .auth-form input.code { flex: 0 1 150px; font-family: var(--mono); letter-spacing: .26em; }
+  .btn.ghost { background: none; border-color: var(--border-strong); color: var(--text); font-weight: 500; }
+  .btn.ghost:hover { filter: none; border-color: var(--faint); }
+  .auth-msg { margin: 10px 0 0; font-size: 13px; color: var(--err); }
+  .auth-msg.note { color: var(--ok); }
+  .auth-skel { display: block; height: 18px; width: 240px; }
+  .auth-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .auth-line .auth-email { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+  .auth-line .spacer { flex: 1; }
+  .auth-link, .auth-toggle { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+  .auth-link { text-decoration: underline; text-underline-offset: 3px; }
+  .auth-link:hover, .auth-toggle:hover { color: var(--text); }
+  aside.auth button[disabled] { opacity: .6; cursor: progress; }
+  .auth-more { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .18s ease; }
+  aside.auth.is-collapsed .auth-more { grid-template-rows: 0fr; }
+  .auth-more > div { overflow: hidden; }
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 
+  /* images: wrap = skeleton until load, then fade in; fallback on error */
+  .img-wrap { position: relative; overflow: hidden; background: var(--surface-2); display: block; }
+  .img-wrap > .skel { position: absolute; inset: 0; border-radius: 0; }
+  .img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .15s ease-out; }
+  .img-wrap.is-loaded > .skel { display: none; }
+  .img-wrap.is-loaded > img { opacity: 1; }
+  .img-wrap > .initial { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-family: var(--display); font-weight: 600; }
+
   /* top card */
-  .identity { padding: 24px 24px 22px; position: relative; }
-  .avatar {
-    width: 112px; height: 112px; border-radius: 50%; border: 4px solid var(--surface); background: var(--surface-2) center/cover no-repeat;
-    margin-top: 0; position: relative; display: block; border: 0; width: 88px; height: 88px;
-  }
+  .banner { aspect-ratio: 4 / 1; border-bottom: 1px solid var(--border); }
+  .banner.is-fallback { background: var(--surface-2); }
+  .identity { padding: 0 24px 22px; position: relative; }
+  .avatar { width: 88px; height: 88px; border-radius: 50%; border: 4px solid var(--surface); margin-top: -44px; font-size: 32px; }
+  .avatar > img { object-fit: cover; }
+  .logo { width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--border); }
+  .logo > img { object-fit: contain; }
+  .logo > .initial { font-size: 16px; }
   .identity h2 { font-family: var(--display); font-weight: 600; font-size: 26px; letter-spacing: -0.02em; margin: 12px 0 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .identity h2 small { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); }
   .headline { margin: 0; font-size: 15.5px; }
@@ -131,7 +149,6 @@
   .timeline { list-style: none; margin: 0; padding: 0; }
   .timeline li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 12px 0; position: relative; }
   .timeline li + li { border-top: 1px solid var(--border); }
-  .logo { width: 44px; height: 44px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); object-fit: contain; display: grid; place-items: center; color: var(--faint); font-family: var(--display); font-weight: 600; }
   .timeline .t { font-weight: 600; font-size: 15px; margin: 0; }
   .timeline .o { color: #cfd3d9; margin: 1px 0 0; font-size: 14px; }
   .timeline .o a { color: inherit; text-decoration: none; }
@@ -149,19 +166,15 @@
   .level { display: inline-block; height: 6px; width: 60px; border-radius: 3px; background: var(--border-strong); vertical-align: middle; margin-left: 10px; overflow: hidden; }
   .level i { display: block; height: 100%; background: var(--accent); }
 
-  /* side panel */
-  .side { display: grid; gap: 14px; position: sticky; top: 16px; }
-  .side .card { padding: 16px; }
-  .side h4 { margin: 0 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  /* status pill */
   .pill { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 12.5px; border-radius: 999px; padding: 4px 10px 4px 8px; border: 1px solid var(--border-strong); }
+  /* `display` on .pill would otherwise beat the UA's [hidden] rule, leaving an empty pill floating there. */
+  .pill[hidden] { display: none; }
   .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
   .pill.ok::before { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
   .pill.err::before { background: var(--err); }
   .pill.busy::before { background: var(--accent); animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: .3; } }
-  .meta { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; }
-  .meta dt { color: var(--muted); } .meta dd { margin: 0; font-family: var(--mono); font-size: 12.5px; }
-  .warn { margin: 10px 0 0; padding: 8px 10px; border-left: 2px solid var(--accent); background: var(--accent-dim); font-size: 12.5px; color: #e8d5a5; }
 
   pre.snippet { margin: 0; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; white-space: pre; line-height: 1.55; }
   .snippet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -186,17 +199,21 @@
   .error p { margin: 6px 0 0; color: #cfd3d9; }
   .skel { background: linear-gradient(90deg, var(--surface-2) 25%, #1d222a 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
   @keyframes shimmer { 0% { background-position: 100% 0 } 100% { background-position: 0 0 } }
-  .skel-wrap { padding: 24px; display: grid; gap: 12px; }
+  .skel-banner { aspect-ratio: 4 / 1; border-radius: 0; }
+  .skel-wrap { padding: 0 24px 24px; display: grid; gap: 12px; }
+  .skel-avatar { width: 88px; height: 88px; border-radius: 50%; margin-top: -44px; border: 4px solid var(--surface); }
   .cold { padding: 0 24px 20px; color: var(--muted); font-size: 13px; }
   .hidden { display: none !important; }
 
-  @media (prefers-reduced-motion: reduce) { .skel, .pill.busy::before { animation: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .skel, .pill.busy::before { animation: none; }
+    .img-wrap > img, .auth-more { transition: none; }
+  }
   @media (max-width: 640px) {
-    .hero { padding-top: 36px; }
     form.lookup { flex-direction: column; }
     form.lookup .prefix { display: none; }
     .identity, section.block { padding-left: 18px; padding-right: 18px; }
-    .prov { display: none; }
+    .auth-form input, .auth-form input.code { flex-basis: 100%; }
   }
 </style>
 </head>
@@ -209,6 +226,8 @@
       <a href="https://github.com/SharmaNityam/linkedin-profile-api" rel="noopener">GitHub</a>
     </nav>
   </header>
+
+  <aside class="card auth" id="auth" aria-label="Account"></aside>
 
   <form class="lookup" id="form" autocomplete="off">
     <label class="sr" for="url">LinkedIn profile URL</label>
@@ -236,7 +255,7 @@
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const form = $('#form'), input = $('#url'), go = $('#go'), view = $('#view');
-  const statusEl = $('#status'), tabsEl = $('#tabs');
+  const statusEl = $('#status'), tabsEl = $('#tabs'), authEl = $('#auth');
 
   let profile = null, tab = 'profile';
 
@@ -261,9 +280,30 @@
 
   // ---- renderers
   const initialOf = (name) => esc((name || '?').trim()[0] || '?');
-  const logo = (org, name) => org?.logoUrl
-    ? `<img class="logo" src="${esc(org.logoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'logo',textContent:this.dataset.i}))" data-i="${initialOf(name)}" />`
-    : `<div class="logo" aria-hidden="true">${initialOf(name)}</div>`;
+  const srcset = (image) => image.variants?.length > 1 ? image.variants.map((v) => `${esc(v.url)} ${esc(v.width)}w`).join(', ') : '';
+  // Wrapped image: skeleton until `load`, fade in, fallback on `error`. `fallback` is the HTML to show on error.
+  function img({ image, alt = '', cls, eager = false, sizes, fallback }) {
+    if (!image?.url) return `<span class="img-wrap ${cls} is-loaded">${fallback}</span>`;
+    const ss = srcset(image);
+    return `<span class="img-wrap ${cls}" data-fallback="${esc(fallback)}"><span class="skel"></span><img data-img src="${esc(image.url)}"${ss ? ` srcset="${ss}" sizes="${esc(sizes)}"` : ''} alt="${esc(alt)}" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer" /></span>`;
+  }
+  // A decorative initial (logos, whose name is already in the text beside them)
+  // is hidden from assistive tech; the avatar has no such neighbour, so passing
+  // `label` keeps it an image with an accessible name.
+  const initialHtml = (name, label) => `<span class="initial" ${label ? `role="img" aria-label="${esc(label)}"` : 'aria-hidden="true"'}>${initialOf(name)}</span>`;
+  const logo = (org, name) => img({ image: org?.logoUrl ? { url: org.logoUrl, variants: [] } : null, cls: 'logo', sizes: '44px', fallback: initialHtml(name) });
+
+  function bindImages(root) {
+    for (const el of root.querySelectorAll('img[data-img]:not([data-bound])')) {
+      el.dataset.bound = '1';
+      const wrap = el.parentElement;
+      const loaded = () => wrap.classList.add('is-loaded');
+      const failed = () => { wrap.innerHTML = wrap.dataset.fallback || ''; wrap.classList.add('is-loaded', 'is-fallback'); };
+      if (el.complete) { el.naturalWidth > 0 ? loaded() : failed(); continue; }
+      el.addEventListener('load', loaded, { once: true });
+      el.addEventListener('error', failed, { once: true });
+    }
+  }
   const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
 
   function block(key, title, items, body) {
@@ -315,11 +355,12 @@
         ${v.description ? `<p class="desc">${esc(v.description)}</p>` : ''}
       </div></li>`).join('')}</ul>`);
 
-    const simple = (key, title, rows) => block(key, title, rows, `<ul class="timeline">${rows.map((r) => `<li><div class="logo" aria-hidden="true">·</div><div><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${r.description ? `<p class="desc">${esc(r.description)}</p>` : ''}</div></li>`).join('')}</ul>`);
+    const simple = (key, title, rows) => block(key, title, rows, `<ul class="timeline">${rows.map((r) => `<li>${logo(null, '·')}<div><p class="t">${esc(r.title ?? r.name)}</p><p class="o">${esc(r.issuer ?? r.publisher ?? r.number ?? '')}</p>${r.description ? `<p class="desc">${esc(r.description)}</p>` : ''}</div></li>`).join('')}</ul>`);
 
     view.innerHTML = `
+      ${img({ image: p.backgroundImage, cls: 'banner', eager: true, sizes: '(max-width: 800px) 100vw, 800px', fallback: '' })}
       <div class="identity">
-        ${p.profileImage ? `<img class="avatar" src="${esc(p.profileImage.url)}" alt="${name}" referrerpolicy="no-referrer" />` : `<div class="avatar"></div>`}
+        ${img({ image: p.profileImage, alt: p.fullName, cls: 'avatar', eager: true, sizes: '88px', fallback: initialHtml(p.fullName, p.fullName) })}
         <h2>${name}${p.pronouns ? `<small>${esc(p.pronouns)}</small>` : ''}</h2>
         ${p.headline ? `<p class="headline">${esc(p.headline)}</p>` : ''}
         ${facts.length ? `<p class="facts">${facts.map((f) => `<span>${esc(f)}</span>`).join('')}<span><a href="${esc(p.url)}" rel="noopener" target="_blank" style="color:var(--muted)">linkedin.com/in/${esc(p.publicIdentifier)} ↗</a></span></p>` : ''}
@@ -328,6 +369,7 @@
       ${experience}${education}${skills}${certs}${languages}${vol}
       ${simple('projects', 'Projects', p.projects)}${simple('honors', 'Honors & awards', p.honors)}${simple('publications', 'Publications', p.publications)}${simple('courses', 'Courses', p.courses)}
     `;
+    bindImages(view);
     $('#more')?.addEventListener('click', (e) => { $('#about').dataset.clamped = 'false'; e.target.remove(); });
   }
 
@@ -359,13 +401,227 @@
   function setStatus(kind, text) { statusEl.hidden = false; statusEl.className = `pill ${kind}`; statusEl.textContent = text; }
 
   function showLoading() {
-    view.innerHTML = `<div class="skel-wrap"><div class="skel" style="width:88px;height:88px;border-radius:50%"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
+    view.innerHTML = `<div class="skel skel-banner"></div><div class="skel-wrap"><div class="skel skel-avatar"></div><div class="skel" style="height:26px;width:40%"></div><div class="skel" style="height:16px;width:70%"></div><div class="skel" style="height:16px;width:30%"></div><div class="skel" style="height:80px;margin-top:12px"></div><div class="skel" style="height:80px"></div></div><p class="cold" id="cold" hidden>Still working, this runs on a free instance that sleeps when idle and can take up to a minute to wake.</p>`;
     setTimeout(() => { const c = $('#cold'); if (c) c.hidden = false; }, 6000);
   }
   function showError(status, body) {
     const e = body?.error ?? { code: `HTTP_${status}`, message: typeof body === 'string' ? body : 'The API returned an unexpected response.' };
     view.innerHTML = `<div class="error"><code>${esc(status)} ${esc(e.code)}</code><p>${esc(e.message)}</p>${e.details ? `<pre class="snippet" style="margin-top:12px">${highlight(JSON.stringify(e.details, null, 2))}</pre>` : ''}</div>`;
   }
+  /** A gate the account panel above can clear, in place of the generic error. */
+  function showGate(status, code, text) {
+    view.innerHTML = `<div class="error"><code>${esc(status)} ${esc(code ?? '')}</code><p>${esc(text)}</p><p style="color:var(--muted)">Use the account panel above, then try again.</p></div>`;
+  }
+
+  // ---- account panel
+  // One `<aside>` re-rendered from a tiny state machine: loading → signed-out →
+  // code → phone → signed-in. Every POST is same-origin JSON, which is what the
+  // server's CSRF guard accepts; the session travels in an httpOnly cookie, so
+  // there is nothing to keep here but the state name.
+  let authState = 'loading', me = null, authMsg = null, authBusy = false, collapsed = false;
+  // Remembered so "Resend code" can re-post signup, and so a failed attempt
+  // does not wipe what was typed. The password lives in this closure only: it
+  // is never rendered into the DOM, stored, or logged, and is dropped the
+  // moment a session exists.
+  let pendingEmail = '', pendingPassword = '', pendingPhone = '';
+
+  const msgHtml = () => authMsg
+    ? `<p class="auth-msg${authMsg.kind === 'note' ? ' note' : ''}" role="${authMsg.kind === 'note' ? 'status' : 'alert'}">${esc(authMsg.text)}</p>`
+    : '';
+
+  const AUTH_VIEWS = {
+    loading: () => `<span class="skel auth-skel" role="status" aria-label="Checking your session"></span>`,
+
+    'signed-out': () => `
+      <p class="auth-title">Sign in to fetch profiles</p>
+      <p class="auth-help">Free, and one account per person keeps the demo up.</p>
+      <form class="auth-form" data-form="signup">
+        <label class="sr" for="auth-email">Email address</label>
+        <input id="auth-email" type="email" autocomplete="email" placeholder="you@gmail.com" spellcheck="false" value="${esc(pendingEmail)}" data-focus />
+        <label class="sr" for="auth-password">Password</label>
+        <input id="auth-password" type="password" autocomplete="current-password" placeholder="Password (10+ characters)" />
+        <button class="btn" type="submit">Sign up</button>
+        <button class="btn ghost" type="button" data-action="login">Log in</button>
+      </form>${msgHtml()}`,
+
+    code: () => `
+      <p class="auth-title">Enter your verification code</p>
+      <p class="auth-help">We sent six digits to ${esc(pendingEmail)}. It expires in 10 minutes.</p>
+      <form class="auth-form" data-form="verify">
+        <label class="sr" for="auth-code">Verification code</label>
+        <input id="auth-code" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" data-focus />
+        <button class="btn" type="submit">Verify</button>
+        <button class="btn ghost" type="button" data-action="resend">Resend code</button>
+      </form>${msgHtml()}`,
+
+    phone: () => `
+      <p class="auth-title">Add a phone number</p>
+      <p class="auth-help">Used only to keep the demo to one account per person.</p>
+      <form class="auth-form" data-form="phone">
+        <label class="sr" for="auth-phone">Mobile number</label>
+        <input id="auth-phone" type="tel" autocomplete="tel" placeholder="+91 98765 43210" value="${esc(pendingPhone)}" data-focus />
+        <button class="btn" type="submit">Add phone</button>
+        <button class="btn ghost" type="button" data-action="logout">Log out</button>
+      </form>${msgHtml()}`,
+
+    'signed-in': () => `
+      <div class="auth-line">
+        <span class="pill ok">signed in</span>
+        <span class="auth-email">${esc(me?.email ?? '')}</span>
+        <span class="spacer"></span>
+        <button class="auth-link" type="button" data-action="logout">Log out</button>
+        <button class="auth-toggle" type="button" data-action="toggle" aria-expanded="${!collapsed}" aria-controls="auth-detail">
+          <span class="sr">Account details</span><span aria-hidden="true">${collapsed ? '▾' : '▴'}</span>
+        </button>
+      </div>
+      <div class="auth-more" id="auth-detail"><div>
+        <p class="auth-help" style="margin-bottom:0">Phone linked${me?.createdAt ? ` · member since ${esc(me.createdAt.slice(0, 10))}` : ''}.</p>
+      </div></div>${msgHtml()}`,
+  };
+
+  function renderAuth(state) {
+    if (state) authState = state;
+    authEl.classList.toggle('is-collapsed', authState === 'signed-in' && collapsed);
+    authEl.innerHTML = AUTH_VIEWS[authState]();
+  }
+  function setAuth(state, { msg = null, focus = false } = {}) {
+    authMsg = msg;
+    renderAuth(state);
+    if (focus) authEl.querySelector('[data-focus]')?.focus();
+  }
+  function setAuthMsg(text, kind = 'err') { setAuth(authState, { msg: { text, kind } }); }
+  function setAuthBusy(on) {
+    authBusy = on;
+    for (const b of authEl.querySelectorAll('button')) b.disabled = on;
+  }
+
+  /** Every state-changing account call: same-origin JSON, cookie included. */
+  async function authPost(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    const text = await res.text();
+    let data = null; try { data = JSON.parse(text); } catch {}
+    return { status: res.status, data };
+  }
+
+  const retryIn = (s) => s < 90 ? `${s} second${s === 1 ? '' : 's'}` : `${Math.ceil(s / 60)} minutes`;
+
+  /** The server's own wording, escaped on the way in, plus the retry hint. */
+  function authFail(status, data) {
+    const e = data?.error ?? {};
+    let text = e.message || `The request failed (HTTP ${status}).`;
+    const retry = e.details?.retryAfterSeconds;
+    if (e.code === 'RATE_LIMITED' && typeof retry === 'number') text += ` Try again in ${retryIn(retry)}.`;
+    // Two codes are really a change of step, not an error to sit on.
+    // Unverified signups are not accounts, so a lost code step looks like a bad login; point the way back.
+    if (e.code === 'INVALID_CREDENTIALS') text += ' If you signed up but never entered the code, sign up again to get a new one.';
+    if (e.code === 'UNAUTHENTICATED') return setAuth('signed-out', { msg: { text }, focus: true });
+    setAuthMsg(text);
+  }
+
+  /** Where an account lands once the server has told us about it. */
+  function applyMe(next, { fromLoad = false } = {}) {
+    me = next;
+    pendingPassword = '';
+    if (next.phoneVerified) { collapsed = fromLoad; setAuth('signed-in'); return; }
+    setAuth('phone', { focus: !fromLoad });
+  }
+
+  async function authAction(fn) {
+    if (authBusy) return;
+    setAuthBusy(true);
+    try { await fn(); }
+    catch { setAuthMsg('Could not reach the server. Check your connection and try again.'); }
+    finally { setAuthBusy(false); }
+  }
+
+  const ACTIONS = {
+    signup: () => authAction(async () => {
+      const email = $('#auth-email').value.trim(), password = $('#auth-password').value;
+      if (!email || !password) return setAuthMsg('Enter an email address and a password.');
+      const { status, data } = await authPost('/auth/signup', { email, password });
+      if (status !== 200) return authFail(status, data);
+      pendingEmail = email; pendingPassword = password;
+      setAuth('code', { msg: { text: 'Code sent. It expires in 10 minutes.', kind: 'note' }, focus: true });
+    }),
+
+    login: () => authAction(async () => {
+      const email = $('#auth-email').value.trim(), password = $('#auth-password').value;
+      if (!email || !password) return setAuthMsg('Enter an email address and a password.');
+      pendingEmail = email; pendingPassword = password;
+      const { status, data } = await authPost('/auth/login', { email, password });
+      if (status !== 200) return authFail(status, data);
+      applyMe(data);
+    }),
+
+    verify: () => authAction(async () => {
+      const code = $('#auth-code').value.trim();
+      if (!code) return setAuthMsg('Enter the six-digit code from your email.');
+      const { status, data } = await authPost('/auth/verify-email', { email: pendingEmail, code });
+      if (status !== 200) return authFail(status, data);
+      applyMe(data);
+    }),
+
+    resend: () => authAction(async () => {
+      if (!pendingEmail || !pendingPassword) {
+        return setAuth('signed-out', { msg: { text: 'Enter your email and password again to get a new code.' }, focus: true });
+      }
+      const { status, data } = await authPost('/auth/signup', { email: pendingEmail, password: pendingPassword });
+      if (status !== 200) return authFail(status, data);
+      setAuthMsg('New code sent. The older one no longer works.', 'note');
+    }),
+
+    phone: () => authAction(async () => {
+      const phone = $('#auth-phone').value.trim();
+      if (!phone) return setAuthMsg('Enter a mobile number, including the country code.');
+      pendingPhone = phone;
+      const { status, data } = await authPost('/auth/phone', { phone });
+      if (status !== 200) return authFail(status, data);
+      pendingPhone = '';
+      applyMe(data);
+    }),
+
+    logout: () => authAction(async () => {
+      const { status, data } = await authPost('/auth/logout', {});
+      if (status !== 200) return authFail(status, data);
+      me = null; pendingPassword = ''; pendingPhone = '';
+      setAuth('signed-out', { msg: { text: 'Signed out.', kind: 'note' } });
+    }),
+
+    toggle: () => { collapsed = !collapsed; renderAuth(); },
+  };
+
+  /** Opens the panel where a rejected API call says the caller has to act. */
+  function openAuth(state) {
+    // Someone part-way through the code step keeps their place: dropping them
+    // back to the sign-up form would throw away the address the code went to.
+    if (state === 'signed-out' && authState === 'code') return;
+    collapsed = false;
+    setAuth(state, { focus: true });
+  }
+
+  async function loadAuth() {
+    try {
+      const res = await fetch('/auth/me', { headers: { accept: 'application/json' }, credentials: 'same-origin' });
+      if (res.status === 200) return applyMe(await res.json(), { fromLoad: true });
+      if (res.status === 401) return setAuth('signed-out');
+      const data = await res.json().catch(() => null);
+      setAuth('signed-out');
+      authFail(res.status, data);
+    } catch {
+      setAuth('signed-out');
+    }
+  }
+
+  authEl.addEventListener('submit', (e) => { e.preventDefault(); ACTIONS[e.target.dataset.form]?.(); });
+  authEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (btn) ACTIONS[btn.dataset.action]?.();
+  });
 
   async function lookup(url) {
     url = url.trim();
@@ -381,7 +637,16 @@
       const text = await res.text();
       let body; try { body = JSON.parse(text); } catch { body = text; }
       const ms = Math.round(performance.now() - t0);
-      if (!res.ok) { setStatus('err', `${res.status} · ${ms} ms`); showError(res.status, body); return; }
+      if (!res.ok) {
+        setStatus('err', `${res.status} · ${ms} ms`);
+        const code = body?.error?.code;
+        // The two gates the account panel can clear are shown as a next step,
+        // not as a failure: say what to do, and open the panel on that step.
+        if (res.status === 401) { showGate(res.status, code, 'Sign in to fetch profiles'); openAuth('signed-out'); return; }
+        if (res.status === 403 && code === 'PHONE_REQUIRED') { showGate(res.status, code, 'Add a phone number to fetch profiles'); openAuth('phone'); return; }
+        showError(res.status, body);
+        return;
+      }
       profile = body; setStatus('ok', `200 · ${ms} ms${body.meta?.cached ? ' · cached' : ''}`); tabsEl.hidden = false; renderView();
     } catch (err) {
       setStatus('err', 'network error'); showError('-', { error: { code: 'NETWORK', message: String(err.message || err) } });
@@ -400,6 +665,9 @@
     const src = $(btn.dataset.copy); if (!src) return;
     try { await navigator.clipboard.writeText(src.innerText); btn.dataset.done = 'true'; btn.textContent = 'Copied'; setTimeout(() => { btn.dataset.done = 'false'; btn.textContent = btn.dataset.copy === '#json-src' ? 'Copy JSON' : 'Copy'; }, 1500); } catch {}
   });
+
+  renderAuth('loading');
+  loadAuth();
 
   const initial = new URLSearchParams(location.search).get('url');
   if (initial) lookup(initial); else input.focus();

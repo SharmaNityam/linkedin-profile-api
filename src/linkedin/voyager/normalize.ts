@@ -193,7 +193,7 @@ function pictureOf(picture: unknown): VectorImage | undefined {
   return ref?.vectorImage as VectorImage | undefined;
 }
 
-function image(vector: VectorImage | undefined): Image | null {
+export function image(vector: VectorImage | undefined): Image | null {
   const root = vector?.rootUrl;
   if (!root || !Array.isArray(vector.artifacts)) return null;
   const variants = vector.artifacts
@@ -247,13 +247,13 @@ function proficiency(value: unknown): ProfileData['languages'][number]['proficie
     : null;
 }
 
-function str(value: unknown): string | null {
+export function str(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function asRecord(value: unknown): VoyagerEntity | undefined {
+export function asRecord(value: unknown): VoyagerEntity | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as VoyagerEntity)
     : undefined;

@@ -4,9 +4,8 @@ import { loadConfig } from '../../src/config.js';
 import { HttpVoyagerClient } from '../../src/linkedin/voyager/client.js';
 import { TtlCache } from '../../src/linkedin/cache.js';
 import { Semaphore } from '../../src/linkedin/semaphore.js';
-import { ProfileService } from '../../src/linkedin/service.js';
+import { LinkedInService } from '../../src/linkedin/service.js';
 import { ProfileNotFoundError } from '../../src/errors.js';
-import type { ProfileResponse } from '../../src/schema/profile.js';
 
 /**
  * Hits LinkedIn for real. Skipped unless LI_AT is set:
@@ -16,14 +15,15 @@ const liAt = process.env.LI_AT;
 
 describe.skipIf(!liAt)('live: LinkedIn Voyager', () => {
   const config = loadConfig({ ...process.env, LI_AT: liAt ?? 'x' });
-  const service = new ProfileService({
+  const service = new LinkedInService({
     voyager: new HttpVoyagerClient({
       liAt: config.LI_AT,
       companionCookies: config.LI_COOKIES,
       userAgent: config.USER_AGENT,
     }),
-    cache: new TtlCache<ProfileResponse>(0),
+    cache: new TtlCache<unknown>(0),
     semaphore: new Semaphore(2),
+    postsQueryId: config.VOYAGER_POSTS_QUERY_ID,
   });
 
   it('fetches sharmanityam with every section populated', async () => {

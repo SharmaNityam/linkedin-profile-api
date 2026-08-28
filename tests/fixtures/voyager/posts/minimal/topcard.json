@@ -1,0 +1,17 @@
+{
+  "data": { "*elements": ["urn:li:fsd_profile:ACoAAtest"] },
+  "included": [
+    {
+      "entityUrn": "urn:li:fsd_profile:ACoAAtest",
+      "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+      "publicIdentifier": "jane-doe",
+      "firstName": "Jane",
+      "headline": "STALE headline from a sparser decoration"
+    },
+    {
+      "entityUrn": "urn:li:fsd_geo:1",
+      "$type": "com.linkedin.voyager.dash.common.Geo",
+      "defaultLocalizedName": "Chennai, Tamil Nadu, India"
+    }
+  ]
+}

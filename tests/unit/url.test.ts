@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseProfileUrl } from '../../src/linkedin/url.js';
+import { parseCompanyUrl, parseProfileUrl } from '../../src/linkedin/url.js';
 import { InvalidUrlError } from '../../src/errors.js';
 
 describe('parseProfileUrl', () => {
@@ -14,6 +14,7 @@ describe('parseProfileUrl', () => {
     ['https://www.linkedin.com/in/john-doe-1a2b3c/', 'john-doe-1a2b3c'],
     ['https://www.linkedin.com/in/%E5%BC%A0%E4%B8%89-123', '张三-123'],
     ['  https://www.linkedin.com/in/sharmanityam/  ', 'sharmanityam'],
+    ['HTTPS://WWW.LINKEDIN.COM/IN/SharmaNityam/', 'SharmaNityam'],
     ['sharmanityam', 'sharmanityam'],
   ])('%s → %s', (input, slug) => {
     const parsed = parseProfileUrl(input);
@@ -36,5 +37,46 @@ describe('parseProfileUrl', () => {
   ])('rejects %s', (input, message) => {
     expect(() => parseProfileUrl(input)).toThrow(InvalidUrlError);
     expect(() => parseProfileUrl(input)).toThrow(message);
+  });
+});
+
+describe('parseCompanyUrl', () => {
+  it.each([
+    ['https://www.linkedin.com/company/anthropicresearch/', 'anthropicresearch', 'company'],
+    ['linkedin.com/company/anthropicresearch/about/?x=1', 'anthropicresearch', 'company'],
+    ['https://in.linkedin.com/school/iithyderabad/', 'iithyderabad', 'school'],
+    ['https://www.linkedin.com/school/s.r.m.-institute-of-science-&-technology-chennai/', 's.r.m.-institute-of-science-&-technology-chennai', 'school'],
+    ['anthropicresearch', 'anthropicresearch', 'company'],
+    ['linkedin.com/company/acme', 'acme', 'company'],
+    // A showcase page is a company page on a different path.
+    ['https://www.linkedin.com/showcase/claude/', 'claude', 'company'],
+    ['https://www.linkedin.com/mwlite/company/acme', 'acme', 'company'],
+    ['HTTPS://WWW.LINKEDIN.COM/SCHOOL/IITHyderabad/', 'IITHyderabad', 'school'],
+    // Dotted bare names exist (old school vanity names) and must not be
+    // mistaken for a hostname.
+    [
+      's.r.m.-institute-of-science-&-technology-chennai',
+      's.r.m.-institute-of-science-&-technology-chennai',
+      'company',
+    ],
+  ])('%s → %s (%s)', (input, universalName, kind) => {
+    const r = parseCompanyUrl(input);
+    expect(r.universalName).toBe(universalName);
+    expect(r.kind).toBe(kind);
+    expect(r.canonicalUrl).toBe(`https://www.linkedin.com/${kind}/${encodeURIComponent(universalName)}/`);
+  });
+  it.each([
+    ['', /empty/],
+    ['https://www.linkedin.com/in/jane-doe/', /\/v1\/profile/],
+    ['https://example.com/company/x', /not linkedin\.com/],
+    ['https://www.linkedin.com/jobs/view/1', /company/],
+    ['https://www.linkedin.com/company/', /company/],
+    // Host-like input is still a URL, not a bare universal name.
+    ['linkedin.com', /company URL of the form/],
+  ])('rejects %s', (input, msg) => {
+    expect(() => parseCompanyUrl(input)).toThrow(msg);
+  });
+  it('profile parser points company URLs at /v1/company', () => {
+    expect(() => parseProfileUrl('https://www.linkedin.com/company/acme')).toThrow(/\/v1\/company/);
   });
 });

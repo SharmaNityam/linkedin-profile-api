@@ -1,0 +1,304 @@
+{
+  "data": {
+    "entityUrn": "urn:li:collectionResponse:OFflh4Hj9twkACR0KBnjJ3YVrUQbHRot+kjV3HV1hYQ=",
+    "paging": {
+      "count": 10,
+      "start": 0,
+      "links": []
+    },
+    "*elements": [
+      "urn:li:fs_normalized_company:74126343"
+    ],
+    "$type": "com.linkedin.restli.common.CollectionResponse"
+  },
+  "included": [
+    {
+      "followingType": "FOLLOWING",
+      "followingCount": null,
+      "$type": "com.linkedin.voyager.common.FollowingInfo",
+      "entityUrn": "urn:li:fs_followingInfo:urn:li:company:74126343",
+      "dashFollowingStateUrn": "urn:li:fsd_followingState:urn:li:fsd_company:74126343",
+      "following": true,
+      "followerCount": 4646925
+    },
+    {
+      "followingType": "DEFAULT",
+      "followingCount": null,
+      "$type": "com.linkedin.voyager.common.FollowingInfo",
+      "entityUrn": "urn:li:fs_followingInfo:urn:li:company:106863934",
+      "following": false,
+      "dashFollowingStateUrn": "urn:li:fsd_followingState:urn:li:fsd_company:106863934",
+      "followerCount": 3282007
+    },
+    {
+      "followingType": "DEFAULT",
+      "followingCount": null,
+      "$type": "com.linkedin.voyager.common.FollowingInfo",
+      "entityUrn": "urn:li:fs_followingInfo:urn:li:company:121533924",
+      "following": false,
+      "dashFollowingStateUrn": "urn:li:fsd_followingState:urn:li:fsd_company:121533924",
+      "followerCount": 151705
+    },
+    {
+      "localizedName": "Research Services",
+      "entityUrn": "urn:li:fs_industry:70",
+      "$type": "com.linkedin.voyager.common.Industry"
+    },
+    {
+      "localizedName": "Software Development",
+      "entityUrn": "urn:li:fs_industry:4",
+      "$type": "com.linkedin.voyager.common.Industry"
+    },
+    {
+      "description": "Claude is an AI assistant built by Anthropic to be safe, accurate, and secure. Talk to Claude on http://claude.ai or download the app on desktop and mobile.",
+      "*followingInfo": "urn:li:fs_followingInfo:urn:li:company:106863934",
+      "*companyIndustries": [
+        "urn:li:fs_industry:4"
+      ],
+      "url": "https://www.linkedin.com/showcase/claude/",
+      "$type": "com.linkedin.voyager.organization.Company",
+      "entityUrn": "urn:li:fs_normalized_company:106863934",
+      "school": null,
+      "name": "Claude",
+      "logo": {
+        "image": {
+          "digitalmediaAsset": "urn:li:digitalmediaAsset:D4E0BAQFko-zWIZk_pw",
+          "$type": "com.linkedin.common.VectorImage",
+          "rootUrl": "https://media.licdn.com/dms/image/v2/D4E0BAQFko-zWIZk_pw/company-logo_",
+          "artifacts": [
+            {
+              "width": 100,
+              "expiresAt": 1789603200000,
+              "fileIdentifyingUrlPathSegment": "100_100/B4EZhiRWKvHgAQ-/0/1753995371543/claude_logo?e=1789603200&v=beta&t=KQ6J3B1Ehngs8hob90Z1Gj3SOqLHJo6VCA4F10ylFXI",
+              "$type": "com.linkedin.common.VectorArtifact",
+              "height": 100
+            },
+            {
+              "width": 400,
+              "expiresAt": 1789603200000,
+              "fileIdentifyingUrlPathSegment": "400_400/B4EZhiRWKvHgAY-/0/1753995371543/claude_logo?e=1789603200&v=beta&t=3ZLBzLvrLWUHyyw4kbqBzUvznjG6r7zJ0MVDi8GYBSc",
+              "$type": "com.linkedin.common.VectorArtifact",
+              "height": 400
+            },
+            {
+              "width": 200,
+              "expiresAt": 1789603200000,
+              "fileIdentifyingUrlPathSegment": "200_200/B4EZhiRWKvHgAI-/0/1753995371543/claude_logo?e=1789603200&v=beta&t=Gs3U23RzKNrFDR4iKlKRwLNsMr1W3dSymrs-Eb-hhVQ",
+              "$type": "com.linkedin.common.VectorArtifact",
+              "height": 200
+            }
+          ]
+        },
+        "type": "SQUARE_LOGO",
+        "$type": "com.linkedin.voyager.organization.CompanyLogoImage"
+      },
+      "paidCompany": false,
+      "showcase": true,
+      "universalName": "claude"
+    },
+    {
+      "description": null,
+      "*followingInfo": "urn:li:fs_followingInfo:urn:li:company:121533924",
+      "*companyIndustries": [
+        "urn:li:fs_industry:4"
+      ],
+      "url": "https://www.linkedin.com/showcase/claude-for-business/",
+      "$type": "com.linkedin.voyager.organization.Company",
+      "entityUrn": "urn:li:fs_normalized_company:121533924",
+      "school": null,
+      "name": "Claude for Business",
+      "logo": {
+        "image": {
+          "digitalmediaAsset": "urn:li:digitalmediaAsset:D4D0BAQEU9DDSMpKZLw",
+          "$type": "com.linkedin.common.VectorImage",
+          "rootUrl": "https://media.licdn.com/dms/image/v2/D4D0BAQEU9DDSMpKZLw/company-logo_",
+          "artifacts": [
+            {
+              "width": 400,
+              "expiresAt": 1789603200000,
+              "fileIdentifyingUrlPathSegment": "400_400/B4DZ34lLpSGwAc-/0/1777991990174?e=1789603200&v=beta&t=aNdGaUt335jWE8bZAEwLvjXn3WulF4aFZG__Su4Mqbg",
+              "$type": "com.linkedin.common.VectorArtifact",
+              "height": 400
+            },
+            {
+              "width": 100,
+              "expiresAt": 1789603200000,
+              "fileIdentifyingUrlPathSegment": "100_100/B4DZ34lLpSGwAU-/0/1777991990174?e=1789603200&v=beta&t=ipmnyqxifuH2RQxwZ0rC4cwBhP7doH1AXPornmCjgwo",
+              "$type": "com.linkedin.common.VectorArtifact",
+              "height": 100
+            },
+            {
+              "width": 200,
+              "expiresAt": 1789603200000,
+              "fileIdentifyingUrlPathSegment": "200_200/B4DZ34lLpSGwAM-/0/1777991990174?e=1789603200&v=beta&t=yTpQtXpGOhYK3lgudtqLOnL0hELLKRNfzs2sgyb3O1I",
+              "$type": "com.linkedin.common.VectorArtifact",
+              "height": 200
+            }
+          ]
+        },
+        "type": "SQUARE_LOGO",
+        "$type": "com.linkedin.voyager.organization.CompanyLogoImage"
+      },
+      "paidCompany": false,
+      "showcase": true,
+      "universalName": "claude-for-business"
+    },
+    {
+      "partnerLogo": null,
+      "staffingCompany": false,
+      "callToAction": {
+        "callToActionType": "VIEW_WEBSITE",
+        "visible": true,
+        "callToActionMessage": {
+          "textDirection": "USER_LOCALE",
+          "text": "Visit website",
+          "$type": "com.linkedin.voyager.common.TextViewModel"
+        },
+        "url": "https://www.anthropic.com/",
+        "$type": "com.linkedin.voyager.organization.OrganizationCallToAction"
+      },
+      "staffCount": 5826,
+      "adsRule": "STANDARD",
+      "companyEmployeesSearchPageUrl": "https://www.linkedin.com/vsearch/p?f_CC=74126343",
+      "viewerFollowingJobsUpdates": false,
+      "acquirerCompany": null,
+      "staffCountRange": {
+        "start": 501,
+        "end": 1000,
+        "$type": "com.linkedin.voyager.organization.shared.StaffCountRange"
+      },
+      "school": null,
+      "permissions": {
+        "landingPageAdmin": false,
+        "admin": false,
+        "adAccountHolder": false,
+        "$type": "com.linkedin.voyager.organization.CompanyPermissions"
+      },
+      "logo": {
+        "image": {
+          "digitalmediaAsset": "urn:li:digitalmediaAsset:D4E0BAQFMhKgeR7EYAg",
+          "artifacts": [
+            {
+              "width": 200,
+              "fileIdentifyingUrlPathSegment": "200_200/company-logo_200_200/0/1719256413073/anthropicresearch_logo?e=1789603200&v=beta&t=t_KDuGnoW1i0wCtvPPcY0-tI4ll1rye16a3A1637_jE",
+              "expiresAt": 1789603200000,
+              "height": 200,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 100,
+              "fileIdentifyingUrlPathSegment": "100_100/company-logo_100_100/0/1719256989269/anthropicresearch_logo?e=1789603200&v=beta&t=MbuMoqT-lOgcjfGGgoKKsebJyc5FQXlAjAhMhc5GMpQ",
+              "expiresAt": 1789603200000,
+              "height": 100,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 400,
+              "fileIdentifyingUrlPathSegment": "400_400/company-logo_400_400/0/1719256729905/anthropicresearch_logo?e=1789603200&v=beta&t=DY3PhOM1puFMZA7FHZD6mIh4PrD37MsPSH6EA5LTg3g",
+              "expiresAt": 1789603200000,
+              "height": 400,
+              "$type": "com.linkedin.common.VectorArtifact"
+            }
+          ],
+          "rootUrl": "https://media.licdn.com/dms/image/v2/D4E0BAQFMhKgeR7EYAg/company-logo_",
+          "$type": "com.linkedin.common.VectorImage"
+        },
+        "type": "SQUARE_LOGO",
+        "$type": "com.linkedin.voyager.organization.CompanyLogoImage"
+      },
+      "partnerLogoImage": null,
+      "claimable": false,
+      "specialities": [],
+      "confirmedLocations": [],
+      "salesNavigatorCompanyUrl": null,
+      "*followingInfo": "urn:li:fs_followingInfo:urn:li:company:74126343",
+      "*companyIndustries": [
+        "urn:li:fs_industry:70"
+      ],
+      "viewerEmployee": false,
+      "affiliatedCompaniesWithEmployeesRollup": [],
+      "lcpTreatment": true,
+      "affiliatedCompaniesWithJobsRollup": [],
+      "phone": null,
+      "articlePermalinkForTopCompanies": null,
+      "name": "Anthropic",
+      "tagline": "Anthropic is an AI safety and research company working to build reliable, interpretable, and steerable AI systems.",
+      "fundingData": null,
+      "overviewPhoto": null,
+      "description": "We're an AI research company that builds reliable, interpretable, and steerable AI systems. Our first product is Claude, an AI assistant for tasks at any scale.\n\nOur research interests span multiple areas including natural language, human feedback, scaling laws, reinforcement learning, code generation, and interpretability. ",
+      "partnerCompanyUrl": null,
+      "rankForTopCompanies": null,
+      "topCompaniesListName": null,
+      "entityUrn": "urn:li:fs_normalized_company:74126343",
+      "headquarter": null,
+      "showcasePagesResolutionResults": {
+        "*urn:li:fs_normalized_company:121533924": "urn:li:fs_normalized_company:121533924",
+        "*urn:li:fs_normalized_company:106863934": "urn:li:fs_normalized_company:106863934"
+      },
+      "paidCompany": true,
+      "universalName": "anthropicresearch",
+      "viewerPendingAdministrator": false,
+      "companyPageUrl": "https://www.anthropic.com/",
+      "viewerConnectedToAdministrator": false,
+      "affiliatedCompanies": [],
+      "dataVersion": -1,
+      "companyType": {
+        "localizedName": "Privately Held",
+        "code": "PRIVATELY_HELD",
+        "$type": "com.linkedin.voyager.organization.CompanyType"
+      },
+      "foundedOn": null,
+      "associatedHashtags": [],
+      "coverPhoto": null,
+      "groups": [],
+      "url": "https://www.linkedin.com/company/anthropicresearch",
+      "showcasePages": [
+        "urn:li:fs_normalized_company:106863934",
+        "urn:li:fs_normalized_company:121533924"
+      ],
+      "$type": "com.linkedin.voyager.organization.Company",
+      "claimableByViewer": false,
+      "jobSearchPageUrl": "https://www.linkedin.com/jobs/search?geoId=92000000&f_C=74126343",
+      "showcase": false,
+      "autoGenerated": false,
+      "backgroundCoverImage": {
+        "image": {
+          "digitalmediaAsset": "urn:li:digitalmediaAsset:D4E3DAQHVBKtFsMywdw",
+          "artifacts": [
+            {
+              "width": 749,
+              "fileIdentifyingUrlPathSegment": "27_750/image-scale_127_750/0/1719331563452/anthropicresearch_cover?e=1788462000&v=beta&t=PFBQ07Tqh20tibzAstIIWpDWBCuZbyDvitfvKPS1Aak",
+              "expiresAt": 1788462000000,
+              "height": 127,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 108,
+              "fileIdentifyingUrlPathSegment": "08_640/image-scale_108_640/0/1719332430467/anthropicresearch_cover?e=1788462000&v=beta&t=LxNvoQxgfy2wrmKvwNyUTQtz2oo-848loLqGrWYQLVA",
+              "expiresAt": 1788462000000,
+              "height": 18,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 1128,
+              "fileIdentifyingUrlPathSegment": "91_1128/image-scale_191_1128/0/1719331539970/anthropicresearch_cover?e=1788462000&v=beta&t=ug-H5keEiaZXn_pVtKK8shng3l9x3PaSQ7gl0rTnW60",
+              "expiresAt": 1788462000000,
+              "height": 191,
+              "$type": "com.linkedin.common.VectorArtifact"
+            }
+          ],
+          "rootUrl": "https://media.licdn.com/dms/image/v2/D4E3DAQHVBKtFsMywdw/image-scale_1",
+          "$type": "com.linkedin.common.VectorImage"
+        },
+        "cropInfo": {
+          "x": 0,
+          "width": 1128,
+          "y": 0,
+          "height": 191,
+          "$type": "com.linkedin.voyager.identity.profile.ImageCropInfo"
+        },
+        "$type": "com.linkedin.voyager.identity.profile.BackgroundImage"
+      }
+    }
+  ]
+}

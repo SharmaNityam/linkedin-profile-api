@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import {
+  CompanyNotFoundError,
   ProfileNotFoundError,
   RateLimitedError,
   SchemaDriftError,
@@ -17,8 +18,11 @@ import {
 export const LINKEDIN_ORIGIN = 'https://www.linkedin.com';
 export const VOYAGER_BASE = `${LINKEDIN_ORIGIN}/voyager/api`;
 
+export type EntityKind = 'profile' | 'company' | 'posts';
+
 export interface RequestContext {
-  publicIdentifier: string;
+  kind: EntityKind;
+  identifier: string;
 }
 
 /** Anything that can GET a Voyager path. Kept as an interface so tests can substitute a fake. */
@@ -49,7 +53,6 @@ interface VoyagerErrorBody {
 export function interpretVoyagerResponse(
   res: RawResponse,
   context: RequestContext,
-  url: string,
 ): VoyagerResponse {
   const contentType = res.contentType ?? '';
   const ok = res.status >= 200 && res.status < 300;
@@ -83,7 +86,9 @@ export function interpretVoyagerResponse(
     res.status === 404 ||
     (res.status === 403 && /can'?t be accessed|not found/i.test(message ?? ''))
   ) {
-    throw new ProfileNotFoundError(context.publicIdentifier);
+    throw context.kind === 'company'
+      ? new CompanyNotFoundError(context.identifier)
+      : new ProfileNotFoundError(context.identifier);
   }
   if (res.status === 403) {
     // e.g. "CSRF check failed", misconfiguration or LinkedIn blocking this client, not the user's fault.
@@ -93,9 +98,10 @@ export function interpretVoyagerResponse(
   }
   if (res.status === 400) {
     // Typically the decoration ID is no longer recognised, schema drift.
+    // `details` is serialised into the API response, so the Voyager URL (its
+    // decoration IDs and query hashes) stays out of it; the client logs it.
     throw new SchemaDriftError(`LinkedIn rejected the request: ${message ?? 'bad request'}`, {
       status: 400,
-      url,
     });
   }
   if (res.status === 999) {
@@ -264,7 +270,6 @@ export class HttpVoyagerClient implements VoyagerTransport {
         text: await res.text(),
       },
       context,
-      url,
     );
   }
 }
