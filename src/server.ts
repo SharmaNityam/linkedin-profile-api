@@ -99,9 +99,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   );
 
   app.get('/openapi.json', { config: { rateLimit: false } }, async () => app.swagger());
-  // The playground UI. A single self-contained file; no build step.
-  // Registered before the rate limiter, whose hook only covers routes declared
-  // after it: loading the page and its assets must never spend the budget.
   await app.register(fastifyStatic, {
     root: fileURLToPath(new URL('../public', import.meta.url)),
     prefix: '/',
@@ -119,9 +116,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(rateLimit, {
     max: options.rateLimitPerMinute,
     timeWindow: '1 minute',
-    // Matched on the path alone: `req.url` carries the query string, so a
-    // bare `===` would miss `/health?x=1`, and a bare `startsWith('/docs')`
-    // would exempt a `/docsomething` route added later.
+    // Path matched alone; query string excluded from rate limit
     allowList: (req) => {
       const path = req.url.split('?', 1)[0] ?? '';
       return (
@@ -141,16 +136,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     }),
   });
 
-  /**
-   * An unknown path is still an error this API reports, so it gets the same
-   * envelope as every other one rather than Fastify's default body.
-   *
-   * The `preHandler` is `@fastify/rate-limit`'s documented way to budget the
-   * not-found path: without it, 404s are the one response an attacker can
-   * generate without limit, which is exactly what URL guessing needs. The query
-   * string is dropped from the message so nothing the caller supplied beyond
-   * the path is echoed back.
-   */
   app.setNotFoundHandler({ preHandler: app.rateLimit() }, async (request) => {
     const path = request.url.split('?', 1)[0] ?? '';
     throw new AppError('NOT_FOUND', `Route ${request.method} ${path} not found`);
@@ -182,10 +167,7 @@ function toErrorResponse(err: unknown): { status: number } & ErrorResponse {
     error?: ErrorResponse['error'];
   };
   if (e.statusCode === 429 && e.error) return { status: 429, error: e.error };
-  // Fastify's own body-parsing failures — an unsupported or malformed
-  // content type (415), a body larger than the limit (413). All of them are
-  // the caller sending something we cannot accept, which is a 400 here; the
-  // envelope stays one shape rather than leaking Fastify's status codes.
+  // Coerce body-parsing 415/413 errors into 400 for consistency
   if (
     e.validation ||
     e.statusCode === 400 ||

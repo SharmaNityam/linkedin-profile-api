@@ -1,13 +1,3 @@
-/**
- * The subset of LinkedIn's Voyager "normalized JSON" that we read. Everything
- * is optional because decorations change; the normalizer treats missing
- * fields as "not provided", never as fatal.
- *
- * Voyager responses are an entity graph: `data` references entities in
- * `included[]` by URN. Any key starting with `*` holds a URN (or URN list)
- * rather than an inline value.
- */
-
 export interface VoyagerResponse {
   data?: VoyagerEntity;
   included?: VoyagerEntity[];
