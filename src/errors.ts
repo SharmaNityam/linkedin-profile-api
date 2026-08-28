@@ -5,6 +5,7 @@
 export type ErrorCode =
   | 'INVALID_URL'
   | 'INVALID_REQUEST'
+  | 'NOT_FOUND'
   | 'PROFILE_NOT_FOUND'
   | 'COMPANY_NOT_FOUND'
   | 'RATE_LIMITED'
@@ -27,6 +28,7 @@ export type ErrorCode =
 const STATUS: Record<ErrorCode, number> = {
   INVALID_URL: 400,
   INVALID_REQUEST: 400,
+  NOT_FOUND: 404,
   PROFILE_NOT_FOUND: 404,
   COMPANY_NOT_FOUND: 404,
   RATE_LIMITED: 429,

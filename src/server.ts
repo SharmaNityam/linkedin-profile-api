@@ -132,6 +132,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     prefix: '/',
     index: ['index.html'],
     decorateReply: false,
+    // A route per file rather than one `GET /*`. The wildcard would swallow
+    // every unmatched GET and answer it with `reply.callNotFound()`, which
+    // skips the not-found route's own hooks — so an unknown path would come
+    // back unbudgeted, and 404s are exactly what URL guessing generates. The
+    // folder is a single file baked into the image, so globbing it once at
+    // boot costs nothing and nothing is ever added at runtime.
+    wildcard: false,
   });
 
   await app.register(rateLimit, {
@@ -162,6 +169,21 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
       },
     }),
+  });
+
+  /**
+   * An unknown path is still an error this API reports, so it gets the same
+   * envelope as every other one rather than Fastify's default body.
+   *
+   * The `preHandler` is `@fastify/rate-limit`'s documented way to budget the
+   * not-found path: without it, 404s are the one response an attacker can
+   * generate without limit, which is exactly what URL guessing needs. The query
+   * string is dropped from the message so nothing the caller supplied beyond
+   * the path is echoed back.
+   */
+  app.setNotFoundHandler({ preHandler: app.rateLimit() }, async (request) => {
+    const path = request.url.split('?', 1)[0] ?? '';
+    throw new AppError('NOT_FOUND', `Route ${request.method} ${path} not found`);
   });
 
   await app.register(authRoutes, {

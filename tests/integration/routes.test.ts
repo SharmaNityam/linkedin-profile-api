@@ -239,6 +239,29 @@ describe('HTTP API', () => {
     expect(getPosts).toHaveBeenCalledWith('jane-doe', 3);
   });
 
+  it.each([
+    ['GET', '/nope'],
+    ['POST', '/nope'],
+    ['GET', '/v1/nope'],
+    ['GET', '/auth/nope'],
+  ])('answers %s %s with the error envelope', async (method, url) => {
+    const res = await app.inject({ method: method as 'GET' | 'POST', url, headers: { cookie } });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toEqual({
+      error: { code: 'NOT_FOUND', message: `Route ${method} ${url} not found` },
+    });
+  });
+
+  it('keeps the query string out of the not-found message', async () => {
+    const res = await app.inject({ url: '/nope', query: { q: '<script>' } });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json<{ error: { message: string } }>().error.message).toBe(
+      'Route GET /nope not found',
+    );
+  });
+
   it('OpenAPI lists every route', async () => {
     const res = await app.inject({ url: '/openapi.json' });
     expect(res.statusCode).toBe(200);
@@ -282,6 +305,30 @@ describe('rate limiting', () => {
     expect(third.statusCode).toBe(429);
     expect(third.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
     expect(third.headers['retry-after']).toBeDefined();
+    await app.close();
+  });
+
+  // Otherwise 404s are the one response an attacker can generate without
+  // limit, which is exactly what guessing at URLs needs.
+  it('counts unknown routes against the budget too', async () => {
+    const auth = buildTestAuth();
+    const app = await buildApp({
+      services: {} as unknown as LinkedInService,
+      auth: auth.auth,
+      sessionKey: TEST_SESSION_KEY,
+      appOrigin: TEST_ORIGIN,
+      secureCookies: false,
+      rateLimitPerMinute: 2,
+      authRateLimitPerHour: 1000,
+    });
+    await app.ready();
+    const probe = (n: number) => app.inject({ url: `/guess-${n}`, remoteAddress: '10.0.0.9' });
+
+    expect((await probe(1)).statusCode).toBe(404);
+    expect((await probe(2)).statusCode).toBe(404);
+    const third = await probe(3);
+    expect(third.statusCode).toBe(429);
+    expect(third.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
     await app.close();
   });
 });
