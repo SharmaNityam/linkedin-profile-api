@@ -10,7 +10,6 @@ import {
   type VoyagerResponse,
 } from './types.js';
 
-/** The raw responses that together describe one profile. */
 export interface ProfileBundle {
   /** FullProfileWithEntities decoration, the main entity graph. */
   full: VoyagerResponse;
@@ -20,10 +19,6 @@ export interface ProfileBundle {
   skillPages?: VoyagerResponse[];
 }
 
-/**
- * Turns LinkedIn's entity graph into our public schema. Pure and synchronous
- * so it can be tested exhaustively against recorded fixtures.
- */
 export function normalizeProfile(bundle: ProfileBundle): ProfileData {
   const graph = new EntityGraph(bundle.full, bundle.topCard ?? {}, ...(bundle.skillPages ?? []));
 
@@ -42,6 +37,7 @@ export function normalizeProfile(bundle: ProfileBundle): ProfileData {
 
   const firstName = str(profile.firstName) ?? '';
   const lastName = str(profile.lastName) ?? '';
+  const positions = experience(graph, profile);
 
   return {
     url: `https://www.linkedin.com/in/${encodeURIComponent(publicIdentifier)}/`,
@@ -61,7 +57,8 @@ export function normalizeProfile(bundle: ProfileBundle): ProfileData {
         : null,
     profileImage: image(pictureOf(profile.profilePicture)),
     backgroundImage: image(pictureOf(profile.backgroundPicture)),
-    experience: experience(graph, profile),
+    experience: positions,
+    experienceGroups: groupExperience(positions),
     education: graph.collection(profile, 'profileEducations').elements.map((e) => ({
       schoolName: str(e.schoolName),
       school: organization(graph.ref(e, 'school')),
@@ -145,6 +142,94 @@ function experience(graph: EntityGraph, profile: VoyagerEntity): ProfileData['ex
       };
     });
   });
+}
+
+/**
+ * Groups consecutive same-company positions LinkedIn-style. Pure function so
+ * it can be tested with an injected `now` for month-span math.
+ */
+export function groupExperience(
+  positions: ProfileData['experience'],
+  now: Date = new Date(),
+): ProfileData['experienceGroups'] {
+  const runs: ProfileData['experience'][] = [];
+  let lastKey: string | null = null;
+  for (const pos of positions) {
+    const key = groupKey(pos);
+    if (key && key === lastKey) {
+      runs[runs.length - 1]!.push(pos);
+    } else {
+      runs.push([pos]);
+    }
+    lastKey = key;
+  }
+  return runs.map((roles) => buildGroup(roles, now));
+}
+
+function groupKey(pos: ProfileData['experience'][number]): string {
+  return (
+    pos.company?.universalName ?? pos.company?.linkedinUrl ?? pos.companyName?.toLowerCase() ?? ''
+  );
+}
+
+function buildGroup(
+  roles: ProfileData['experience'],
+  now: Date,
+): ProfileData['experienceGroups'][number] {
+  const company = roles.find((r) => r.company)?.company ?? null;
+  const name = company?.name ?? roles.find((r) => r.companyName)?.companyName ?? '';
+  const isCurrent = roles.some((r) => r.isCurrent);
+  const startDate = earliest(roles.map((r) => r.startDate).filter((d): d is PartialDate => d !== null));
+  const endDate = isCurrent
+    ? null
+    : latest(roles.map((r) => r.endDate).filter((d): d is PartialDate => d !== null));
+  return {
+    key: groupKey(roles[0]!),
+    name,
+    company,
+    employmentType: uniform(roles.map((r) => r.employmentType)),
+    location: uniform(roles.map((r) => r.location)),
+    startDate,
+    endDate,
+    isCurrent,
+    totalMonths: monthSpan(startDate, endDate, isCurrent, now),
+    roles,
+  };
+}
+
+function uniform(values: (string | null)[]): string | null {
+  return values.every((v) => v === values[0]) ? (values[0] ?? null) : null;
+}
+
+function monthIndex(year: number, month: number): number {
+  return year * 12 + month - 1;
+}
+
+function earliest(dates: PartialDate[]): PartialDate | null {
+  return dates.length
+    ? dates.reduce((a, b) => (monthIndex(b.year, b.month ?? 1) < monthIndex(a.year, a.month ?? 1) ? b : a))
+    : null;
+}
+
+function latest(dates: PartialDate[]): PartialDate | null {
+  return dates.length
+    ? dates.reduce((a, b) => (monthIndex(b.year, b.month ?? 12) > monthIndex(a.year, a.month ?? 12) ? b : a))
+    : null;
+}
+
+/** Inclusive month span from `startDate` to `endDate` (or "now" when current). */
+function monthSpan(
+  startDate: PartialDate | null,
+  endDate: PartialDate | null,
+  isCurrent: boolean,
+  now: Date,
+): number {
+  if (!startDate) return 0;
+  const start = monthIndex(startDate.year, startDate.month ?? 1);
+  const end = isCurrent
+    ? monthIndex(now.getFullYear(), now.getMonth() + 1)
+    : monthIndex((endDate ?? startDate).year, (endDate ?? startDate).month ?? 12);
+  return Math.max(0, end - start + 1);
 }
 
 function skills(

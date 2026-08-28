@@ -6,14 +6,7 @@ import { ProfileNotFoundError, SchemaDriftError } from '../../errors.js';
 import { EntityGraph } from './graph.js';
 import { TYPES, type CollectionResponse, type VoyagerResponse } from './types.js';
 
-/**
- * Every LinkedIn URL and decoration ID lives here and nowhere else, so when
- * LinkedIn changes them there is exactly one file to touch.
- *
- * A "decoration" is Voyager's name for a projection: which fields and nested
- * entities to include. The numeric suffix is a version. These were captured
- * from the LinkedIn web app on 2026-08-27.
- */
+// Decoration IDs captured from the LinkedIn web app on 2026-08-27.
 export const DECORATION = {
   /** Positions, education, skills (first 20), certifications, languages, volunteering, … */
   fullProfile: 'com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-101',
@@ -23,11 +16,6 @@ export const DECORATION = {
   company: 'com.linkedin.voyager.deco.organization.web.WebFullCompanyMain-12',
 } as const;
 
-/**
- * The persisted-query hash for `voyagerFeedDashProfileUpdates`. LinkedIn rotates
- * these when the query changes; a stale one comes back as a 400 or 404, so it is
- * overridable at runtime via `VOYAGER_POSTS_QUERY_ID`.
- */
 export const DEFAULT_POSTS_QUERY_ID = '20c70fe0314184158516a7ec004c0408';
 
 /** Voyager returns at most this many skills inline; the rest must be paged. */

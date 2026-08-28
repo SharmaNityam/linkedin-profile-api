@@ -27,10 +27,6 @@ export interface LinkedInServiceDeps {
   now?: () => Date;
 }
 
-/**
- * The one entry point the HTTP layer talks to: parse the URL, serve from
- * cache if possible, otherwise fetch from Voyager, normalise, validate.
- */
 export class LinkedInService {
   private readonly log: LogFn;
   private readonly now: () => Date;
@@ -73,10 +69,6 @@ export class LinkedInService {
     });
   }
 
-  /**
-   * Cache lookup, concurrency-limited fetch, `meta` block and schema check —
-   * identical for every entity kind, so it lives in one place.
-   */
   private async cached<T extends { meta: Meta }>(
     key: string,
     schema: z.ZodType<T>,

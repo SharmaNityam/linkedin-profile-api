@@ -2,15 +2,6 @@ import { z } from 'zod';
 import { Image, Meta, ErrorResponse } from './common.js';
 export { Image, Meta, ErrorResponse };
 
-/**
- * Public response schema. This is the single source of truth: it drives the
- * TypeScript types, runtime validation of what we return, and the OpenAPI doc.
- *
- * Conventions: a field that LinkedIn does not expose for a profile is `null`;
- * a list section the profile does not have is `[]`. Dates are `{year, month?}`
- * because LinkedIn stores month precision, we never invent a day.
- */
-
 export const PartialDate = z
   .object({
     year: z.number().int(),
@@ -35,6 +26,22 @@ export const Experience = z.object({
   startDate: PartialDate.nullable(),
   endDate: PartialDate.nullable(),
   isCurrent: z.boolean(),
+});
+
+export const ExperienceGroup = z.object({
+  key: z.string(),
+  name: z.string(),
+  company: Organization.nullable(),
+  employmentType: z
+    .string()
+    .nullable()
+    .describe('Only set when identical across every role in the group'),
+  location: z.string().nullable().describe('Only set when identical across every role in the group'),
+  startDate: PartialDate.nullable().describe('Earliest role start in the group'),
+  endDate: PartialDate.nullable().describe('Latest role end; null when any role is current'),
+  isCurrent: z.boolean(),
+  totalMonths: z.number().int().nonnegative().describe('Inclusive month span across all roles'),
+  roles: z.array(Experience),
 });
 
 export const Education = z.object({
@@ -127,6 +134,7 @@ export const ProfileResponse = z.object({
   profileImage: Image.nullable(),
   backgroundImage: Image.nullable(),
   experience: z.array(Experience),
+  experienceGroups: z.array(ExperienceGroup),
   education: z.array(Education),
   skills: z.array(Skill),
   certifications: z.array(Certification),

@@ -1,14 +1,3 @@
-/**
- * Records the raw Voyager responses for one entity into tests/fixtures so the
- * normalisers can be tested offline against real LinkedIn data.
- *
- *   LI_AT=… pnpm record-fixture <publicIdentifier>
- *   LI_AT=… pnpm record-fixture company <universalName>
- *   LI_AT=… pnpm record-fixture posts <publicIdentifier>
- *
- * Tracking/anti-abuse noise is stripped; everything else is kept verbatim so
- * the fixture is an honest sample of what LinkedIn returns.
- */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -33,12 +22,6 @@ const NOISE_KEYS = new Set(['$anti_abuse_metadata', 'trackingId', 'trackingUrn',
 /** The kinds share a shape: a fixture directory name plus what to fetch. */
 export type Target = { kind: 'profile' | 'company' | 'posts'; slug: string };
 
-/**
- * One recorded entity: the files to write, plus a deferred `summarize()` that
- * normalises the fetched bundle. Deferred so callers can write the raw files
- * to disk *before* risking a `SchemaDriftError` — schema drift is exactly the
- * case where the fixture is most worth keeping.
- */
 export interface Recording {
   /** Absolute fixture directory, `<repo>/tests/fixtures/voyager[/<kind>]/<slug>`. */
   dir: string;
