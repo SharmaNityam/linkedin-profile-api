@@ -12,16 +12,34 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import type { MailSender } from './auth/mailer.js';
+import type { OtpStore } from './auth/otp.js';
+import { authPlugin, requireViewer } from './auth/plugin.js';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
 import type { LinkedInService } from './linkedin/service.js';
+import { authRoutes } from './routes/auth.js';
 import { companyRoutes } from './routes/company.js';
 import { postsRoutes } from './routes/posts.js';
 import { profileRoutes } from './routes/profile.js';
 
+export interface BuildAppAuthOptions {
+  store: OtpStore;
+  mailer: MailSender;
+  /** 32 bytes as 64 hex chars; see `SESSION_KEY`. */
+  sessionKey: string;
+  /** The only `Origin` a state-changing request may declare. */
+  appOrigin: string;
+  /** `Secure` on the session cookie. Off in development, where there's no TLS. */
+  secureCookies: boolean;
+  /** Per IP, on `/auth/request-code` and `/auth/verify`. */
+  otpRateLimitPerHour: number;
+}
+
 export interface BuildAppOptions {
   services: LinkedInService;
-  /** Per IP. */
+  auth: BuildAppAuthOptions;
+  /** Per IP, or per verified email once signed in. */
   rateLimitPerMinute: number;
   /** A pino instance to log through; omitted in tests. */
   logger?: FastifyBaseLogger;
@@ -113,9 +131,18 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     wildcard: false,
   });
 
+  // Registered before rate-limit so its onRequest hook (which resolves
+  // request.viewer) runs first, letting the limiter key by verified email.
+  await app.register(authPlugin, {
+    sessionKey: options.auth.sessionKey,
+    appOrigin: options.auth.appOrigin,
+    secureCookies: options.auth.secureCookies,
+  });
+
   await app.register(rateLimit, {
     max: options.rateLimitPerMinute,
     timeWindow: '1 minute',
+    keyGenerator: (req) => req.viewer?.email ?? req.ip,
     // Path matched alone; query string excluded from rate limit
     allowList: (req) => {
       const path = req.url.split('?', 1)[0] ?? '';
@@ -141,9 +168,19 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     throw new AppError('NOT_FOUND', `Route ${request.method} ${path} not found`);
   });
 
-  await app.register(profileRoutes, { services: options.services });
-  await app.register(companyRoutes, { services: options.services });
-  await app.register(postsRoutes, { services: options.services });
+  await app.register(authRoutes, {
+    store: options.auth.store,
+    mailer: options.auth.mailer,
+    otpRateLimitPerHour: options.auth.otpRateLimitPerHour,
+  });
+
+  // Encapsulated so requireViewer() gates only /v1/*, not /auth/* or /health.
+  await app.register(async (v1) => {
+    v1.addHook('preHandler', requireViewer());
+    await v1.register(profileRoutes, { services: options.services });
+    await v1.register(companyRoutes, { services: options.services });
+    await v1.register(postsRoutes, { services: options.services });
+  });
 
   return app;
 }
