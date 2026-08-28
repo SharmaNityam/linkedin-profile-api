@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import type { EmailVerificationMode } from '../../src/auth/service.js';
 import type { LinkedInService } from '../../src/linkedin/service.js';
 import { normalizeProfile } from '../../src/linkedin/voyager/normalize.js';
 import type { Meta } from '../../src/schema/common.js';
@@ -54,9 +55,14 @@ afterEach(async () => {
 });
 
 async function harness(
-  over: { rateLimitPerMinute?: number; authRateLimitPerHour?: number } = {},
+  over: {
+    rateLimitPerMinute?: number;
+    authRateLimitPerHour?: number;
+    emailVerification?: EmailVerificationMode;
+  } = {},
 ): Promise<Harness> {
-  const auth = buildTestAuth();
+  const emailVerification = over.emailVerification ?? 'required';
+  const auth = buildTestAuth({ emailVerification });
   const getProfile = profileStub();
   const services = {
     getProfile,
@@ -72,6 +78,7 @@ async function harness(
     secureCookies: false,
     rateLimitPerMinute: over.rateLimitPerMinute ?? 1000,
     authRateLimitPerHour: over.authRateLimitPerHour ?? 1000,
+    emailVerification,
   });
   await app.ready();
   open.push(app);
@@ -277,6 +284,122 @@ describe('auth flow', () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ error: { code: 'PHONE_TAKEN' } });
+  });
+});
+
+/**
+ * `EMAIL_VERIFICATION=off`: the same app minus the code step, which is what the
+ * hosted demo runs because its sender only delivers to the operator.
+ */
+describe('auth flow without email verification', () => {
+  const off = () => harness({ emailVerification: 'off' });
+
+  it('walks signup → phone → /v1/profile with no code in between', async () => {
+    const { app, auth, getProfile } = await off();
+
+    const signup = await app.inject({
+      method: 'POST',
+      url: '/auth/signup',
+      payload: { email: EMAIL, password: TEST_PASSWORD },
+    });
+    expect(signup.statusCode).toBe(200);
+    expect(signup.json()).toMatchObject({
+      email: EMAIL,
+      emailVerified: true,
+      phoneVerified: false,
+    });
+    expect(auth.mailer.sent).toHaveLength(0);
+
+    // Signup itself issues the session, so there is nothing to verify.
+    const cookie = sidCookie(signup);
+    expect(cookie).toContain('sid=');
+
+    const beforePhone = await app.inject({
+      url: '/v1/profile',
+      query: { url: 'jane-doe' },
+      headers: { cookie },
+    });
+    expect(beforePhone.statusCode).toBe(403);
+    expect(beforePhone.json()).toMatchObject({ error: { code: 'PHONE_REQUIRED' } });
+
+    const phoned = await app.inject({
+      method: 'POST',
+      url: '/auth/phone',
+      payload: { phone: PHONE },
+      headers: { cookie },
+    });
+    expect(phoned.statusCode).toBe(200);
+    expect(phoned.json()).toMatchObject({ phoneVerified: true, phoneValidation: 'accepted' });
+
+    const ok = await app.inject({
+      url: '/v1/profile',
+      query: { url: 'jane-doe' },
+      headers: { cookie },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual(PROFILE);
+    expect(getProfile).toHaveBeenCalledWith('jane-doe');
+  });
+
+  it('answers a second signup for the address with 409 EMAIL_TAKEN', async () => {
+    const { app } = await off();
+    const signup = () =>
+      app.inject({
+        method: 'POST',
+        url: '/auth/signup',
+        payload: { email: EMAIL, password: TEST_PASSWORD },
+      });
+
+    expect((await signup()).statusCode).toBe(200);
+
+    const again = await signup();
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ error: { code: 'EMAIL_TAKEN' } });
+  });
+
+  it('has nothing for /auth/verify-email to do', async () => {
+    const { app } = await off();
+    await app.inject({
+      method: 'POST',
+      url: '/auth/signup',
+      payload: { email: EMAIL, password: TEST_PASSWORD },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/verify-email',
+      payload: { email: EMAIL, code: '000000' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({
+      error: { code: 'INVALID_REQUEST', message: 'Email verification is disabled' },
+    });
+  });
+
+  it('reports the mode on /auth/config, with no session and no budget', async () => {
+    const { app } = await off();
+
+    for (let i = 0; i < 5; i += 1) {
+      const res = await app.inject({ url: '/auth/config' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ emailVerification: 'off', phoneValidation: 'none' });
+    }
+  });
+});
+
+describe('GET /auth/config', () => {
+  it('reports the required mode by default', async () => {
+    const { app } = await harness();
+    const res = await app.inject({ url: '/auth/config' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ emailVerification: 'required', phoneValidation: 'none' });
+  });
+
+  it('is not budgeted, the way /health is not', async () => {
+    const { app } = await harness({ rateLimitPerMinute: 2, authRateLimitPerHour: 2 });
+    for (let i = 0; i < 20; i += 1) {
+      expect((await app.inject({ url: '/auth/config' })).statusCode).toBe(200);
+    }
   });
 });
 

@@ -45,6 +45,12 @@ const baseSchema = z.object({
     ),
   /** The origin the browser app is served from; used for the CSRF origin check and cookie scope. */
   APP_ORIGIN: z.string().url().default('http://localhost:3000'),
+  /**
+   * `required` mails a six-digit code and creates the account only once it comes
+   * back. `off` creates the account on the signup request itself, for an
+   * instance whose sender cannot reach anyone but its own operator.
+   */
+  EMAIL_VERIFICATION: z.enum(['required', 'off']).default('required'),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('LinkedIn Profile API <onboarding@resend.dev>'),
   ABSTRACT_API_KEY: z.string().optional(),
@@ -75,12 +81,14 @@ const envSchema = baseSchema.superRefine((env, ctx) => {
     });
   }
 
-  if (!env.RESEND_API_KEY) {
+  // Only when codes are actually mailed. With EMAIL_VERIFICATION=off nothing is
+  // ever sent, so there is no mailer to fall back from and no code to leak.
+  if (env.EMAIL_VERIFICATION === 'required' && !env.RESEND_API_KEY) {
     ctx.addIssue({
       code: 'custom',
       path: ['RESEND_API_KEY'],
       message:
-        'RESEND_API_KEY is required when NODE_ENV=production (without it verification codes go to the log)',
+        'RESEND_API_KEY is required when NODE_ENV=production and EMAIL_VERIFICATION=required (without it verification codes go to the log)',
     });
   }
 

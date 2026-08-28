@@ -2,9 +2,10 @@ import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { setClaims } from '../auth/plugin.js';
 import type { User } from '../auth/repositories.js';
-import type { AuthService } from '../auth/service.js';
+import type { AuthService, EmailVerificationMode } from '../auth/service.js';
 import { AppError } from '../errors.js';
 import {
+  AuthConfigResponse,
   LoginBody,
   LogoutBody,
   LogoutResponse,
@@ -21,13 +22,19 @@ export interface AuthRoutesOptions {
   auth: AuthService;
   /** Per-IP budget for the endpoints an anonymous caller can reach. */
   authRateLimitPerHour: number;
+  /** Reported by `GET /auth/config` so a client knows which steps exist here. */
+  emailVerification: EmailVerificationMode;
+  /** Whether a phone-validation provider is configured. */
+  phoneValidation: 'abstract' | 'none';
 }
 
 const errorResponses = {
   400: ErrorResponse.describe('The body is malformed, or the code or phone number was rejected'),
   401: ErrorResponse.describe('Not signed in, or the credentials are wrong'),
   403: ErrorResponse.describe('Phone number required, or the request came from another origin'),
-  409: ErrorResponse.describe('That phone number belongs to another account'),
+  409: ErrorResponse.describe(
+    'That phone number, or that email address, belongs to another account',
+  ),
   429: ErrorResponse.describe('Rate limited'),
 };
 
@@ -38,7 +45,7 @@ const errorResponses = {
  */
 export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
   app,
-  { auth, authRateLimitPerHour },
+  { auth, authRateLimitPerHour, emailVerification, phoneValidation },
 ) => {
   /**
    * The endpoints an anonymous caller can reach are budgeted per IP and per
@@ -67,18 +74,41 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRoutesOptions> = async (
     {
       schema: {
         tags: ['auth'],
-        summary: 'Create an account and send a verification code',
+        summary: 'Create an account, sending a verification code when one is required',
         description:
-          'Always answers the same way, whether or not the address is already registered.',
+          'With EMAIL_VERIFICATION=required this mails a six-digit code and answers ' +
+          '`{"status":"verification_sent"}`, the same way whether or not the address is ' +
+          'already registered. With EMAIL_VERIFICATION=off it creates the verified ' +
+          'account, sets the session cookie and answers with the /auth/me shape, or ' +
+          '409 EMAIL_TAKEN if the address already has an account. GET /auth/config ' +
+          'reports which of the two this instance does.',
         body: SignupBody,
         response: { 200: SignupResponse, ...errorResponses },
       },
       config: perIp,
     },
     async (req) => {
-      await auth.signup(req.body.email, req.body.password);
-      return { status: 'verification_sent' as const };
+      const session = await auth.signup(req.body.email, req.body.password);
+      if (!session) return { status: 'verification_sent' as const };
+      setClaims(req.session, session.claims);
+      return session.me;
     },
+  );
+
+  app.get(
+    '/auth/config',
+    {
+      schema: {
+        tags: ['auth'],
+        summary: 'Which account steps this instance has',
+        description:
+          'Public, and unbudgeted: a client has to read it before it can draw the first ' +
+          'screen, and it says nothing about any account.',
+        response: { 200: AuthConfigResponse },
+      },
+      config: { rateLimit: false },
+    },
+    async () => ({ emailVerification, phoneValidation }),
   );
 
   app.post(

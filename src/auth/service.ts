@@ -27,6 +27,9 @@ const MAX_PENDING_PER_EMAIL = 5;
 /** The one message every wrong-code path returns, so none of them is an oracle. */
 const WRONG_CODE = 'Verification code is incorrect';
 
+/** Whether a mailbox has to be proved before an account exists. */
+export type EmailVerificationMode = 'required' | 'off';
+
 export interface AuthServiceDeps {
   repos: Repositories;
   hasher: PasswordHasher;
@@ -35,6 +38,11 @@ export interface AuthServiceDeps {
   allowedDomains: readonly string[];
   /** What to do when the phone provider gives no answer. */
   failMode: 'open' | 'closed';
+  /**
+   * `required` (the default) mails a code and creates the account only when it
+   * comes back. `off` creates a verified account on the signup call itself.
+   */
+  emailVerification?: EmailVerificationMode;
   log?: LogFn;
   /** Injectable clock for tests. */
   now?: () => Date;
@@ -63,9 +71,11 @@ export interface Me {
  */
 export class AuthService {
   private readonly now: () => Date;
+  private readonly emailVerification: EmailVerificationMode;
 
   constructor(private readonly deps: AuthServiceDeps) {
     this.now = deps.now ?? ((): Date => new Date());
+    this.emailVerification = deps.emailVerification ?? 'required';
   }
 
   /**
@@ -78,8 +88,15 @@ export class AuthService {
    * another one for the same address. An attacker who signs up as
    * `victim@gmail.com` gets their own pending row and their own code; the
    * victim's code creates the account from the victim's row.
+   *
+   * Resolves to `undefined` when a code was mailed and nothing exists yet, and
+   * to a session when `emailVerification` is `off` and the account was created
+   * on this call.
    */
-  async signup(email: string, password: string): Promise<void> {
+  async signup(
+    email: string,
+    password: string,
+  ): Promise<{ claims: SessionClaims; me: Me } | undefined> {
     const canonical = canonicalEmail(email);
     const domain = emailDomain(email);
     if (!isAllowedDomain(domain, this.deps.allowedDomains)) {
@@ -90,6 +107,10 @@ export class AuthService {
       );
     }
     assertPasswordPolicy(password);
+
+    if (this.emailVerification === 'off') {
+      return this.signupWithoutVerification(email, canonical, password);
+    }
 
     // An account already exists, so there is nothing to sign up for and no code
     // to send. Burn a hash anyway, so this branch costs what the other one does
@@ -133,6 +154,9 @@ export class AuthService {
    * they know an address that received a code.
    */
   async verifyEmail(email: string, code: string): Promise<{ claims: SessionClaims; me: Me }> {
+    if (this.emailVerification === 'off') {
+      throw new AppError('INVALID_REQUEST', 'Email verification is disabled');
+    }
     const canonical = canonicalEmail(email);
     const pending = await this.deps.repos.pendingSignups.listByCanonicalEmail(canonical);
     const now = this.now();
@@ -259,6 +283,44 @@ export class AuthService {
       sessionVersion: user.sessionVersion,
       issuedAt: this.now().getTime(),
     };
+  }
+
+  /**
+   * The `emailVerification: 'off'` path: no code, no pending row, no mail. The
+   * account is created verified and the caller is signed in on the spot.
+   *
+   * Nothing is being hidden here. Without a code there is no mailbox proof to
+   * protect, so a taken address is reported as such rather than answered with
+   * the same `verification_sent` every time — an oracle only matters while
+   * "already registered" is a different amount of work from "free", and here
+   * both branches are one lookup.
+   */
+  private async signupWithoutVerification(
+    email: string,
+    canonical: string,
+    password: string,
+  ): Promise<{ claims: SessionClaims; me: Me }> {
+    if (await this.deps.repos.users.findByCanonicalEmail(canonical)) throw emailTaken();
+
+    const passwordHash = await this.deps.hasher.hash(password);
+    const at = this.now();
+    let user: User;
+    try {
+      user = await this.deps.repos.users.create({
+        email: email.trim(),
+        emailCanonical: canonical,
+        passwordHash,
+        emailVerifiedAt: at,
+      });
+    } catch (err) {
+      // Another signup for the address landed between the lookup and the
+      // insert. That is the same answer, reached a moment later.
+      if (!(await this.deps.repos.users.findByCanonicalEmail(canonical))) throw err;
+      this.deps.log?.('warn', 'lost the race to create an account', { canonical });
+      throw emailTaken();
+    }
+
+    return { claims: this.claims(user), me: this.me(user) };
   }
 
   /**
@@ -407,6 +469,10 @@ function lineType(verdict: PhoneVerdict): string {
 
 function noSession(): AppError {
   return new AppError('UNAUTHENTICATED', 'Your session is no longer valid');
+}
+
+function emailTaken(): AppError {
+  return new AppError('EMAIL_TAKEN', 'That email address already has an account');
 }
 
 function phoneTaken(): AppError {

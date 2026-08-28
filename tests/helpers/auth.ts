@@ -7,7 +7,7 @@ import { createMemoryRepositories } from '../../src/auth/memory.js';
 import type { PasswordHasher } from '../../src/auth/password.js';
 import type { PhoneValidator, PhoneVerdict } from '../../src/auth/phone-validation.js';
 import type { Repositories } from '../../src/auth/repositories.js';
-import { AuthService } from '../../src/auth/service.js';
+import { AuthService, type EmailVerificationMode } from '../../src/auth/service.js';
 
 /** 32 bytes of hex. Well-formed is all that matters; it is not a secret here. */
 export const TEST_SESSION_KEY = 'a3f1'.repeat(16);
@@ -86,7 +86,11 @@ export interface TestAuth {
 }
 
 export function buildTestAuth(
-  options: { allowedDomains?: readonly string[]; failMode?: 'open' | 'closed' } = {},
+  options: {
+    allowedDomains?: readonly string[];
+    failMode?: 'open' | 'closed';
+    emailVerification?: EmailVerificationMode;
+  } = {},
 ): TestAuth {
   const repos = createMemoryRepositories();
   const mailer = new RecordingMailer();
@@ -98,6 +102,7 @@ export function buildTestAuth(
     phoneValidator: validator,
     allowedDomains: options.allowedDomains ?? DEFAULT_ALLOWED_EMAIL_DOMAINS,
     failMode: options.failMode ?? 'open',
+    emailVerification: options.emailVerification ?? 'required',
   });
   return { auth, repos, mailer, validator };
 }

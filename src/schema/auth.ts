@@ -54,8 +54,8 @@ export const LogoutBody = z.object({
 export type LogoutBody = z.infer<typeof LogoutBody>;
 
 /** Never says whether the address was already registered. */
-export const SignupResponse = z.object({ status: z.literal('verification_sent') });
-export type SignupResponse = z.infer<typeof SignupResponse>;
+export const VerificationSentResponse = z.object({ status: z.literal('verification_sent') });
+export type VerificationSentResponse = z.infer<typeof VerificationSentResponse>;
 
 export const MeResponse = z.object({
   email: z.string(),
@@ -64,6 +64,29 @@ export const MeResponse = z.object({
   createdAt: z.string(),
 });
 export type MeResponse = z.infer<typeof MeResponse>;
+
+/**
+ * Which of the two arrives depends on `EMAIL_VERIFICATION`, so both are part of
+ * the contract: `verification_sent` when a code was mailed and no account
+ * exists yet, and the `/auth/me` shape when the account was created on the
+ * signup call itself and the session cookie came back with it.
+ */
+export const SignupResponse = z.union([VerificationSentResponse, MeResponse]);
+export type SignupResponse = z.infer<typeof SignupResponse>;
+
+/**
+ * What the playground needs to know before it draws the first screen: which
+ * steps this instance actually has. Public, and says nothing about any account.
+ */
+export const AuthConfigResponse = z.object({
+  emailVerification: z
+    .enum(['required', 'off'])
+    .describe("'off' means signup creates the account and skips the code step"),
+  phoneValidation: z
+    .enum(['abstract', 'none'])
+    .describe("'none' means no provider is configured and every number is 'skipped'"),
+});
+export type AuthConfigResponse = z.infer<typeof AuthConfigResponse>;
 
 export const PhoneResponse = MeResponse.extend({
   phoneValidation: z

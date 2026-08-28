@@ -23,6 +23,7 @@ The `/v1/*` endpoints are **account-gated**: they need a `sid` session cookie fr
 - [Accounts and access](#accounts-and-access)
   - [Why an account and not just a per-IP limit](#why-an-account-and-not-just-a-per-ip-limit)
   - [The flow](#the-flow)
+  - [Running without email verification](#running-without-email-verification)
   - [What each check proves, and what it does not](#what-each-check-proves-and-what-it-does-not)
 - [API](#api)
   - [`POST /auth/signup`](#post-authsignup)
@@ -31,6 +32,7 @@ The `/v1/*` endpoints are **account-gated**: they need a `sid` session cookie fr
   - [`POST /auth/phone`](#post-authphone)
   - [`POST /auth/logout`](#post-authlogout)
   - [`GET /auth/me`](#get-authme)
+  - [`GET /auth/config`](#get-authconfig)
   - [`GET|POST /v1/profile`](#getpost-v1profile)
   - [`GET|POST /v1/company`](#getpost-v1company)
   - [`GET|POST /v1/posts`](#getpost-v1posts)
@@ -100,11 +102,12 @@ Accounts:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `NODE_ENV` | `development` | `development` \| `test` \| `production`. Production additionally **requires** `DATABASE_URL`, `RESEND_API_KEY` and a non-localhost `APP_ORIGIN`, and puts `Secure` on the session cookie |
+| `NODE_ENV` | `development` | `development` \| `test` \| `production`. Production additionally **requires** `DATABASE_URL`, a non-localhost `APP_ORIGIN` and — when `EMAIL_VERIFICATION=required` — `RESEND_API_KEY`, and puts `Secure` on the session cookie |
 | `DATABASE_URL` | - | Postgres connection string. **Required when `NODE_ENV=production`.** Unset elsewhere means the in-memory repositories, with a startup warning. TLS is verified for every host except loopback, so a hosted database needs no extra flag and a local one needs no certificate. Any `sslmode`/`ssl` in the connection string is stripped, so the string cannot downgrade that |
 | `SESSION_KEY` | - | **Required.** The session cookie's encryption key: 32 bytes as 64 hex characters, `openssl rand -hex 32`. Changing it invalidates every cookie in circulation |
 | `APP_ORIGIN` | `http://localhost:3000` | The only `Origin` a `POST`/`PUT`/`PATCH`/`DELETE` may declare. Must be the public origin in production |
-| `RESEND_API_KEY` | - | Resend key for the verification email. Unset falls back to writing the code to the log at `debug`, which is fine locally and **not** fine in production — so it is **required when `NODE_ENV=production`**, and the app refuses to start without it |
+| `EMAIL_VERIFICATION` | `required` | `required` \| `off`. `required` mails a six-digit code and creates the account only once it comes back. `off` creates the verified account on the signup request itself, sets the session cookie and answers with the [`/auth/me`](#get-authme) shape — or `409 EMAIL_TAKEN` if the address is taken — and makes `POST /auth/verify-email` a `400 INVALID_REQUEST`. See [Running without email verification](#running-without-email-verification) |
+| `RESEND_API_KEY` | - | Resend key for the verification email. Unset falls back to writing the code to the log at `debug`, which is fine locally and **not** fine in production — so it is **required when `NODE_ENV=production` and `EMAIL_VERIFICATION=required`**, and the app refuses to start without it. With `EMAIL_VERIFICATION=off` nothing is ever mailed, so it is not read at all |
 | `EMAIL_FROM` | `LinkedIn Profile API <onboarding@resend.dev>` | The `From:` header. Resend rejects sender domains it has not verified; the default shared sender needs none |
 | `ABSTRACT_API_KEY` | - | Abstract Phone Validation v1 key. Unset means every number comes back `skipped` |
 | `PHONE_VALIDATION_FAIL_MODE` | `open` | What to do when the provider gives no verdict (no key, no quota, its 5xx). `open` accepts and reports `phoneValidation: "skipped"`; `closed` rejects with `400 PHONE_REJECTED` |
@@ -173,6 +176,28 @@ Running locally without a `RESEND_API_KEY`, the code is not mailed anywhere: it 
 
 The number in the example is Indian; any number `libphonenumber-js/max` accepts works, but the country code is not optional. There is no default country, because a bare `98765 43210` is a valid Indian mobile and nonsense elsewhere, and guessing would let two accounts claim one line from different regions.
 
+### Running without email verification
+
+`EMAIL_VERIFICATION=off` removes the middle step. `POST /auth/signup` still canonicalises the address, applies the domain allowlist and the password policy, and then creates the **verified** account there and then: it sets the `sid` cookie and answers with the [`/auth/me`](#get-authme) shape instead of `{"status":"verification_sent"}`. No code is generated, no `pending_signups` row is written, and nothing is mailed. An address that already has an account gets `409 EMAIL_TAKEN` rather than the uniform answer, and `POST /auth/verify-email` becomes `400 INVALID_REQUEST` ("Email verification is disabled"). Login, phone, logout and `/auth/me` are untouched, and `/v1/*` still needs a linked phone number.
+
+```bash
+# 1. Sign up. This is the account, and the cookie comes back with it.
+curl -c jar -X POST "$API/auth/signup" \
+  -H 'content-type: application/json' \
+  -d '{"email":"you@gmail.com","password":"a-long-enough-password"}'
+# {"email":"you@gmail.com","emailVerified":true,"phoneVerified":false,"createdAt":"…"}
+
+# 2. Link a mobile number, exactly as before.
+curl -c jar -b jar -X POST "$API/auth/phone" \
+  -H 'content-type: application/json' -d '{"phone":"+919876543210"}'
+```
+
+**Why the hosted demo runs it.** `EMAIL_FROM` defaults to Resend's shared `onboarding@resend.dev` sender, and Resend only delivers from that address to the mailbox of the account that owns the API key. So on the deployed demo a code reaches the operator and nobody else: every other visitor signs up, waits for mail that will never arrive, and stops there. Turning it on properly means verifying a domain in Resend, pointing `EMAIL_FROM` at an address on it, and setting `EMAIL_VERIFICATION=required`. `RESEND_API_KEY` is required in production only in that mode, since with `off` there is no mailer to fall back from and no code that could reach the log.
+
+**What is lost.** Nothing proves the address any more, so the mailbox stops being a cost per identity: the **domain allowlist becomes a formatting check**, rejecting `you@example.com` while accepting any `@gmail.com` string nobody has claimed yet, and canonicalisation still folds aliases together but only for addresses that were never owned in the first place. `EMAIL_TAKEN` also makes signup an account-existence oracle, which is exactly what the uniform answer under `required` exists to prevent — acceptable only because there is no mailbox proof left to protect. What still holds is everything downstream: the phone number is unique across accounts and still validated, `/v1/*` stays closed until one is linked, and the per-account rate limit is unchanged. Farming an account costs a distinct mobile number, and no longer a mailbox as well.
+
+Clients do not have to guess which mode they are talking to: [`GET /auth/config`](#get-authconfig) says so, and the playground reads it before drawing its first screen.
+
 ### What each check proves, and what it does not
 
 The honest version, because the gate is worth exactly what its weakest step is worth.
@@ -197,7 +222,7 @@ The honest version, because the gate is worth exactly what its weakest step is w
 
 Public: `GET /`, `GET /docs`, `GET /openapi.json`, `GET /health` and every `/auth/*` route. Everything under `/v1/` requires the `sid` session cookie of an account that has verified an email **and** linked a phone number; without one it answers `401 UNAUTHENTICATED`, and with a session that has not reached the phone step, `403 PHONE_REQUIRED`.
 
-All six account endpoints are also in the Swagger UI at `/docs` under the `auth` tag, generated from the same zod schemas that validate them ([`src/schema/auth.ts`](src/schema/auth.ts)).
+All seven account endpoints are also in the Swagger UI at `/docs` under the `auth` tag, generated from the same zod schemas that validate them ([`src/schema/auth.ts`](src/schema/auth.ts)).
 
 Four endpoints carry their own budget of `AUTH_RATE_LIMIT_PER_HOUR` (default 20) per IP per hour, keyed by IP rather than by account. Three of them (`signup`, `verify-email`, `login`) are reachable with no session at all, which is why the key is the IP: there is no account yet. `phone` is the exception — it **requires** a session and answers `401 UNAUTHENTICATED` without one; it only shares the per-IP budget, because what needs rationing there is the paid provider quota an IP can burn, not the account's own request rate. Those are the ones worth hammering: address enumeration, code guessing, password spraying, and the mail provider's quota. The default is loosely set because the budget is shared by everyone behind one NAT, and a mistyped password or a code that arrived late should not lock a whole office out for an hour. `me` falls under the ordinary per-minute limit; `logout` is exempt from both, because being over budget must never trap someone in a session they cannot end.
 
@@ -205,13 +230,15 @@ Four endpoints carry their own budget of `AUTH_RATE_LIMIT_PER_HOUR` (default 20)
 
 Body `{"email": "…", "password": "…"}`. The address must be at an accepted provider and the password 10 to 200 characters.
 
-Always answers `200 {"status": "verification_sent"}`, whether or not the address already has an account. That is deliberate: a distinguishable response would turn signup into an account-existence oracle, so the already-registered branch burns a password hash to keep the timing comparable. A code is only actually mailed when there is no account yet — and the send is **not** awaited on the response path, because a round trip to the mail provider is the one step whose duration would give the answer away no matter how the hashes are matched. What separates the two branches is now a hash and a couple of local writes. A send that fails is logged as a warning; the caller is told to check their mail either way and can sign up again.
+Under the default `EMAIL_VERIFICATION=required`, always answers `200 {"status": "verification_sent"}`, whether or not the address already has an account. That is deliberate: a distinguishable response would turn signup into an account-existence oracle, so the already-registered branch burns a password hash to keep the timing comparable. A code is only actually mailed when there is no account yet — and the send is **not** awaited on the response path, because a round trip to the mail provider is the one step whose duration would give the answer away no matter how the hashes are matched. What separates the two branches is now a hash and a couple of local writes. A send that fails is logged as a warning; the caller is told to check their mail either way and can sign up again.
 
 Signing up does **not** create an account. It creates a row in `pending_signups`, holding the address as typed, that submission's password hash, that submission's code digest and its expiry — and it never touches another row. Verifying a code creates the account from the row that code belongs to, so the password that ends up on the account is always the one submitted alongside the code that came back.
 
 That is what closes the pre-registration hijack. An attacker who signs up as `victim@gmail.com` gets their own pending row and their own code mailed to the victim's mailbox, which they cannot read; when the victim signs up and verifies with the code from their own mail, the account is created from the *victim's* row with the victim's password, whichever of the two submitted first. The attacker's row is deleted along with every other submission for the address, and their code verifies nothing afterwards. Order no longer decides anything; only the mailbox does.
 
 One address may hold **5** pending submissions at a time — the oldest is dropped when a sixth arrives — and every one of them expires after 10 minutes.
+
+With `EMAIL_VERIFICATION=off` none of that applies: there is no code, no pending row and no mail, the verified account is created on this request, the `sid` cookie is set, and the response is the [`/auth/me`](#get-authme) shape. A taken address is then reported as `409 EMAIL_TAKEN`. The `200` body is therefore one of two shapes, and both are in the OpenAPI document as a union; [`GET /auth/config`](#get-authconfig) says which one this instance sends. See [Running without email verification](#running-without-email-verification).
 
 `400 EMAIL_DOMAIN_NOT_ALLOWED` names the rejected domain. `400 INVALID_REQUEST` is a malformed address or an out-of-range password.
 
@@ -220,6 +247,8 @@ One address may hold **5** pending submissions at a time — the oldest is dropp
 Body `{"email": "…", "code": "123456"}`. On success sets the `sid` cookie and returns the [`/auth/me`](#get-authme) shape.
 
 The code is six digits, valid **10 minutes** and capped at **5 attempts**, counted per submission, so a submission made after a burst of guesses starts with a full budget; note that a wrong guess is tried against every live submission and spends one attempt on each. Every live submission for the address is tried, newest first, and the first one that matches becomes the account; verifying then deletes them all, so a code is single use and so is every code that was racing it. Wrong, expired and exhausted all come back as `400 INVALID_CODE`; the message distinguishes them (`expired` only when every submission has expired, `exhausted` only when every live one is out of attempts), since by that point the caller has already shown they know an address that was sent a code.
+
+With `EMAIL_VERIFICATION=off` there is never a code to present, so the endpoint answers `400 INVALID_REQUEST` ("Email verification is disabled") whatever the body says.
 
 ### `POST /auth/login`
 
@@ -258,6 +287,16 @@ The signed-in account, or `401 UNAUTHENTICATED`.
 ```
 
 No ids, no hashes and no phone number: enough for a client to know which step of the flow the account is on, and nothing more.
+
+### `GET /auth/config`
+
+Which steps this instance actually has. Public, needs no session, and is exempt from both rate limits — a client has to read it before it can draw anything, and it says nothing about any account.
+
+```jsonc
+{ "emailVerification": "required", "phoneValidation": "abstract" }
+```
+
+`emailVerification` is `required` or `off` (see [Running without email verification](#running-without-email-verification)), and decides whether `POST /auth/signup` answers `{"status":"verification_sent"}` or the `/auth/me` shape. `phoneValidation` is `abstract` when an `ABSTRACT_API_KEY` is configured and `none` when it is not, in which case every number comes back `skipped`.
 
 ### `GET|POST /v1/profile`
 
@@ -522,6 +561,7 @@ All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 | 404 | `NOT_FOUND` | No route matches that method and path. The message names them; the query string is not echoed back. Counted against the same budget as everything else, so 404s cannot be used to guess at URLs for free |
 | 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two). Also returned by `/v1/posts` for a member it cannot resolve |
 | 404 | `COMPANY_NOT_FOUND` | Same, for a company or school page |
+| 409 | `EMAIL_TAKEN` | That address already has an account. Only reachable with `EMAIL_VERIFICATION=off`; under the default, `POST /auth/signup` never says whether an address is taken |
 | 409 | `PHONE_TAKEN` | That number is already linked to a different account |
 | 429 | `RATE_LIMITED` | The per-account (or, signed out, per-IP) limit on `/v1/*`, the per-IP hourly limit on `/auth/*`, or LinkedIn's own limit. The two local limiters **always** set `Retry-After`, because they know exactly when the window resets. When the 429 came from LinkedIn it is only passed through if LinkedIn sent one, so that case can arrive without the header |
 | 500 | `INTERNAL_ERROR` | An unhandled failure. Deliberately opaque; the diagnosis is in the log. A mail provider that will not accept the verification email is **not** one of these: the send is off the response path, so it is a logged warning and signup still answers `200` |
@@ -766,10 +806,12 @@ Marked `sync: false`, so Render prompts for them once and they are never read fr
 | `LI_AT` | Every LinkedIn call | The service will not start |
 | `DATABASE_URL` | Accounts | The service will not start (`NODE_ENV=production` requires it) |
 | `SESSION_KEY` | The session cookie | The service will not start. `openssl rand -hex 32` |
-| `RESEND_API_KEY` | Mailing verification codes | The service will not start (`NODE_ENV=production` requires it, so codes are never written to the log there) |
+| `RESEND_API_KEY` | Mailing verification codes | Nothing, as the blueprint sets `EMAIL_VERIFICATION=off`. Set it back to `required` and the service will not start without this key, so codes are never written to the log there |
 | `ABSTRACT_API_KEY` | Filtering non-mobile numbers | Every number is `skipped` and, under the default fail-open, accepted |
 
-Set in the blueprint itself, since none of them is a secret: `NODE_ENV=production`, `APP_ORIGIN=https://linkedin-profile-api-c925.onrender.com` (production refuses to start on a localhost origin), `EMAIL_FROM`, `PHONE_VALIDATION_FAIL_MODE=open`, `AUTH_RATE_LIMIT_PER_HOUR=20`, `PASSWORD_HASHER=argon2`, `RATE_LIMIT_PER_MINUTE=10`, `CACHE_TTL_SECONDS=900`.
+Set in the blueprint itself, since none of them is a secret: `NODE_ENV=production`, `APP_ORIGIN=https://linkedin-profile-api-c925.onrender.com` (production refuses to start on a localhost origin), `EMAIL_VERIFICATION=off`, `EMAIL_FROM`, `PHONE_VALIDATION_FAIL_MODE=open`, `AUTH_RATE_LIMIT_PER_HOUR=20`, `PASSWORD_HASHER=argon2`, `RATE_LIMIT_PER_MINUTE=10`, `CACHE_TTL_SECONDS=900`.
+
+`EMAIL_VERIFICATION` is quoted in `render.yaml`, because a bare `off` is a YAML boolean. It is `off` there for the reason in [Running without email verification](#running-without-email-verification): the shared Resend sender only delivers to the operator's own mailbox, so a mailed code would strand every other visitor.
 
 `APP_ORIGIN` has to match the origin the playground is actually served from, or every state-changing request the page makes is rejected with `403 FORBIDDEN_ORIGIN`. If the service is renamed or moved to a custom domain, that value moves with it.
 
@@ -830,6 +872,8 @@ The blueprint targets the **free** plan. Free instances sleep after 15 minutes o
 **The mail quota is small enough to be a denial of service.** Resend's free tier allows 100 emails a day, and every unverified signup spends one. So 100 signups — from one IP over five hours at the default `AUTH_RATE_LIMIT_PER_HOUR=20`, or from a handful of IPs in a minute — exhaust the day's budget, after which no real user can receive a code until it resets. Nothing here detects that: the send is off the response path, a rejection is a logged warning, and signup still answers `200 {"status": "verification_sent"}`. A paid plan, a per-address daily cap, or a mail provider whose quota is not the binding constraint would each fix it; none is implemented.
 
 **Email deliverability is Resend's shared sender by default.** `EMAIL_FROM` points at `onboarding@resend.dev`, which works without a verified domain and lands in spam more often than a domain you own. A verification code nobody sees is indistinguishable from a broken signup.
+
+**The hosted demo does not verify email at all.** That shared sender delivers only to the mailbox of the Resend account holding the key, so on the deployed instance a code would reach the operator and nobody else. It therefore runs `EMAIL_VERIFICATION=off`, where signup creates the account outright. Two things go with it: the domain allowlist degrades to a formatting check, since nothing proves the address is anyone's, and signup becomes an account-existence oracle, since a taken address answers `409 EMAIL_TAKEN`. Phone uniqueness, phone validation and the per-account rate limit are unaffected, so an account still costs a distinct mobile number. A verified sender domain and `EMAIL_VERIFICATION=required` undo all of it; see [Running without email verification](#running-without-email-verification).
 
 ---
 
