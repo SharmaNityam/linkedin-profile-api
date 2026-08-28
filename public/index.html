@@ -4,31 +4,92 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>LinkedIn Profile API</title>
-<meta name="description" content="Turn a LinkedIn profile URL into structured JSON. Built on LinkedIn's internal Voyager API." />
-<meta name="color-scheme" content="dark" />
+<meta name="description" content="Turn a LinkedIn profile, company or activity URL into structured JSON. Built on LinkedIn's internal Voyager API." />
+<meta name="color-scheme" content="dark light" />
+<meta property="og:title" content="LinkedIn Profile API" />
+<meta property="og:description" content="Turn a LinkedIn profile, company or activity URL into structured JSON. Built on LinkedIn's internal Voyager API." />
+<meta property="og:url" content="https://linkedin-profile-api-c925.onrender.com/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   :root {
+    color-scheme: dark;
     --bg: #0b0d10;
     --surface: #12151a;
     --surface-2: #171b21;
     --border: #232830;
     --border-strong: #2f3641;
     --text: #e6e8eb;
+    --text-2: #cfd3d9;
+    --text-3: #b9bec6;
     --muted: #8b93a1;
     --faint: #5c6470;
     --accent: #f5b942;
     --accent-ink: #1a1300;
+    --accent-text: #f5b942;
     --accent-dim: rgba(245, 185, 66, 0.14);
     --ok: #5fd39a;
     --err: #ff6b6b;
+    --j-key: #9fb7ff;
+    --j-str: #cde5b3;
+    --j-bool: #f2a2ff;
     --display: "Space Grotesk", "Inter", system-ui, sans-serif;
     --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     --radius: 10px;
   }
+  /* Light palette, once for the OS preference and once for the explicit
+     override; CSS cannot share one block between a media query and a selector. */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --bg: #faf9f7;
+      --surface: #ffffff;
+      --surface-2: #f2f0ec;
+      --border: #e2ded7;
+      --border-strong: #c9c4ba;
+      --text: #16181c;
+      --text-2: #33373d;
+      --text-3: #44484f;
+      --muted: #5b6069;
+      --faint: #666b74;
+      --accent: #d99a1f;
+      --accent-ink: #1a1300;
+      --accent-text: #855100;
+      --accent-dim: rgba(217, 154, 31, 0.18);
+      --ok: #10794c;
+      --err: #b3261e;
+      --j-key: #2f4fa8;
+      --j-str: #3f6212;
+      --j-bool: #8b2fa0;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #faf9f7;
+    --surface: #ffffff;
+    --surface-2: #f2f0ec;
+    --border: #e2ded7;
+    --border-strong: #c9c4ba;
+    --text: #16181c;
+    --text-2: #33373d;
+    --text-3: #44484f;
+    --muted: #5b6069;
+    --faint: #666b74;
+    --accent: #d99a1f;
+    --accent-ink: #1a1300;
+    --accent-text: #855100;
+    --accent-dim: rgba(217, 154, 31, 0.18);
+    --ok: #10794c;
+    --err: #b3261e;
+    --j-key: #2f4fa8;
+    --j-str: #3f6212;
+    --j-bool: #8b2fa0;
+  }
+
   * { box-sizing: border-box; }
   html { background: var(--bg); }
   body {
@@ -43,7 +104,7 @@
   a { color: inherit; }
   button, input { font: inherit; color: inherit; }
   code, pre, .mono { font-family: var(--mono); font-size: 12.5px; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
   /* ---- shell ---- */
@@ -117,9 +178,9 @@
   .headline { margin: 0; font-size: 15.5px; }
   .facts { margin: 8px 0 0; color: var(--muted); font-size: 13.5px; display: flex; gap: 6px; flex-wrap: wrap; }
   .facts span + span::before { content: "·"; margin-right: 6px; color: var(--faint); }
-  .about { margin: 18px 0 0; padding-top: 18px; border-top: 1px solid var(--border); white-space: pre-wrap; color: #cfd3d9; font-size: 14.5px; }
+  .about { margin: 18px 0 0; padding-top: 18px; border-top: 1px solid var(--border); white-space: pre-wrap; color: var(--text-2); font-size: 14.5px; }
   [data-clamped="true"] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-  .more { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px 0 0; font-size: 13px; font-weight: 500; }
+  .more { background: none; border: 0; color: var(--accent-text); cursor: pointer; padding: 6px 0 0; font-size: 13px; font-weight: 500; }
 
   /* section nav */
   .secnav { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 10px; background: var(--bg); scrollbar-width: none; }
@@ -130,7 +191,7 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px;
   }
   .secnav a:hover { color: var(--text); border-color: var(--border-strong); }
-  .secnav a[aria-current="true"] { color: var(--accent); border-color: var(--border-strong); }
+  .secnav a[aria-current="true"] { color: var(--accent-text); border-color: var(--border-strong); }
 
   /* sections */
   section.block { padding: 20px 24px; border-top: 1px solid var(--border); scroll-margin-top: 56px; }
@@ -144,12 +205,12 @@
   .timeline > li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 12px 0; position: relative; }
   .timeline > li + li { border-top: 1px solid var(--border); }
   .timeline .t { font-weight: 600; font-size: 15px; margin: 0; }
-  .timeline .o { color: #cfd3d9; margin: 1px 0 0; font-size: 14px; }
+  .timeline .o { color: var(--text-2); margin: 1px 0 0; font-size: 14px; }
   .timeline .t a, .timeline .o a { color: inherit; text-decoration: none; }
-  .timeline .t a:hover, .timeline .o a:hover { color: var(--accent); }
+  .timeline .t a:hover, .timeline .o a:hover { color: var(--accent-text); }
   .timeline .d { color: var(--muted); font-size: 13px; margin: 3px 0 0; font-family: var(--mono); }
-  .timeline .desc { margin: 8px 0 0; color: #b9bec6; font-size: 14px; white-space: pre-wrap; }
-  .now { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border-radius: 4px; padding: 2px 6px; margin-left: 8px; vertical-align: middle; font-family: var(--body); }
+  .timeline .desc { margin: 8px 0 0; color: var(--text-3); font-size: 14px; white-space: pre-wrap; }
+  .now { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); background: var(--accent-dim); border-radius: 4px; padding: 2px 6px; margin-left: 8px; vertical-align: middle; font-family: var(--body); }
 
   /* grouped positions at one company: connector line with a dot per role */
   .roles { list-style: none; margin: 12px 0 0; padding: 0 0 0 18px; position: relative; }
@@ -194,14 +255,14 @@
 
   /* json view */
   .json { padding: 16px 20px; margin: 0; background: var(--surface); overflow: auto; max-height: 78vh; line-height: 1.55; font-size: 12.5px; }
-  .j-k { color: #9fb7ff; } .j-s { color: #cde5b3; } .j-n { color: var(--accent); } .j-b { color: #f2a2ff; } .j-null { color: var(--faint); }
+  .j-k { color: var(--j-key); } .j-s { color: var(--j-str); } .j-n { color: var(--accent-text); } .j-b { color: var(--j-bool); } .j-null { color: var(--muted); }
   .json-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
 
   /* states */
   .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
   .empty .glyph { font-family: var(--mono); color: var(--faint); font-size: 13px; margin-bottom: 8px; }
   .error { padding: 20px 24px; }
-  .error p { margin: 10px 0 0; color: #cfd3d9; }
+  .error p { margin: 10px 0 0; color: var(--text-2); }
   .skel { background: var(--surface-2); border-radius: 6px; }
   .skel-banner { aspect-ratio: 4 / 1; border-radius: 0; }
   .skel-wrap { padding: 0 24px 24px; display: grid; gap: 12px; }
