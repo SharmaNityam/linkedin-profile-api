@@ -42,6 +42,8 @@ const rawEnvSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_HOST: z.string().default('smtp.gmail.com'),
   SMTP_PORT: z.coerce.number().int().positive().default(465),
+  /** Brevo transactional-email API key; used instead of SMTP where outbound SMTP is blocked. */
+  BREVO_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
   APP_ORIGIN: z.string().default('http://localhost:3000'),
   /** Per IP, on /auth/request-code and /auth/verify. */
@@ -51,9 +53,13 @@ const rawEnvSchema = z.object({
 });
 
 const envSchema = rawEnvSchema
-  .refine((v) => v.NODE_ENV !== 'production' || (v.SMTP_USER && v.SMTP_PASS), {
-    message: 'SMTP_USER and SMTP_PASS are required when NODE_ENV=production',
-    path: ['SMTP_USER'],
+  .refine((v) => v.NODE_ENV !== 'production' || v.BREVO_API_KEY || (v.SMTP_USER && v.SMTP_PASS), {
+    message: 'BREVO_API_KEY, or SMTP_USER and SMTP_PASS, are required when NODE_ENV=production',
+    path: ['BREVO_API_KEY'],
+  })
+  .refine((v) => !v.BREVO_API_KEY || v.EMAIL_FROM || v.SMTP_USER, {
+    message: 'EMAIL_FROM is required when BREVO_API_KEY is set (unless SMTP_USER is too)',
+    path: ['EMAIL_FROM'],
   })
   .transform((v) => ({ ...v, EMAIL_FROM: v.EMAIL_FROM ?? v.SMTP_USER }));
 
@@ -76,5 +82,8 @@ export function redactConfig(config: Config): Record<string, unknown> {
     LI_COOKIES: config.LI_COOKIES ? `(${config.LI_COOKIES.length} chars)` : undefined,
     SESSION_KEY: `(${config.SESSION_KEY.length} chars, redacted)`,
     SMTP_PASS: config.SMTP_PASS ? `(${config.SMTP_PASS.length} chars, redacted)` : undefined,
+    BREVO_API_KEY: config.BREVO_API_KEY
+      ? `(${config.BREVO_API_KEY.length} chars, redacted)`
+      : undefined,
   };
 }

@@ -56,6 +56,65 @@ export class SmtpMailer implements MailSender {
   }
 }
 
+export interface BrevoMailerOptions {
+  apiKey: string;
+  from: string;
+}
+
+interface BrevoErrorBody {
+  code?: string;
+  message?: string;
+}
+
+/** Sends the code via Brevo's transactional email API, HTTPS only (works where SMTP ports are blocked). */
+export class BrevoMailer implements MailSender {
+  private readonly apiKey: string;
+  private readonly from: string;
+  private readonly log: LogFn;
+  private readonly fetchFn: typeof fetch;
+
+  constructor(options: BrevoMailerOptions, fetchFn: typeof fetch = fetch, log: LogFn = () => {}) {
+    this.apiKey = options.apiKey;
+    this.from = options.from;
+    this.log = log;
+    this.fetchFn = fetchFn;
+  }
+
+  async sendCode(to: string, code: string): Promise<void> {
+    let res: Response;
+    try {
+      res = await this.fetchFn('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': this.apiKey,
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { email: this.from, name: 'LinkedIn Profile API' },
+          to: [{ email: to }],
+          subject: SUBJECT,
+          textContent: `${code} is your code. It expires in 10 minutes.`,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      this.log('error', 'failed to send OTP mail via Brevo', { err });
+      throw new AppError('MAIL_FAILED', 'Could not send the code, try again later');
+    }
+
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => undefined)) as BrevoErrorBody | undefined;
+      this.log('error', 'Brevo rejected the OTP mail', {
+        status: res.status,
+        code: errBody?.code,
+        message: errBody?.message,
+      });
+      throw new AppError('MAIL_FAILED', 'Could not send the code, try again later');
+    }
+  }
+}
+
 /** Dev fallback when SMTP isn't configured: logs the code instead of mailing it. */
 export class LogMailer implements MailSender {
   constructor(private readonly log: LogFn) {}

@@ -69,11 +69,11 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, NODE_ENV: 'Production' })).toThrow(/NODE_ENV/);
   });
 
-  it('requires SMTP_USER and SMTP_PASS in production', () => {
-    expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).toThrow(/SMTP_USER/);
-    expect(() =>
-      loadConfig({ ...base, NODE_ENV: 'production', SMTP_USER: 'a@b.com' }),
-    ).toThrow(/SMTP_USER/);
+  it('requires BREVO_API_KEY or SMTP_USER/SMTP_PASS in production', () => {
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).toThrow(/BREVO_API_KEY/);
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production', SMTP_USER: 'a@b.com' })).toThrow(
+      /BREVO_API_KEY/,
+    );
     expect(() =>
       loadConfig({
         ...base,
@@ -82,6 +82,24 @@ describe('loadConfig', () => {
         SMTP_PASS: 'secret',
       }),
     ).not.toThrow();
+    expect(() =>
+      loadConfig({
+        ...base,
+        NODE_ENV: 'production',
+        BREVO_API_KEY: 'brevo-key',
+        EMAIL_FROM: 'a@b.com',
+      }),
+    ).not.toThrow();
+  });
+
+  it('requires EMAIL_FROM when BREVO_API_KEY is set without SMTP_USER', () => {
+    expect(() => loadConfig({ ...base, BREVO_API_KEY: 'brevo-key' })).toThrow(/EMAIL_FROM/);
+    expect(
+      loadConfig({ ...base, BREVO_API_KEY: 'brevo-key', EMAIL_FROM: 'a@b.com' }).EMAIL_FROM,
+    ).toBe('a@b.com');
+    expect(
+      loadConfig({ ...base, BREVO_API_KEY: 'brevo-key', SMTP_USER: 'a@b.com' }).EMAIL_FROM,
+    ).toBe('a@b.com');
   });
 });
 
@@ -117,5 +135,15 @@ describe('redactConfig', () => {
     const redacted = redactConfig(loadConfig(base));
     expect(redacted.LI_COOKIES).toBeUndefined();
     expect(redacted.SMTP_PASS).toBeUndefined();
+  });
+
+  it('redacts BREVO_API_KEY and leaves it undefined when unset', () => {
+    const withKey = redactConfig(
+      loadConfig({ ...base, BREVO_API_KEY: 'brevo-secret-key', EMAIL_FROM: 'a@b.com' }),
+    );
+    expect(withKey.BREVO_API_KEY).toBe('(16 chars, redacted)');
+    expect(JSON.stringify(withKey)).not.toContain('brevo-secret-key');
+
+    expect(redactConfig(loadConfig(base)).BREVO_API_KEY).toBeUndefined();
   });
 });
