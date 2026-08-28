@@ -120,7 +120,8 @@ form.lookup input {
   font-size: 14px; background: none; border: 0; border-radius: 8px 0 0 8px;
 }
 form.lookup input:focus-visible { outline: none; }
-form.lookup .btn { height: 40px; }
+/* Concentric: the bar's 8px radius less its 4px inset leaves the button 4px. */
+form.lookup .btn { height: 40px; border-radius: 4px; }
 form.lookup input::placeholder { color: var(--faint); }
 .btn {
   height: 40px; padding: 0 16px; border: var(--border-w) solid transparent; border-radius: 8px;
@@ -182,7 +183,11 @@ form.lookup input::placeholder { color: var(--faint); }
 .auth-stack { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .auth-stack .btn { margin-top: 8px; }
 .auth-links { margin: 12px 0 0; font-size: 13px; }
-.me { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+/* Only the address truncates. Clipping the whole line hid the Sign-out button
+   while leaving it in the Tab order. */
+.me { display: inline-flex; align-items: baseline; min-width: 0; color: var(--muted); }
+.me-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) { .me-addr, .me-addr + .sep { display: none; } }
 
 /* the example line under the URL row */
 .try { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
