@@ -12,31 +12,17 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { authPlugin, requireAccount } from './auth/plugin.js';
-import type { AuthService, EmailVerificationMode } from './auth/service.js';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
 import type { LinkedInService } from './linkedin/service.js';
-import { authRoutes } from './routes/auth.js';
 import { companyRoutes } from './routes/company.js';
 import { postsRoutes } from './routes/posts.js';
 import { profileRoutes } from './routes/profile.js';
 
 export interface BuildAppOptions {
   services: LinkedInService;
-  auth: AuthService;
-  /** 32 bytes as 64 hex chars; see `SESSION_KEY`. */
-  sessionKey: string;
-  appOrigin: string;
-  secureCookies: boolean;
-  /** Per account once signed in, per IP before that. */
+  /** Per IP. */
   rateLimitPerMinute: number;
-  /** Per IP, for the endpoints an anonymous caller can reach. */
-  authRateLimitPerHour: number;
-  /** Reported by `GET /auth/config`. Defaults to the mode `AuthService` defaults to. */
-  emailVerification?: EmailVerificationMode;
-  /** Reported by `GET /auth/config`. Defaults to "no provider configured". */
-  phoneValidation?: 'abstract' | 'none';
   /** A pino instance to log through; omitted in tests. */
   logger?: FastifyBaseLogger;
 }
@@ -75,13 +61,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         description:
           "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API.",
       },
-      tags: [
-        { name: 'profile' },
-        { name: 'company' },
-        { name: 'posts' },
-        { name: 'auth' },
-        { name: 'ops' },
-      ],
+      tags: [{ name: 'profile' }, { name: 'company' }, { name: 'posts' }, { name: 'ops' }],
     },
     transform: jsonSchemaTransform,
   });
@@ -104,15 +84,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     },
     // The playground loads cross-origin images that send no CORP header.
     crossOriginEmbedderPolicy: false,
-  });
-
-  // Before the rate limiter, so `request.currentUser` is already resolved when
-  // the limiter picks its key.
-  await app.register(authPlugin, {
-    auth: options.auth,
-    sessionKey: options.sessionKey,
-    appOrigin: options.appOrigin,
-    secureCookies: options.secureCookies,
   });
 
   app.get(
@@ -148,9 +119,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(rateLimit, {
     max: options.rateLimitPerMinute,
     timeWindow: '1 minute',
-    // Signed in, the budget follows the account across IPs — and an office or
-    // a mobile carrier NAT no longer shares one.
-    keyGenerator: (req) => req.currentUser?.id ?? req.ip,
     // Matched on the path alone: `req.url` carries the query string, so a
     // bare `===` would miss `/health?x=1`, and a bare `startsWith('/docs')`
     // would exempt a `/docsomething` route added later.
@@ -158,19 +126,16 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       const path = req.url.split('?', 1)[0] ?? '';
       return (
         path === '/health' ||
-        path === '/auth/config' ||
         path === '/openapi.json' ||
         path === '/docs' ||
         path.startsWith('/docs/')
       );
     },
-    errorResponseBuilder: (req, ctx) => ({
+    errorResponseBuilder: (_req, ctx) => ({
       statusCode: 429,
       error: {
         code: 'RATE_LIMITED',
-        message: `Too many requests. Limit is ${ctx.max} per minute per ${
-          req.currentUser ? 'account' : 'IP'
-        }.`,
+        message: `Too many requests. Limit is ${ctx.max} per minute per IP.`,
         details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
       },
     }),
@@ -191,21 +156,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     throw new AppError('NOT_FOUND', `Route ${request.method} ${path} not found`);
   });
 
-  await app.register(authRoutes, {
-    auth: options.auth,
-    authRateLimitPerHour: options.authRateLimitPerHour,
-    emailVerification: options.emailVerification ?? 'required',
-    phoneValidation: options.phoneValidation ?? 'none',
-  });
-
-  // One encapsulated context so the gate is stated once and cannot be
-  // forgotten when a fourth entity route is added.
-  await app.register(async (gated) => {
-    gated.addHook('preHandler', requireAccount());
-    await gated.register(profileRoutes, { services: options.services });
-    await gated.register(companyRoutes, { services: options.services });
-    await gated.register(postsRoutes, { services: options.services });
-  });
+  await app.register(profileRoutes, { services: options.services });
+  await app.register(companyRoutes, { services: options.services });
+  await app.register(postsRoutes, { services: options.services });
 
   return app;
 }

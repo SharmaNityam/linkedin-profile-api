@@ -13,13 +13,6 @@ import { normalizeCompany } from '../../src/linkedin/voyager/normalize-company.j
 import { normalizePosts } from '../../src/linkedin/voyager/normalize-posts.js';
 import { normalizeProfile } from '../../src/linkedin/voyager/normalize.js';
 import { loadEntityFixture, loadFixture } from '../helpers/fixtures.js';
-import {
-  buildTestAuth,
-  signedInCookie,
-  TEST_ORIGIN,
-  TEST_SESSION_KEY,
-  type TestAuth,
-} from '../helpers/auth.js';
 import type { CompanyResponse } from '../../src/schema/company.js';
 import type { Meta } from '../../src/schema/common.js';
 import type { PostsResponse } from '../../src/schema/post.js';
@@ -59,29 +52,16 @@ const posts: PostsResponse = {
 
 describe('HTTP API', () => {
   let app: FastifyInstance;
-  let auth: TestAuth;
-  /** Every /v1 call is made as this signed-in, phone-verified account. */
-  let cookie: string;
   const getProfile = vi.fn<(url: string) => Promise<ProfileResponse>>();
   const getCompany = vi.fn<(url: string) => Promise<CompanyResponse>>();
   const getPosts = vi.fn<(url: string, count?: number) => Promise<PostsResponse>>();
 
   beforeAll(async () => {
-    auth = buildTestAuth();
     app = await buildApp({
       services: { getProfile, getCompany, getPosts } as unknown as LinkedInService,
-      auth: auth.auth,
-      sessionKey: TEST_SESSION_KEY,
-      appOrigin: TEST_ORIGIN,
-      secureCookies: false,
       rateLimitPerMinute: 1000,
-      authRateLimitPerHour: 1000,
     });
     await app.ready();
-    cookie = await signedInCookie(app, auth, {
-      email: 'jane@gmail.com',
-      phone: '+91 98765 43210',
-    });
   });
   afterAll(() => app.close());
 
@@ -91,7 +71,6 @@ describe('HTTP API', () => {
     expect(res.headers['content-type']).toContain('text/html');
     expect(res.body).toContain('LinkedIn Profile API');
     expect(res.body).toContain('/v1/profile');
-    expect(res.body).toContain('/auth/me');
     expect(res.body).toContain('bindImages');
   });
 
@@ -104,7 +83,6 @@ describe('HTTP API', () => {
   it('GET /v1/profile returns the profile', async () => {
     getProfile.mockResolvedValueOnce(profile);
     const res = await app.inject({
-      headers: { cookie },
       url: '/v1/profile',
       query: { url: 'https://www.linkedin.com/in/jane-doe/' },
     });
@@ -116,7 +94,6 @@ describe('HTTP API', () => {
   it('POST /v1/profile accepts a JSON body', async () => {
     getProfile.mockResolvedValueOnce(profile);
     const res = await app.inject({
-      headers: { cookie },
       method: 'POST',
       url: '/v1/profile',
       payload: { url: 'jane-doe' },
@@ -126,7 +103,7 @@ describe('HTTP API', () => {
   });
 
   it('rejects a missing url with 400 INVALID_REQUEST', async () => {
-    const res = await app.inject({ headers: { cookie }, url: '/v1/profile' });
+    const res = await app.inject({ url: '/v1/profile' });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
   });
@@ -138,7 +115,7 @@ describe('HTTP API', () => {
     [new Error('kaboom'), 500, 'INTERNAL_ERROR'],
   ])('maps %s to %i %s', async (err, status, code) => {
     getProfile.mockRejectedValueOnce(err);
-    const res = await app.inject({ headers: { cookie }, url: '/v1/profile', query: { url: 'x' } });
+    const res = await app.inject({ url: '/v1/profile', query: { url: 'x' } });
     expect(res.statusCode).toBe(status);
     expect(res.json()).toMatchObject({ error: { code } });
     if (status === 500) expect(res.body).not.toContain('kaboom');
@@ -146,7 +123,7 @@ describe('HTTP API', () => {
 
   it('passes LinkedIn Retry-After through on 429', async () => {
     getProfile.mockRejectedValueOnce(new RateLimitedError(42));
-    const res = await app.inject({ headers: { cookie }, url: '/v1/profile', query: { url: 'x' } });
+    const res = await app.inject({ url: '/v1/profile', query: { url: 'x' } });
     expect(res.statusCode).toBe(429);
     expect(res.headers['retry-after']).toBe('42');
   });
@@ -154,7 +131,6 @@ describe('HTTP API', () => {
   it('GET /v1/company returns the company', async () => {
     getCompany.mockResolvedValueOnce(company);
     const res = await app.inject({
-      headers: { cookie },
       url: '/v1/company',
       query: { url: 'https://www.linkedin.com/company/acme/' },
     });
@@ -166,7 +142,6 @@ describe('HTTP API', () => {
   it('POST /v1/company accepts a JSON body', async () => {
     getCompany.mockResolvedValueOnce(company);
     const res = await app.inject({
-      headers: { cookie },
       method: 'POST',
       url: '/v1/company',
       payload: { url: 'acme' },
@@ -177,7 +152,7 @@ describe('HTTP API', () => {
   });
 
   it('rejects a company request with no url with 400 INVALID_REQUEST', async () => {
-    const res = await app.inject({ headers: { cookie }, url: '/v1/company' });
+    const res = await app.inject({ url: '/v1/company' });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
   });
@@ -185,7 +160,6 @@ describe('HTTP API', () => {
   it('maps CompanyNotFoundError to 404 COMPANY_NOT_FOUND', async () => {
     getCompany.mockRejectedValueOnce(new CompanyNotFoundError('acme'));
     const res = await app.inject({
-      headers: { cookie },
       url: '/v1/company',
       query: { url: 'acme' },
     });
@@ -196,7 +170,6 @@ describe('HTTP API', () => {
   it('GET /v1/posts passes count through', async () => {
     getPosts.mockResolvedValueOnce(posts);
     const res = await app.inject({
-      headers: { cookie },
       url: '/v1/posts',
       query: { url: 'jane-doe', count: '5' },
     });
@@ -208,7 +181,6 @@ describe('HTTP API', () => {
   it('GET /v1/posts defaults count to 10', async () => {
     getPosts.mockResolvedValueOnce(posts);
     const res = await app.inject({
-      headers: { cookie },
       url: '/v1/posts',
       query: { url: 'jane-doe' },
     });
@@ -218,7 +190,6 @@ describe('HTTP API', () => {
 
   it.each(['0', '51', 'abc', '2.5'])('rejects count=%s with 400', async (count) => {
     const res = await app.inject({
-      headers: { cookie },
       url: '/v1/posts',
       query: { url: 'jane-doe', count },
     });
@@ -229,7 +200,6 @@ describe('HTTP API', () => {
   it('POST /v1/posts accepts {url, count}', async () => {
     getPosts.mockResolvedValueOnce(posts);
     const res = await app.inject({
-      headers: { cookie },
       method: 'POST',
       url: '/v1/posts',
       payload: { url: 'jane-doe', count: 3 },
@@ -243,9 +213,8 @@ describe('HTTP API', () => {
     ['GET', '/nope'],
     ['POST', '/nope'],
     ['GET', '/v1/nope'],
-    ['GET', '/auth/nope'],
   ])('answers %s %s with the error envelope', async (method, url) => {
-    const res = await app.inject({ method: method as 'GET' | 'POST', url, headers: { cookie } });
+    const res = await app.inject({ method: method as 'GET' | 'POST', url });
 
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({
@@ -274,36 +243,22 @@ describe('HTTP API', () => {
 
 describe('rate limiting', () => {
   it('returns 429 with our error envelope once the limit is hit', async () => {
-    const auth = buildTestAuth();
     const app = await buildApp({
       services: {
         getProfile: vi.fn().mockResolvedValue(profile),
         getCompany: vi.fn().mockResolvedValue(company),
         getPosts: vi.fn().mockResolvedValue(posts),
       } as unknown as LinkedInService,
-      auth: auth.auth,
-      sessionKey: TEST_SESSION_KEY,
-      appOrigin: TEST_ORIGIN,
-      secureCookies: false,
       rateLimitPerMinute: 2,
-      authRateLimitPerHour: 1000,
-    });
-    const cookie = await signedInCookie(app, auth, {
-      email: 'jane@gmail.com',
-      phone: '+91 98765 43210',
     });
     const hit = () =>
-      app.inject({
-        headers: { cookie },
-        url: '/v1/profile',
-        query: { url: 'jane-doe' },
-        remoteAddress: '10.0.0.1',
-      });
+      app.inject({ url: '/v1/profile', query: { url: 'jane-doe' }, remoteAddress: '10.0.0.1' });
     expect((await hit()).statusCode).toBe(200);
     expect((await hit()).statusCode).toBe(200);
     const third = await hit();
     expect(third.statusCode).toBe(429);
     expect(third.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+    expect(third.json<{ error: { message: string } }>().error.message).toContain('per IP');
     expect(third.headers['retry-after']).toBeDefined();
     await app.close();
   });
@@ -311,15 +266,9 @@ describe('rate limiting', () => {
   // Otherwise 404s are the one response an attacker can generate without
   // limit, which is exactly what guessing at URLs needs.
   it('counts unknown routes against the budget too', async () => {
-    const auth = buildTestAuth();
     const app = await buildApp({
       services: {} as unknown as LinkedInService,
-      auth: auth.auth,
-      sessionKey: TEST_SESSION_KEY,
-      appOrigin: TEST_ORIGIN,
-      secureCookies: false,
       rateLimitPerMinute: 2,
-      authRateLimitPerHour: 1000,
     });
     await app.ready();
     const probe = (n: number) => app.inject({ url: `/guess-${n}`, remoteAddress: '10.0.0.9' });
@@ -329,6 +278,51 @@ describe('rate limiting', () => {
     const third = await probe(3);
     expect(third.statusCode).toBe(429);
     expect(third.json()).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+    await app.close();
+  });
+
+  // The playground's own files are registered before the limiter, and the
+  // allow-list is matched on the path alone so a query string cannot slip past.
+  it('never limits the playground, /health or /openapi.json, query string included', async () => {
+    const app = await buildApp({
+      services: {} as unknown as LinkedInService,
+      rateLimitPerMinute: 2,
+    });
+    await app.ready();
+    for (let i = 0; i < 30; i += 1) {
+      expect((await app.inject({ url: '/' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/health' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/health?x=1' })).statusCode).toBe(200);
+      expect((await app.inject({ url: '/openapi.json?x=1' })).statusCode).toBe(200);
+    }
+    await app.close();
+  });
+});
+
+describe('helmet', () => {
+  it('sets a CSP that allows LinkedIn media', async () => {
+    const app = await buildApp({
+      services: {} as unknown as LinkedInService,
+      rateLimitPerMinute: 1000,
+    });
+    await app.ready();
+    const res = await app.inject({ url: '/' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-security-policy']).toContain(
+      "img-src 'self' https://media.licdn.com data:",
+    );
+    await app.close();
+  });
+
+  it('still serves the docs UI', async () => {
+    const app = await buildApp({
+      services: {} as unknown as LinkedInService,
+      rateLimitPerMinute: 1000,
+    });
+    await app.ready();
+    const res = await app.inject({ url: '/docs/' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
     await app.close();
   });
 });
