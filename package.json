@@ -23,13 +23,16 @@
     "record-fixture": "tsx scripts/record-fixture.ts"
   },
   "dependencies": {
+    "@fastify/helmet": "^13.1.1",
     "@fastify/rate-limit": "^11.2.0",
+    "@fastify/secure-session": "^8.3.0",
     "@fastify/static": "^10.1.3",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.1",
     "argon2": "^0.45.1",
     "dotenv": "^17.4.2",
     "fastify": "^5.12.1",
+    "fastify-plugin": "^6.0.0",
     "fastify-type-provider-zod": "^7.0.0",
     "libphonenumber-js": "^1.13.11",
     "pg": "^8.23.0",

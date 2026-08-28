@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import swagger from '@fastify/swagger';
@@ -11,16 +12,27 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { authPlugin, requireAccount } from './auth/plugin.js';
+import type { AuthService } from './auth/service.js';
 import { AppError, isAppError } from './errors.js';
 import type { ErrorResponse } from './schema/profile.js';
 import type { LinkedInService } from './linkedin/service.js';
+import { authRoutes } from './routes/auth.js';
 import { companyRoutes } from './routes/company.js';
 import { postsRoutes } from './routes/posts.js';
 import { profileRoutes } from './routes/profile.js';
 
 export interface BuildAppOptions {
   services: LinkedInService;
+  auth: AuthService;
+  /** 32 bytes as 64 hex chars; see `SESSION_KEY`. */
+  sessionKey: string;
+  appOrigin: string;
+  secureCookies: boolean;
+  /** Per account once signed in, per IP before that. */
   rateLimitPerMinute: number;
+  /** Per IP, for the endpoints an anonymous caller can reach. */
+  authRateLimitPerHour: number;
   /** A pino instance to log through; omitted in tests. */
   logger?: FastifyBaseLogger;
 }
@@ -59,23 +71,44 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         description:
           "Turns LinkedIn profile, company and post URLs into structured JSON, reverse engineered from LinkedIn's internal Voyager API.",
       },
-      tags: [{ name: 'profile' }, { name: 'company' }, { name: 'posts' }, { name: 'ops' }],
+      tags: [
+        { name: 'profile' },
+        { name: 'company' },
+        { name: 'posts' },
+        { name: 'auth' },
+        { name: 'ops' },
+      ],
     },
     transform: jsonSchemaTransform,
   });
-  await app.register(swaggerUi, { routePrefix: '/docs' });
+  // Registered before helmet so the docs UI keeps its own, looser CSP; helmet's
+  // hooks only apply to routes registered after it.
+  await app.register(swaggerUi, { routePrefix: '/docs', staticCSP: true });
 
-  await app.register(rateLimit, {
-    max: options.rateLimitPerMinute,
-    timeWindow: '1 minute',
-    errorResponseBuilder: (_req, ctx) => ({
-      statusCode: 429,
-      error: {
-        code: 'RATE_LIMITED',
-        message: `Too many requests. Limit is ${ctx.max} per minute per IP.`,
-        details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        // The playground renders LinkedIn's CDN images and inline SVG data URIs.
+        imgSrc: ["'self'", 'https://media.licdn.com', 'data:'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ['https://fonts.gstatic.com'],
+        // The playground is a single file: its script and styles are inline.
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        connectSrc: ["'self'"],
       },
-    }),
+    },
+    // The playground loads cross-origin images that send no CORP header.
+    crossOriginEmbedderPolicy: false,
+  });
+
+  // Before the rate limiter, so `request.currentUser` is already resolved when
+  // the limiter picks its key.
+  await app.register(authPlugin, {
+    auth: options.auth,
+    sessionKey: options.sessionKey,
+    appOrigin: options.appOrigin,
+    secureCookies: options.secureCookies,
   });
 
   app.get(
@@ -92,6 +125,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   app.get('/openapi.json', { config: { rateLimit: false } }, async () => app.swagger());
   // The playground UI. A single self-contained file; no build step.
+  // Registered before the rate limiter, whose hook only covers routes declared
+  // after it: loading the page and its assets must never spend the budget.
   await app.register(fastifyStatic, {
     root: fileURLToPath(new URL('../public', import.meta.url)),
     prefix: '/',
@@ -99,9 +134,39 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     decorateReply: false,
   });
 
-  await app.register(profileRoutes, { services: options.services });
-  await app.register(companyRoutes, { services: options.services });
-  await app.register(postsRoutes, { services: options.services });
+  await app.register(rateLimit, {
+    max: options.rateLimitPerMinute,
+    timeWindow: '1 minute',
+    // Signed in, the budget follows the account across IPs — and an office or
+    // a mobile carrier NAT no longer shares one.
+    keyGenerator: (req) => req.currentUser?.id ?? req.ip,
+    allowList: (req) =>
+      req.url === '/health' || req.url === '/openapi.json' || req.url.startsWith('/docs'),
+    errorResponseBuilder: (req, ctx) => ({
+      statusCode: 429,
+      error: {
+        code: 'RATE_LIMITED',
+        message: `Too many requests. Limit is ${ctx.max} per minute per ${
+          req.currentUser ? 'account' : 'IP'
+        }.`,
+        details: { retryAfterSeconds: Math.ceil(ctx.ttl / 1000) },
+      },
+    }),
+  });
+
+  await app.register(authRoutes, {
+    auth: options.auth,
+    authRateLimitPerHour: options.authRateLimitPerHour,
+  });
+
+  // One encapsulated context so the gate is stated once and cannot be
+  // forgotten when a fourth entity route is added.
+  await app.register(async (gated) => {
+    gated.addHook('preHandler', requireAccount());
+    await gated.register(profileRoutes, { services: options.services });
+    await gated.register(companyRoutes, { services: options.services });
+    await gated.register(postsRoutes, { services: options.services });
+  });
 
   return app;
 }
