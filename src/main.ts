@@ -1,6 +1,12 @@
 import 'dotenv/config';
 import pino from 'pino';
-import { LogMailer, SmtpMailer, type LogFn as MailLogFn, type MailSender } from './auth/mailer.js';
+import {
+  BrevoMailer,
+  LogMailer,
+  SmtpMailer,
+  type LogFn as MailLogFn,
+  type MailSender,
+} from './auth/mailer.js';
 import { OtpStore } from './auth/otp.js';
 import { loadConfig, redactConfig } from './config.js';
 import { TtlCache } from './linkedin/cache.js';
@@ -34,7 +40,15 @@ async function main(): Promise<void> {
   });
 
   let mailer: MailSender;
-  if (config.SMTP_USER && config.SMTP_PASS) {
+  if (config.BREVO_API_KEY) {
+    // Config validation guarantees EMAIL_FROM is set whenever BREVO_API_KEY is.
+    mailer = new BrevoMailer(
+      { apiKey: config.BREVO_API_KEY, from: config.EMAIL_FROM! },
+      undefined,
+      mailLog,
+    );
+    logger.info('mailer: Brevo');
+  } else if (config.SMTP_USER && config.SMTP_PASS) {
     mailer = new SmtpMailer(
       {
         host: config.SMTP_HOST,
@@ -46,6 +60,7 @@ async function main(): Promise<void> {
       undefined,
       mailLog,
     );
+    logger.info('mailer: SMTP');
   } else {
     logger.warn('SMTP not configured; OTP codes will be logged instead of mailed');
     mailer = new LogMailer(mailLog);

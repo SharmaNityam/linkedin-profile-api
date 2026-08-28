@@ -75,7 +75,7 @@ Optionally, `LI_COOKIES` can be set to the browser's own `document.cookie` strin
 
 The cookie normally lives for about a year. When it expires, or LinkedIn revokes it, the API starts returning `503 LINKEDIN_SESSION_EXPIRED`; paste a fresh value and restart.
 
-> **Why the bootstrap exists.** During development, the first version sent `li_at` with a *fabricated* `JSESSIONID` and no other cookies. LinkedIn revoked the entire session within minutes, the browser it was copied from was logged out too. LinkedIn evidently checks that `li_at` travels with the companion cookies it was issued alongside. Acquiring those companions the way a browser does removed the problem; the same account has been stable since.
+> **Why the bootstrap exists.** During development, the first version sent `li_at` with a _fabricated_ `JSESSIONID` and no other cookies. LinkedIn revoked the entire session within minutes, the browser it was copied from was logged out too. LinkedIn evidently checks that `li_at` travels with the companion cookies it was issued alongside. Acquiring those companions the way a browser does removed the problem; the same account has been stable since.
 
 `.env` is git-ignored. Never commit it.
 
@@ -83,25 +83,26 @@ The cookie normally lives for about a year. When it expires, or LinkedIn revokes
 
 Everything the service reads is declared and validated in [`src/config.ts`](src/config.ts); an invalid environment fails the process at startup rather than at the first request.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `LI_AT` | - | LinkedIn session cookie (required) |
-| `LI_COOKIES` | - | Optional: the browser's `document.cookie` for linkedin.com, used instead of bootstrapping companion cookies |
-| `PORT` / `HOST` | `3000` / `0.0.0.0` | Listen address |
-| `RATE_LIMIT_PER_MINUTE` | `10` | Requests per minute per IP; protects the LinkedIn account behind the API |
-| `CACHE_TTL_SECONDS` | `900` | In-memory cache for repeated lookups of the same entity |
-| `MAX_CONCURRENT_UPSTREAM` | `2` | Concurrent requests to LinkedIn |
-| `VOYAGER_POSTS_QUERY_ID` | `20c70fe0314184158516a7ec004c0408` | The `voyagerFeedDashProfileUpdates` persisted-query hash used by `/v1/posts`. LinkedIn rotates these; see [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid) |
-| `LOG_LEVEL` | `info` | pino log level |
-| `SESSION_KEY` | - | 64 hex chars (32 bytes), required. Encrypts and signs the `sid` cookie; generate with `openssl rand -hex 32`. Rotating it signs every caller out |
-| `SMTP_USER` / `SMTP_PASS` | - | Gmail account and app password used to mail codes. Required when `NODE_ENV=production`; in development, an unset pair falls back to logging the code instead of mailing it (see [Access](#access)) |
-| `SMTP_HOST` / `SMTP_PORT` | `smtp.gmail.com` / `465` | SMTP endpoint for outgoing mail |
-| `EMAIL_FROM` | `SMTP_USER` | `From` address on the code email |
-| `APP_ORIGIN` | `http://localhost:3000` | The only `Origin` a mutating request may declare; anything else is rejected (CSRF defence for the cookie) |
-| `OTP_RATE_LIMIT_PER_HOUR` | `10` | Per-IP budget for `/auth/request-code` and `/auth/verify` |
-| `OTP_PER_EMAIL_PER_HOUR` | `5` | Per-address budget for code issuance, independent of IP |
+| Variable                  | Default                            | Purpose                                                                                                                                                                                                                                    |
+| ------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `LI_AT`                   | -                                  | LinkedIn session cookie (required)                                                                                                                                                                                                         |
+| `LI_COOKIES`              | -                                  | Optional: the browser's `document.cookie` for linkedin.com, used instead of bootstrapping companion cookies                                                                                                                                |
+| `PORT` / `HOST`           | `3000` / `0.0.0.0`                 | Listen address                                                                                                                                                                                                                             |
+| `RATE_LIMIT_PER_MINUTE`   | `10`                               | Requests per minute per IP; protects the LinkedIn account behind the API                                                                                                                                                                   |
+| `CACHE_TTL_SECONDS`       | `900`                              | In-memory cache for repeated lookups of the same entity                                                                                                                                                                                    |
+| `MAX_CONCURRENT_UPSTREAM` | `2`                                | Concurrent requests to LinkedIn                                                                                                                                                                                                            |
+| `VOYAGER_POSTS_QUERY_ID`  | `20c70fe0314184158516a7ec004c0408` | The `voyagerFeedDashProfileUpdates` persisted-query hash used by `/v1/posts`. LinkedIn rotates these; see [Re-capturing the posts `queryId`](#re-capturing-the-posts-queryid)                                                              |
+| `LOG_LEVEL`               | `info`                             | pino log level                                                                                                                                                                                                                             |
+| `SESSION_KEY`             | -                                  | 64 hex chars (32 bytes), required. Encrypts and signs the `sid` cookie; generate with `openssl rand -hex 32`. Rotating it signs every caller out                                                                                           |
+| `SMTP_USER` / `SMTP_PASS` | -                                  | Gmail account and app password used to mail codes over SMTP. Required when `NODE_ENV=production` unless `BREVO_API_KEY` is set; in development, an unset pair falls back to logging the code instead of mailing it (see [Access](#access)) |
+| `SMTP_HOST` / `SMTP_PORT` | `smtp.gmail.com` / `465`           | SMTP endpoint for outgoing mail                                                                                                                                                                                                            |
+| `BREVO_API_KEY`           | -                                  | Brevo transactional-email API key. When set, mail is sent over HTTPS via Brevo instead of SMTP, and takes priority over `SMTP_USER`/`SMTP_PASS`; required on hosts that block outbound SMTP (see [Sending codes](#sending-codes))          |
+| `EMAIL_FROM`              | `SMTP_USER`                        | Sender address on the code email (Brevo's `sender.email`, or SMTP's `From`). Required when `BREVO_API_KEY` is set and `SMTP_USER` isn't                                                                                                    |
+| `APP_ORIGIN`              | `http://localhost:3000`            | The only `Origin` a mutating request may declare; anything else is rejected (CSRF defence for the cookie)                                                                                                                                  |
+| `OTP_RATE_LIMIT_PER_HOUR` | `10`                               | Per-IP budget for `/auth/request-code` and `/auth/verify`                                                                                                                                                                                  |
+| `OTP_PER_EMAIL_PER_HOUR`  | `5`                                | Per-address budget for code issuance, independent of IP                                                                                                                                                                                    |
 
-Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY` and `SMTP_PASS` by length and reports only the length of `LI_COOKIES`.
+Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY`, `SMTP_PASS` and `BREVO_API_KEY` by length and reports only the length of `LI_COOKIES`.
 
 ---
 
@@ -115,20 +116,35 @@ Secrets never reach the log: `redactConfig` masks `LI_AT`, `SESSION_KEY` and `SM
 4. Every `/v1/*` request needs that cookie; a request without one, or with an expired/invalid one, gets `401 UNAUTHENTICATED`.
 5. `GET /auth/me` reports the signed-in address or `401`; it counts against the global `RATE_LIMIT_PER_MINUTE` budget like a `/v1/*` call, not the per-hour OTP limits. `POST /auth/logout` clears the cookie and is unlimited.
 
-Codes are 6 digits, expire in 10 minutes, allow 5 attempts, and are single-use. They live in memory only: a server restart invalidates every *pending* code (an in-flight sign-in has to start over), but it does **not** invalidate already-issued cookies — a session survives a restart. The only way to revoke every session at once is to rotate `SESSION_KEY`, which invalidates every cookie in existence.
+Codes are 6 digits, expire in 10 minutes, allow 5 attempts, and are single-use. They live in memory only: a server restart invalidates every _pending_ code (an in-flight sign-in has to start over), but it does **not** invalidate already-issued cookies — a session survives a restart. The only way to revoke every session at once is to rotate `SESSION_KEY`, which invalidates every cookie in existence.
 
-### Setting up Gmail as the mailer
+### Sending codes
+
+Two ways to mail the code, picked automatically at startup: `BrevoMailer` wins when `BREVO_API_KEY` is set, otherwise `SmtpMailer` runs when `SMTP_USER`/`SMTP_PASS` are set, otherwise codes are only logged (`LogMailer`, dev only).
+
+**Option A: Brevo (recommended on hosts that block outbound SMTP, e.g. Render's free tier)**
+
+Render's free tier blocks outbound SMTP ports, so `SmtpMailer` sends there time out. Brevo's transactional API is plain HTTPS and isn't affected.
+
+1. Sign up at [brevo.com](https://www.brevo.com).
+2. Go to **Senders & IP** → add a sender using the Gmail address that will appear as the sender → confirm it via the mail Brevo sends to that address.
+3. Go to **SMTP & API** → **API Keys** → create a key.
+4. Set `BREVO_API_KEY` to that key and `EMAIL_FROM` to the Gmail address you verified.
+
+Free tier: 300 mails/day.
+
+**Option B: Gmail over SMTP**
 
 1. Turn on 2-Step Verification on the Gmail account that will send codes.
 2. Create an [App Password](https://myaccount.google.com/apppasswords) for it (a 16-character code, not the account password).
 3. Set `SMTP_USER` to the Gmail address and `SMTP_PASS` to the app password. `SMTP_HOST`/`SMTP_PORT` default to Gmail's `smtp.gmail.com:465` and don't need to change for Gmail.
 
-In development, leaving `SMTP_USER`/`SMTP_PASS` unset is fine: the server logs the code at `warn` level instead of mailing it, so local sign-in works without any SMTP setup. In production (`NODE_ENV=production`) both are required and the process refuses to start without them.
+In development, leaving all of the above unset is fine: the server logs the code at `warn` level instead of mailing it, so local sign-in works without any setup. In production (`NODE_ENV=production`), `BREVO_API_KEY` or the `SMTP_USER`/`SMTP_PASS` pair is required and the process refuses to start without one of them.
 
 ### Limits, and what this does and doesn't prove
 
 - **Per-IP**: `OTP_RATE_LIMIT_PER_HOUR` (default 10) on `/auth/request-code` and `/auth/verify`.
-- **Per-address**: `OTP_PER_EMAIL_PER_HOUR` (default 5) on code issuance, independent of IP, so one address can't be hammered from many IPs. The cap applies to the *canonical* address (see [`canonicalEmail`](src/auth/email.ts)): Gmail addresses fold dots and a trailing `+tag` (`j.o.h.n+promo@gmail.com` and `john@googlemail.com` share one budget with `john@gmail.com`), but a `+tag` on any other provider counts as a distinct address (`john+work@outlook.com` has its own budget, separate from `john@outlook.com`).
+- **Per-address**: `OTP_PER_EMAIL_PER_HOUR` (default 5) on code issuance, independent of IP, so one address can't be hammered from many IPs. The cap applies to the _canonical_ address (see [`canonicalEmail`](src/auth/email.ts)): Gmail addresses fold dots and a trailing `+tag` (`j.o.h.n+promo@gmail.com` and `john@googlemail.com` share one budget with `john@gmail.com`), but a `+tag` on any other provider counts as a distinct address (`john+work@outlook.com` has its own budget, separate from `john@outlook.com`).
 - **Gmail's own cap**: a personal Gmail account can send roughly 500 messages a day; this service does not track that separately, so a burst of sign-ins can exhaust it.
 - **CSRF**: a mutating request whose `Origin` header is present and doesn't match `APP_ORIGIN` is rejected with `403 FORBIDDEN_ORIGIN`; a mutating request with a body must declare `application/json`.
 - **What it proves**: the caller can read mail sent to the address they typed. **What it doesn't prove**: identity, that the address is theirs long-term, or anything beyond that one inbox at that one moment. It keeps casual, anonymous use off the LinkedIn-backed endpoints; it is not account security.
@@ -296,18 +312,24 @@ Real output for `https://www.linkedin.com/company/anthropicresearch/`, with the 
     "variants": [
       { "width": 100, "height": 100, "url": "…" },
       { "width": 200, "height": 200, "url": "…" },
-      { "width": 400, "height": 400, "url": "…" }
-    ]
+      { "width": 400, "height": 400, "url": "…" },
+    ],
   },
   "backgroundImage": {
     "url": "https://media.licdn.com/dms/image/v2/…/image-scale_191_1128/…",
     "variants": [
       { "width": 108, "height": 18, "url": "…" },
       { "width": 749, "height": 127, "url": "…" },
-      { "width": 1128, "height": 191, "url": "…" }
-    ]
+      { "width": 1128, "height": 191, "url": "…" },
+    ],
   },
-  "meta": { "source": "voyager", "fetchedAt": "…", "cached": false, "durationMs": 640, "warnings": [] }
+  "meta": {
+    "source": "voyager",
+    "fetchedAt": "…",
+    "cached": false,
+    "durationMs": 640,
+    "warnings": [],
+  },
 }
 ```
 
@@ -346,7 +368,7 @@ Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `coun
       "author": {
         "name": "Nityam Sharma",
         "headline": "Software Engineer Intern @Brackets | Ex-Intern @IIT Hyderabad | …",
-        "linkedinUrl": "https://www.linkedin.com/in/sharmanityam"
+        "linkedinUrl": "https://www.linkedin.com/in/sharmanityam",
       },
       "isReshare": false,
       "reshared": null,
@@ -357,8 +379,8 @@ Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `coun
         "likes": 66,
         "comments": 31,
         "shares": 2,
-        "reactions": { "LIKE": 53, "PRAISE": 8, "EMPATHY": 5 }
-      }
+        "reactions": { "LIKE": 53, "PRAISE": 8, "EMPATHY": 5 },
+      },
     },
     {
       "urn": "urn:li:activity:7193517581419380736",
@@ -368,7 +390,7 @@ Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `coun
       "author": {
         "name": "Shinjan P",
         "headline": "writing code",
-        "linkedinUrl": "https://www.linkedin.com/in/shinjanpatra"
+        "linkedinUrl": "https://www.linkedin.com/in/shinjanpatra",
       },
       "isReshare": true,
       "reshared": null,
@@ -378,9 +400,9 @@ Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `coun
           "variants": [
             { "width": 20, "height": 8, "url": "…" },
             { "width": 480, "height": 208, "url": "…" },
-            { "width": 1179, "height": 513, "url": "…" }
-          ]
-        }
+            { "width": 1179, "height": 513, "url": "…" },
+          ],
+        },
       ],
       "article": null,
       "video": false,
@@ -388,15 +410,21 @@ Real output for `https://www.linkedin.com/in/sharmanityam/` at the default `coun
         "likes": 69,
         "comments": 5,
         "shares": 3,
-        "reactions": { "LIKE": 65, "APPRECIATION": 3, "INTEREST": 1 }
-      }
-    }
+        "reactions": { "LIKE": 65, "APPRECIATION": 3, "INTEREST": 1 },
+      },
+    },
   ],
-  "meta": { "source": "voyager", "fetchedAt": "…", "cached": false, "durationMs": 1810, "warnings": [] }
+  "meta": {
+    "source": "voyager",
+    "fetchedAt": "…",
+    "cached": false,
+    "durationMs": 1810,
+    "warnings": [],
+  },
 }
 ```
 
-Note the second entry. It is a **plain repost**, and LinkedIn does not model it as a wrapper: the update it returns *is* the original post. So `author` is the **original** author (Shinjan P, not the member whose activity was requested), `isReshare` is `true`, and `reshared` is `null`. The reposting member is not surfaced as a separate field; the fact that they reposted it is what `isReshare` records. `reshared` is populated only for a repost that adds its own commentary, where LinkedIn nests the original, and that shape is **unverified** (see [Known limitations](#known-limitations)).
+Note the second entry. It is a **plain repost**, and LinkedIn does not model it as a wrapper: the update it returns _is_ the original post. So `author` is the **original** author (Shinjan P, not the member whose activity was requested), `isReshare` is `true`, and `reshared` is `null`. The reposting member is not surfaced as a separate field; the fact that they reposted it is what `isReshare` records. `reshared` is populated only for a repost that adds its own commentary, where LinkedIn nests the original, and that shape is **unverified** (see [Known limitations](#known-limitations)).
 
 Schema conventions:
 
@@ -410,21 +438,21 @@ Schema conventions:
 
 All errors share one envelope: `{ "error": { "code", "message", "details"? } }`.
 
-| Status | `code` | When |
-|---|---|---|
-| 400 | `INVALID_URL` | Wrong kind of LinkedIn URL for the endpoint. A company URL on `/v1/profile` says "use /v1/company"; an `/in/` URL on `/v1/company` says "use /v1/profile" |
-| 400 | `INVALID_REQUEST` | Missing/invalid `url` parameter, a `count` outside 1 to 50, or a body this API cannot accept (wrong `content-type`, malformed JSON, too large) |
-| 404 | `NOT_FOUND` | No route matches that method and path. The message names them; the query string is not echoed back. Counted against the same budget as everything else, so 404s cannot be used to guess at URLs for free |
-| 404 | `PROFILE_NOT_FOUND` | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two). Also returned by `/v1/posts` for a member it cannot resolve |
-| 404 | `COMPANY_NOT_FOUND` | Same, for a company or school page |
-| 429 | `RATE_LIMITED` | This API's per-IP limit, or LinkedIn's own. The local limiter **always** sets `Retry-After`, because it knows exactly when the window resets. When the 429 came from LinkedIn it is only passed through if LinkedIn sent one, so that case can arrive without the header |
-| 400 | `INVALID_CODE` | The OTP code is wrong, expired, or its 5-attempt budget is spent (`/auth/verify`) |
-| 401 | `UNAUTHENTICATED` | No valid `sid` cookie on a `/v1/*` or `/auth/me` request |
-| 403 | `FORBIDDEN_ORIGIN` | A mutating request's `Origin` header didn't match `APP_ORIGIN` |
-| 500 | `INTERNAL_ERROR` | An unhandled failure. Deliberately opaque; the diagnosis is in the log |
-| 502 | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape). On `/v1/posts` a stale persisted-query hash surfaces here, with a message naming `VOYAGER_POSTS_QUERY_ID` |
-| 502 | `MAIL_FAILED` | The code could not be mailed (SMTP error); the cause is logged, never returned |
-| 503 | `LINKEDIN_SESSION_EXPIRED` | The `LI_AT` cookie needs rotating |
+| Status | `code`                            | When                                                                                                                                                                                                                                                                     |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 400    | `INVALID_URL`                     | Wrong kind of LinkedIn URL for the endpoint. A company URL on `/v1/profile` says "use /v1/company"; an `/in/` URL on `/v1/company` says "use /v1/profile"                                                                                                                |
+| 400    | `INVALID_REQUEST`                 | Missing/invalid `url` parameter, a `count` outside 1 to 50, or a body this API cannot accept (wrong `content-type`, malformed JSON, too large)                                                                                                                           |
+| 404    | `NOT_FOUND`                       | No route matches that method and path. The message names them; the query string is not echoed back. Counted against the same budget as everything else, so 404s cannot be used to guess at URLs for free                                                                 |
+| 404    | `PROFILE_NOT_FOUND`               | LinkedIn says the profile "can't be accessed": it doesn't exist or its visibility is restricted (LinkedIn does not distinguish the two). Also returned by `/v1/posts` for a member it cannot resolve                                                                     |
+| 404    | `COMPANY_NOT_FOUND`               | Same, for a company or school page                                                                                                                                                                                                                                       |
+| 429    | `RATE_LIMITED`                    | This API's per-IP limit, or LinkedIn's own. The local limiter **always** sets `Retry-After`, because it knows exactly when the window resets. When the 429 came from LinkedIn it is only passed through if LinkedIn sent one, so that case can arrive without the header |
+| 400    | `INVALID_CODE`                    | The OTP code is wrong, expired, or its 5-attempt budget is spent (`/auth/verify`)                                                                                                                                                                                        |
+| 401    | `UNAUTHENTICATED`                 | No valid `sid` cookie on a `/v1/*` or `/auth/me` request                                                                                                                                                                                                                 |
+| 403    | `FORBIDDEN_ORIGIN`                | A mutating request's `Origin` header didn't match `APP_ORIGIN`                                                                                                                                                                                                           |
+| 500    | `INTERNAL_ERROR`                  | An unhandled failure. Deliberately opaque; the diagnosis is in the log                                                                                                                                                                                                   |
+| 502    | `UPSTREAM_ERROR` / `SCHEMA_DRIFT` | LinkedIn returned something we couldn't use (blocked request, 5xx, or a changed response shape). On `/v1/posts` a stale persisted-query hash surfaces here, with a message naming `VOYAGER_POSTS_QUERY_ID`                                                               |
+| 502    | `MAIL_FAILED`                     | The code could not be mailed (SMTP error); the cause is logged, never returned                                                                                                                                                                                           |
+| 503    | `LINKEDIN_SESSION_EXPIRED`        | The `LI_AT` cookie needs rotating                                                                                                                                                                                                                                        |
 
 ### `GET /health`
 
@@ -440,11 +468,11 @@ LinkedIn's web app is a client of an internal REST API at `https://www.linkedin.
 
 Loading a profile with DevTools open shows the app calling `/voyager/api/identity/dash/profiles` and `/voyager/api/graphql?queryId=voyagerIdentityDashProfiles.…`. The `dash/profiles` endpoint takes a **decoration ID**, Voyager's term for a projection that says which fields and nested entities to include, and the LinkedIn client ships with a catalogue of them. Probing the endpoint from the page's own context (so the request carried real cookies) established which ones return what:
 
-| Decoration | Returns |
-|---|---|
-| `…profile.FullProfileWithEntities-101` | The whole profile graph: `Profile`, `PositionGroup`→`Position`, `Education`, `Skill` (first 20 only), `Certification`, `Language`, `VolunteerExperience`, `Project`, `Honor`, `Publication`, `Course`, plus the `Company`, `School`, `Industry` and `EmploymentType` entities they reference. ~115 KB. |
-| `…profile.WebTopCardCore-16` | The top card. Needed because the full decoration only carries the location as a `urn:li:fsd_geo:…` reference; this one includes the `Geo` entity with its `defaultLocalizedName`. |
-| `/identity/dash/profileSkills?q=viewee&profileUrn=…&start=20` | Pages through skills beyond the inline cap of 20. The inline collection's `paging.total` says whether this is needed. |
+| Decoration                                                    | Returns                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `…profile.FullProfileWithEntities-101`                        | The whole profile graph: `Profile`, `PositionGroup`→`Position`, `Education`, `Skill` (first 20 only), `Certification`, `Language`, `VolunteerExperience`, `Project`, `Honor`, `Publication`, `Course`, plus the `Company`, `School`, `Industry` and `EmploymentType` entities they reference. ~115 KB. |
+| `…profile.WebTopCardCore-16`                                  | The top card. Needed because the full decoration only carries the location as a `urn:li:fsd_geo:…` reference; this one includes the `Geo` entity with its `defaultLocalizedName`.                                                                                                                      |
+| `/identity/dash/profileSkills?q=viewee&profileUrn=…&start=20` | Pages through skills beyond the inline cap of 20. The inline collection's `paging.total` says whether this is needed.                                                                                                                                                                                  |
 
 The older, widely-documented endpoints (`/identity/profiles/{slug}/profileView`, `/skills`, `/profileContactInfo`) now return **410 Gone**; this project does not use them.
 
@@ -453,9 +481,9 @@ The older, widely-documented endpoints (`/identity/profiles/{slug}/profileView`,
 Two cookies and one header are all Voyager needs:
 
 - `li_at`: the real session cookie, issued at login. Supplied via env.
-- `JSESSIONID` + `csrf-token`: LinkedIn uses the *double-submit* CSRF pattern: the header must equal the cookie. The client uses the `JSESSIONID` LinkedIn issues during the session bootstrap (see [Getting `LI_AT`](#getting-li_at)); if the operator supplied `LI_COOKIES`, the browser's own value is used instead.
+- `JSESSIONID` + `csrf-token`: LinkedIn uses the _double-submit_ CSRF pattern: the header must equal the cookie. The client uses the `JSESSIONID` LinkedIn issues during the session bootstrap (see [Getting `LI_AT`](#getting-li_at)); if the operator supplied `LI_COOKIES`, the browser's own value is used instead.
 - `bcookie`, `bscookie`, `lidc`: companion cookies from the same bootstrap. Not needed for authorization, but their absence is the signal that gets a session revoked.
-- `x-restli-protocol-version: 2.0.0` and `accept: application/vnd.linkedin.normalized+json+2.1`: these switch the response into Rest.li's *normalized* format, described next.
+- `x-restli-protocol-version: 2.0.0` and `accept: application/vnd.linkedin.normalized+json+2.1`: these switch the response into Rest.li's _normalized_ format, described next.
 
 ### The normalized entity graph
 
@@ -480,7 +508,7 @@ Images are assembled from `vectorImage.rootUrl + artifacts[].fileIdentifyingUrlP
 
 ### Company pages
 
-Company pages are the one place this project deliberately does *not* follow the web app. Loading `linkedin.com/company/anthropicresearch/` shows the app calling GraphQL `voyagerOrganizationDashCompanies.148b1aebfadd0a455f32806df656c3c1` with `variables=(universalName:anthropicresearch)`. This service uses the older REST decoration instead:
+Company pages are the one place this project deliberately does _not_ follow the web app. Loading `linkedin.com/company/anthropicresearch/` shows the app calling GraphQL `voyagerOrganizationDashCompanies.148b1aebfadd0a455f32806df656c3c1` with `variables=(universalName:anthropicresearch)`. This service uses the older REST decoration instead:
 
 ```
 GET /voyager/api/organization/companies?decorationId=com.linkedin.voyager.deco.organization.web.WebFullCompanyMain-12&q=universalName&universalName=<name>
@@ -513,9 +541,9 @@ Three details cost more time than the rest:
 
 - **The timestamp is inside the id.** No `Update` field carries a date. LinkedIn activity ids are Snowflake-style, so `activityId >> 22` is Unix milliseconds: `7390255662376824832` decodes to 2025-11-01, which matches the "9mo" label the page rendered next to it.
 - **The counts hang off a different URN.** Likes, comments and shares live at `Update.*socialDetail` → `SocialDetail.*totalSocialActivityCounts` → `SocialActivityCounts{numLikes,numComments,numShares,reactionTypeCounts[]}`, and that last URN is keyed by `ugcPost` rather than `activity`. The graph has to be followed; rewriting the URN string does not work.
-- **A plain repost is the original post.** LinkedIn does not wrap it in anything. The update *is* the original author's post, marked only by `header.text.text = "<member> reposted this"`, with `resharedUpdate: null`. That is why a repost comes back with the original author in `author`, `isReshare: true` and `reshared: null`.
+- **A plain repost is the original post.** LinkedIn does not wrap it in anything. The update _is_ the original author's post, marked only by `header.text.text = "<member> reposted this"`, with `resharedUpdate: null`. That is why a repost comes back with the original author in `author`, `isReshare: true` and `reshared: null`.
 
-`resharedUpdate` (a nested `Update`) is what a repost *with added commentary* is expected to use, and it is what `reshared` is built from, but no such post was present in the recorded sample: that path is **unverified**. `articleComponent` and `linkedInVideoComponent` were likewise absent, so `article` and `video` are parsed defensively (`articleComponent.navigationContext.actionTarget`, `.title.text`) and are **unverified** too.
+`resharedUpdate` (a nested `Update`) is what a repost _with added commentary_ is expected to use, and it is what `reshared` is built from, but no such post was present in the recorded sample: that path is **unverified**. `articleComponent` and `linkedInVideoComponent` were likewise absent, so `article` and `video` are parsed defensively (`articleComponent.navigationContext.actionTarget`, `.title.text`) and are **unverified** too.
 
 ### Re-capturing the posts `queryId`
 
@@ -565,7 +593,7 @@ Design points worth calling out:
 - **One service, three entities.** `LinkedInService` owns the cache and the semaphore for all three; cache keys are namespaced (`profile:<slug>`, `company:<name>`, `posts:<slug>:<count>`) so a posts lookup never collides with a profile of the same slug, and the count is part of the key because it changes the answer.
 - **Failure mapping lives in one place.** `interpretVoyagerResponse` turns every LinkedIn response into either a parsed body or a typed error; the transport itself is a one-method interface so tests substitute a fake.
 - **Volatile knowledge is quarantined.** Decoration IDs, URLs and the posts `queryId` default live only in `endpoints.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved; the `queryId` is additionally overridable from the environment, so the most perishable constant needs no redeploy at all.
-- **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic. The semaphore bounds concurrent *bundles*, not upstream requests: a posts bundle is 2 requests and a profile is 2 or more, so the real ceiling on in-flight LinkedIn calls is a small multiple of the limit.
+- **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic. The semaphore bounds concurrent _bundles_, not upstream requests: a posts bundle is 2 requests and a profile is 2 or more, so the real ceiling on in-flight LinkedIn calls is a small multiple of the limit.
 - **Order in `buildApp` is load-bearing.** Swagger UI is registered before helmet so the docs keep their looser CSP; the playground's static files are registered before the rate limiter so loading a page never spends the budget. `@fastify/static` runs with `wildcard: false` on purpose: its default `GET /*` would swallow every unmatched path and answer with `reply.callNotFound()`, which skips the not-found route's own hooks, so unknown URLs would come back unbudgeted. A route per file is registered instead, which is exact for a folder holding one file that is baked into the image.
 - **Secrets never touch logs.** Cookie headers are redacted by pino; config is logged through `redactConfig`, which masks `LI_AT` and reports only the length of `LI_COOKIES`.
 
