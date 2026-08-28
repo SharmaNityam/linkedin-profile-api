@@ -742,6 +742,8 @@ if [ -n "$DATABASE_URL" ]; then node dist/db/migrate.js; fi && node dist/main.js
 
 `dist/db/migrate.js` (`pnpm migrate`) applies every `migrations/*.sql` not already recorded in `schema_migrations`, in filename order, each in its own transaction, behind a Postgres advisory lock so two instances booting at once cannot both apply the same file. It is idempotent, so running it on every boot costs one round trip when there is nothing to do. It requires `DATABASE_URL`, and refuses to run without one, which is what the guard is for.
 
+The lock wait is bounded: `lock_timeout` is set to **30 seconds** before the lock is requested, so a session that took it and then wedged fails the deploy with a message naming the lock rather than hanging every booting container forever. It logs a line when it starts waiting and another when it has the lock, which is what tells the two cases apart in a boot log. A migration that fails is rolled back, and a rollback that fails is itself logged rather than allowed to replace the error that explains what actually broke.
+
 **Neither `argon2` nor `sodium-native` is compiled at image build time.** `node:22-slim` has no compiler, and does not need one: `argon2` resolves a prebuilt `linux-x64` binding through `node-gyp-build`, and `sodium-native` (which `@fastify/secure-session` uses) ships prebuilds and is never built at all. `pnpm-workspace.yaml` has to allow `argon2`'s install script (`allowBuilds`) for that resolution step to run, so it is copied into the build stage alongside `package.json`. If a future dependency does need a compiler, install `python3 make g++` in the **build** stage only, never the runtime one.
 
 ### Database: Neon
