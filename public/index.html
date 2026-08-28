@@ -518,6 +518,8 @@
     if (e.code === 'RATE_LIMITED' && typeof retry === 'number') text += ` Try again in ${retryIn(retry)}.`;
     // Two codes are really a change of step, not an error to sit on.
     if (e.code === 'EMAIL_UNVERIFIED' && pendingEmail) return setAuth('code', { msg: { text }, focus: true });
+    // Unverified signups are not accounts, so a lost code step looks like a bad login; point the way back.
+    if (e.code === 'INVALID_CREDENTIALS') text += ' If you signed up but never entered the code, sign up again to get a new one.';
     if (e.code === 'UNAUTHENTICATED') return setAuth('signed-out', { msg: { text }, focus: true });
     setAuthMsg(text);
   }
