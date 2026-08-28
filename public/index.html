@@ -119,15 +119,26 @@
   section.block > h3 .count { color: var(--muted); font-weight: 500; font-size: 13px; margin-left: 8px; font-family: var(--body); }
 
   .timeline { list-style: none; margin: 0; padding: 0; }
-  .timeline li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 12px 0; position: relative; }
-  .timeline li + li { border-top: 1px solid var(--border); }
+  .timeline > li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 12px 0; position: relative; }
+  .timeline > li + li { border-top: 1px solid var(--border); }
   .timeline .t { font-weight: 600; font-size: 15px; margin: 0; }
   .timeline .o { color: #cfd3d9; margin: 1px 0 0; font-size: 14px; }
-  .timeline .o a { color: inherit; text-decoration: none; }
-  .timeline .o a:hover { color: var(--accent); }
+  .timeline .t a, .timeline .o a { color: inherit; text-decoration: none; }
+  .timeline .t a:hover, .timeline .o a:hover { color: var(--accent); }
   .timeline .d { color: var(--muted); font-size: 13px; margin: 3px 0 0; font-family: var(--mono); }
   .timeline .desc { margin: 8px 0 0; color: #b9bec6; font-size: 14px; white-space: pre-wrap; }
   .now { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border-radius: 4px; padding: 2px 6px; margin-left: 8px; vertical-align: middle; font-family: var(--body); }
+
+  /* grouped positions at one company: connector line with a dot per role */
+  .roles { list-style: none; margin: 12px 0 0; padding: 0 0 0 18px; position: relative; }
+  .roles::before { content: ""; position: absolute; left: 3px; top: 7px; bottom: 7px; width: 2px; background: var(--border-strong); }
+  .roles > li { position: relative; padding: 0 0 12px; }
+  .roles > li:last-child { padding-bottom: 0; }
+  .roles > li::before {
+    content: ""; position: absolute; left: -18px; top: 5px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .roles .t { font-size: 14.5px; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chips span { border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; }
@@ -235,15 +246,22 @@
     if (!s) return '';
     return `${s} – ${e}${duration(a, b)}`;
   }
-  function duration(a, b) {
-    if (!a) return '';
+  // Inclusive month count between two partial dates; an absent end means "until now".
+  function months(a, b) {
     const now = new Date();
     const sm = a.year * 12 + ((a.month ?? 1) - 1);
     const em = b ? b.year * 12 + ((b.month ?? 12) - 1) : now.getFullYear() * 12 + now.getMonth();
-    const m = Math.max(0, em - sm + 1);
-    const y = Math.floor(m / 12), r = m % 12;
-    const parts = [y ? `${y} yr${y > 1 ? 's' : ''}` : '', r ? `${r} mo${r > 1 ? 's' : ''}` : ''].filter(Boolean);
-    return parts.length ? ` · ${parts.join(' ')}` : '';
+    return Math.max(0, em - sm + 1);
+  }
+  function spanDuration(a, b) {
+    if (!a) return '';
+    const m = months(a, b), y = Math.floor(m / 12), r = m % 12;
+    return [y ? `${y} yr${y > 1 ? 's' : ''}` : '', r ? `${r} mo${r > 1 ? 's' : ''}` : ''].filter(Boolean).join(' ');
+  }
+  function duration(a, b) {
+    if (!a) return '';
+    const s = spanDuration(a, b);
+    return s ? ` · ${s}` : '';
   }
   const PROF = { ELEMENTARY: [1, 'Elementary'], LIMITED_WORKING: [2, 'Limited working'], PROFESSIONAL_WORKING: [3, 'Professional working'], FULL_PROFESSIONAL: [4, 'Full professional'], NATIVE_OR_BILINGUAL: [5, 'Native / bilingual'] };
 
@@ -275,6 +293,35 @@
   }
   const orgLink = (org, name) => org?.linkedinUrl ? `<a href="${esc(org.linkedinUrl)}" rel="noopener" target="_blank">${esc(name)}</a>` : esc(name);
 
+  // ---- grouping: consecutive positions at one company collapse into a single card
+  const expKey = (e) => e.company?.universalName ?? e.company?.linkedinUrl ?? (e.companyName ?? '').toLowerCase();
+  function groupRuns(items, key) {
+    const runs = [];
+    for (const it of items) {
+      const k = key(it), last = runs[runs.length - 1];
+      if (k && last && last.key === k) last.items.push(it);
+      else runs.push({ key: k, items: [it] });
+    }
+    return runs;
+  }
+  const startNum = (d) => d.year * 12 + ((d.month ?? 1) - 1);
+  const endNum = (d) => d.year * 12 + ((d.month ?? 12) - 1);
+  // Earliest start → latest end, or "still there" when any role is current.
+  function totalDuration(items) {
+    const starts = items.map((i) => i.startDate).filter(Boolean);
+    if (!starts.length) return '';
+    const start = starts.reduce((a, b) => (startNum(b) < startNum(a) ? b : a));
+    const open = items.some((i) => i.isCurrent || (i.startDate && !i.endDate));
+    const ends = items.map((i) => i.endDate).filter(Boolean);
+    return spanDuration(start, open || !ends.length ? null : ends.reduce((a, b) => (endNum(b) > endNum(a) ? b : a)));
+  }
+  // The value every role in the group shares, or null when they differ.
+  function shared(items, pick) {
+    const values = new Set(items.map((i) => pick(i) ?? ''));
+    const [only] = values;
+    return values.size === 1 && only ? only : null;
+  }
+
   function block(key, title, items, body) {
     if (!items?.length) return '';
     return `<section class="block"><h3>${title}<span class="count">${items.length}</span></h3>${body}</section>`;
@@ -285,13 +332,32 @@
     const facts = [p.location?.name, p.industry, p.isPremium ? 'Premium' : null].filter(Boolean);
     const about = p.about ? `<p class="about" id="about" data-clamped="${p.about.length > 320}">${esc(p.about)}</p>${p.about.length > 320 ? '<button class="more" type="button" id="more">Show more</button>' : ''}` : '';
 
-    const experience = block('experience', 'Experience', p.experience, `<ul class="timeline">${p.experience.map((e) => `
-      <li>${logo(e.company, e.companyName)}<div>
-        <p class="t">${esc(e.title)}${e.isCurrent ? '<span class="now">Now</span>' : ''}</p>
-        <p class="o">${orgLink(e.company, e.companyName ?? '')}${e.employmentType ? ` · ${esc(e.employmentType)}` : ''}</p>
-        <p class="d">${esc(range(e.startDate, e.endDate))}${e.location ? ` · ${esc(e.location)}` : ''}</p>
-        ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
-      </div></li>`).join('')}</ul>`);
+    // One position → a plain row; several at the same company → a company card with a role timeline.
+    const position = (g) => {
+      const first = g.items[0];
+      if (g.items.length === 1) return `
+      <li>${logo(first.company, first.companyName)}<div>
+        <p class="t">${esc(first.title)}${first.isCurrent ? '<span class="now">Now</span>' : ''}</p>
+        <p class="o">${orgLink(first.company, first.companyName ?? '')}${first.employmentType ? ` · ${esc(first.employmentType)}` : ''}</p>
+        <p class="d">${esc(range(first.startDate, first.endDate))}${first.location ? ` · ${esc(first.location)}` : ''}</p>
+        ${first.description ? `<p class="desc">${esc(first.description)}</p>` : ''}
+      </div></li>`;
+      const type = shared(g.items, (i) => i.employmentType), place = shared(g.items, (i) => i.location);
+      const sub = [type, totalDuration(g.items), place].filter(Boolean);
+      return `
+      <li>${logo(first.company, first.companyName)}<div>
+        <p class="t">${orgLink(first.company, first.companyName ?? '')}</p>
+        ${sub.length ? `<p class="d">${sub.map(esc).join(' · ')}</p>` : ''}
+        <ol class="roles">${g.items.map((e) => `
+          <li>
+            <p class="t">${esc(e.title)}${e.isCurrent ? '<span class="now">Now</span>' : ''}</p>
+            ${!type && e.employmentType ? `<p class="o">${esc(e.employmentType)}</p>` : ''}
+            <p class="d">${esc(range(e.startDate, e.endDate))}${!place && e.location ? ` · ${esc(e.location)}` : ''}</p>
+            ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
+          </li>`).join('')}</ol>
+      </div></li>`;
+    };
+    const experience = block('experience', 'Experience', p.experience, `<ul class="timeline">${groupRuns(p.experience, expKey).map(position).join('')}</ul>`);
 
     const education = block('education', 'Education', p.education, `<ul class="timeline">${p.education.map((e) => `
       <li>${logo(e.school, e.schoolName)}<div>
