@@ -156,7 +156,7 @@ In development, leaving all of the above unset is fine: the server logs the code
 
 `GET /`, `GET /docs`, `GET /openapi.json`, `GET /health`, `GET /auth/config` and `POST /auth/logout` are exempt from the rate limit entirely; `POST /auth/request-code` and `POST /auth/verify` are budgeted separately per `OTP_RATE_LIMIT_PER_HOUR`/`OTP_PER_EMAIL_PER_HOUR` (see [Access](#access)). Everything else — every `/v1/*` request and `GET /auth/me` — needs the session cookie where applicable and is counted against `RATE_LIMIT_PER_MINUTE` (default 10) — per verified email once signed in, per IP otherwise — and answers `429 RATE_LIMITED` with `Retry-After` once it is spent. Every request to a path that matches no route is counted against the same budget too.
 
-Every endpoint is in the Swagger UI at `/docs`, generated from the same zod schemas that validate the responses.
+Every endpoint is in the Swagger UI at `/docs`, generated from the same zod schemas that validate the responses, with example values on every URL, count, email and code input and a lock icon on the `/v1/*` routes that need the `sid` cookie. Sign in once at `/` (or via `POST /auth/verify`) and Swagger UI's "Try it out" works directly against those routes, since the session cookie is scoped to this origin.
 
 ### `GET|POST /v1/profile`
 
