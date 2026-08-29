@@ -223,12 +223,13 @@ ul.quiet.actions a:hover { color: var(--accent-text); }
 .sections a {
   display: block; width: 100%; padding: 7px 0 7px 10px;
   font-size: 13px; color: var(--muted);
-  border-left: 2px solid transparent; margin-left: -12px;
+  border-left: 2px solid transparent;
   transition: color 120ms ease-out, border-color 120ms ease-out;
 }
 .sections a:hover { color: var(--text); text-decoration: none; }
 .sections a[aria-current="true"] { color: var(--text); font-weight: 500; border-left-color: var(--accent); }
 .sections a::after { inset: 0; }
+.sections .panel-h { padding-left: 12px; }
 #view > [id] { scroll-margin-top: 24px; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 .panel-foot { margin: 16px 0 0; }
