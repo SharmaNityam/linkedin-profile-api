@@ -403,7 +403,9 @@ pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 
 }
 
 /* Thin, theme-coloured scrollbars on the panes that scroll on their own. */
-.rail, .json { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+@supports not selector(::-webkit-scrollbar) {
+  .rail, .json { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+}
 .rail::-webkit-scrollbar, .json::-webkit-scrollbar { width: 6px; height: 6px; }
 .rail::-webkit-scrollbar-track, .json::-webkit-scrollbar-track { background: transparent; }
 .rail::-webkit-scrollbar-thumb, .json::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
