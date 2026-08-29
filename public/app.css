@@ -200,7 +200,7 @@ main[data-state="signin"] > .shell { padding-top: clamp(48px, 18vh, 160px); }
 .recent-row { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
 .recent-row[hidden], .sections[hidden], .statusbox[hidden] { display: none; }
 .recent-row a { color: var(--text); }
-.panel-h { font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+.panel-h { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin: 0 0 8px; }
 ul.quiet { list-style: none; margin: 0; padding: 0; }
 ul.quiet > li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0; }
 ul.quiet a { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -219,8 +219,16 @@ ul.quiet a::after, ul.quiet .btn-text::after { content: ""; position: absolute; 
 }
 ul.quiet.actions a { font-size: 13px; color: var(--muted); }
 ul.quiet.actions a:hover { color: var(--accent-text); }
-.sections a { font-size: 13px; color: var(--muted); }
-.sections a[aria-current="true"] { color: var(--text); }
+.sections ul.quiet > li { padding: 0; }
+.sections a {
+  display: block; width: 100%; padding: 7px 0 7px 10px;
+  font-size: 13px; color: var(--muted);
+  border-left: 2px solid transparent; margin-left: -12px;
+  transition: color 120ms ease-out, border-color 120ms ease-out;
+}
+.sections a:hover { color: var(--text); text-decoration: none; }
+.sections a[aria-current="true"] { color: var(--text); font-weight: 500; border-left-color: var(--accent); }
+.sections a::after { inset: 0; }
 #view > [id] { scroll-margin-top: 24px; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 .panel-foot { margin: 16px 0 0; }
