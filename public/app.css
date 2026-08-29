@@ -401,3 +401,10 @@ pre.json, pre.snippet { font-family: var(--mono); font-size: 12px; line-height: 
   main[data-state="results"] .recent-row { display: none; }
   main[data-state="results"] .status[data-mirrored="true"] { display: none; }
 }
+
+/* Thin, theme-coloured scrollbars on the panes that scroll on their own. */
+.rail, .json { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.rail::-webkit-scrollbar, .json::-webkit-scrollbar { width: 6px; height: 6px; }
+.rail::-webkit-scrollbar-track, .json::-webkit-scrollbar-track { background: transparent; }
+.rail::-webkit-scrollbar-thumb, .json::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+.rail::-webkit-scrollbar-thumb:hover, .json::-webkit-scrollbar-thumb:hover { background: var(--faint); }

@@ -291,9 +291,7 @@ describe('HTTP API', () => {
   it('OpenAPI description links to the playground', async () => {
     const res = await app.inject({ url: '/openapi.json' });
     const doc = res.json<{ info: { description: string } }>();
-    expect(doc.info.description).toContain(
-      'https://linkedin-profile-api-c925.onrender.com/?url=',
-    );
+    expect(doc.info.description).toContain('https://linkedin-profile-api-c925.onrender.com/?url=');
   });
 
   it('OpenAPI info.version matches package.json', async () => {
@@ -311,13 +309,7 @@ describe('HTTP API', () => {
   it('OpenAPI tags are in the documented order', async () => {
     const res = await app.inject({ url: '/openapi.json' });
     const doc = res.json<{ tags: Array<{ name: string }> }>();
-    expect(doc.tags.map((tag) => tag.name)).toEqual([
-      'profile',
-      'company',
-      'posts',
-      'auth',
-      'ops',
-    ]);
+    expect(doc.tags.map((tag) => tag.name)).toEqual(['profile', 'company', 'posts', 'auth', 'ops']);
   });
 
   it('OpenAPI declares cookieAuth and requires it on /v1/profile', async () => {

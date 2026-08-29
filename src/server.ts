@@ -225,7 +225,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     async () => ({ status: 'ok' as const, uptimeSeconds: Math.round(process.uptime()) }),
   );
 
-  app.get('/openapi.json', { config: { rateLimit: false } }, async () => app.swagger());
+  app.get('/openapi.json', { schema: { hide: true }, config: { rateLimit: false } }, async () => app.swagger());
   await app.register(fastifyStatic, {
     root: fileURLToPath(new URL('../public', import.meta.url)),
     prefix: '/',
@@ -247,7 +247,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     root: fileURLToPath(new URL('../public', import.meta.url)),
     serve: false,
   });
-  app.get('/login', async (_req, reply) => reply.sendFile('login.html'));
+  app.get('/login', { schema: { hide: true } }, async (_req, reply) => reply.sendFile('login.html'));
 
   app.setNotFoundHandler({ preHandler: app.rateLimit() }, async (request) => {
     const path = request.url.split('?', 1)[0] ?? '';
