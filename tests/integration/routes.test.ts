@@ -279,6 +279,16 @@ describe('HTTP API', () => {
     );
   });
 
+  it('keeps internal routes out of the OpenAPI document', async () => {
+    const doc = (await app.inject({ url: '/openapi.json' })).json<{
+      paths: Record<string, unknown>;
+      tags?: { name: string }[];
+    }>();
+    expect(Object.keys(doc.paths)).not.toContain('/openapi.json');
+    expect(Object.keys(doc.paths)).not.toContain('/login');
+    expect((doc.tags ?? []).map((t) => t.name)).not.toContain('default');
+  });
+
   it('OpenAPI lists every route', async () => {
     const res = await app.inject({ url: '/openapi.json' });
     expect(res.statusCode).toBe(200);
