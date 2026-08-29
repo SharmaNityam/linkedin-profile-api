@@ -214,3 +214,7 @@ body,
 .swagger-ui svg.unlocked {
   fill: var(--docs-muted);
 }
+
+/* Cookie auth cannot be entered by hand, so the Authorize control only confuses. */
+.swagger-ui .auth-wrapper,
+.swagger-ui .scheme-container .auth-wrapper { display: none !important; }
