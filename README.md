@@ -19,7 +19,7 @@ curl -b cookies.txt "https://linkedin-profile-api-c925.onrender.com/v1/company?u
 curl -b cookies.txt "https://linkedin-profile-api-c925.onrender.com/v1/posts?url=https://www.linkedin.com/in/sharmanityam/&count=5"
 ```
 
-There is no sign-up, no password and no third-party login: proving you control an inbox is enough. `/v1/*` sits behind an email one-time-code gate (see [Access](#access)); past that, a per-IP-or-per-email rate limit is the only thing standing between a caller and LinkedIn.
+`/v1/*` sits behind an email one-time-code gate (see [Access](#access)): no sign-up, no password, proving you control an inbox is enough. After that, requests are rate-limited per verified email.
 
 - **Live docs:** `https://linkedin-profile-api-c925.onrender.com/docs` (Swagger UI, generated from the response schema)
 - **OpenAPI:** `https://linkedin-profile-api-c925.onrender.com/openapi.json`
@@ -63,21 +63,19 @@ pnpm dev                # http://localhost:3000/docs
 
 ### Getting `LI_AT`
 
-The service authenticates to LinkedIn with the `li_at` session cookie of a real account. No password is ever stored.
+The service authenticates to LinkedIn with the `li_at` session cookie of a real account.
 
 1. Log in to linkedin.com in a browser.
 2. Open DevTools → **Application** → **Cookies** → `https://www.linkedin.com`.
 3. Copy the value of `li_at` into `.env` as `LI_AT=…`.
 
-That's all that is required. On its first request the backend **bootstraps the rest of the session itself**: it loads `linkedin.com/feed/` with `li_at` alone, exactly what a browser does on a first visit, and keeps the `JSESSIONID`, `bcookie`, `bscookie` and `lidc` cookies LinkedIn issues in response, then uses them for every Voyager call.
+On its first request the backend **bootstraps the rest of the session itself**: it loads `linkedin.com/feed/` with `li_at` alone, exactly what a browser does on a first visit, and keeps the `JSESSIONID`, `bcookie`, `bscookie` and `lidc` cookies LinkedIn issues in response, then uses them for every Voyager call.
 
 Optionally, `LI_COOKIES` can be set to the browser's own `document.cookie` string (DevTools console → `copy(document.cookie)`) to reuse the browser's companion cookies instead of bootstrapping new ones.
 
 The cookie normally lives for about a year. When it expires, or LinkedIn revokes it, the API starts returning `503 LINKEDIN_SESSION_EXPIRED`; paste a fresh value and restart.
 
 > **Why the bootstrap exists.** During development, the first version sent `li_at` with a _fabricated_ `JSESSIONID` and no other cookies. LinkedIn revoked the entire session within minutes, the browser it was copied from was logged out too. LinkedIn evidently checks that `li_at` travels with the companion cookies it was issued alongside. Acquiring those companions the way a browser does removed the problem; the same account has been stable since.
-
-`.env` is git-ignored. Never commit it.
 
 ### Configuration
 
@@ -149,7 +147,7 @@ In development, leaving all of the above unset is fine: the server logs the code
 
 - **Per-IP**: `OTP_RATE_LIMIT_PER_HOUR` (default 10) on `/auth/request-code`, `/auth/verify` and `/auth/login`.
 - **Per-address**: `OTP_PER_EMAIL_PER_HOUR` (default 5) on code issuance, independent of IP, so one address can't be hammered from many IPs. The cap applies to the _canonical_ address (see [`canonicalEmail`](src/auth/email.ts)): Gmail addresses fold dots and a trailing `+tag` (`j.o.h.n+promo@gmail.com` and `john@googlemail.com` share one budget with `john@gmail.com`), but a `+tag` on any other provider counts as a distinct address (`john+work@outlook.com` has its own budget, separate from `john@outlook.com`).
-- **Gmail's own cap**: a personal Gmail account can send roughly 500 messages a day; this service does not track that separately, so a burst of sign-ins can exhaust it.
+- **The mail provider's cap**: Brevo's free tier sends 300 mails a day and a personal Gmail account about 500; the service does not track either, so a burst of sign-ins can exhaust it.
 - **CSRF**: a mutating request whose `Origin` header is present and doesn't match `APP_ORIGIN` is rejected with `403 FORBIDDEN_ORIGIN`; a mutating request with a body must declare `application/json`.
 - **What it proves**: the caller can read mail sent to the address they typed. **What it doesn't prove**: identity, that the address is theirs long-term, or anything beyond that one inbox at that one moment. It keeps casual, anonymous use off the LinkedIn-backed endpoints; it is not account security.
 - The playground sends you to `/login` (email code, or the shared admin credential) and returns to the lookup you started; the cookie it sets is the one `curl` callers get from `/auth/verify` or `/auth/login`.
@@ -170,7 +168,7 @@ Setting both `ADMIN_EMAIL` and `ADMIN_PASSWORD` enables `POST /auth/login {"emai
 
 ## API
 
-`GET /`, `GET /docs`, `GET /openapi.json`, `GET /health`, `GET /auth/config` and `POST /auth/logout` are exempt from the rate limit entirely; `POST /auth/request-code` and `POST /auth/verify` are budgeted separately per `OTP_RATE_LIMIT_PER_HOUR`/`OTP_PER_EMAIL_PER_HOUR` (see [Access](#access)). Everything else — every `/v1/*` request and `GET /auth/me` — needs the session cookie where applicable and is counted against `RATE_LIMIT_PER_MINUTE` (default 10) — per verified email once signed in, per IP otherwise — and answers `429 RATE_LIMITED` with `Retry-After` once it is spent. Every request to a path that matches no route is counted against the same budget too.
+Rate limits: `/v1/*`, `GET /auth/me` and unknown paths count against `RATE_LIMIT_PER_MINUTE` (default 10), per verified email once signed in and per IP otherwise, answering `429 RATE_LIMITED` with `Retry-After` when spent. `/auth/request-code`, `/auth/verify` and `/auth/login` have their own hourly budgets (see [Access](#access)). `GET /`, `/docs`, `/openapi.json`, `/health`, `/auth/config` and `POST /auth/logout` are not limited.
 
 Every endpoint is in the Swagger UI at `/docs`, generated from the same zod schemas that validate the responses, with example values on every URL, count, email and code input and a lock icon on the `/v1/*` routes that need the `sid` cookie. Sign in once at `/` (or via `POST /auth/verify`) and Swagger UI's "Try it out" works directly against those routes, since the session cookie is scoped to this origin.
 
@@ -613,8 +611,8 @@ Design points worth calling out:
 - **Failure mapping lives in one place.** `interpretVoyagerResponse` turns every LinkedIn response into either a parsed body or a typed error; the transport itself is a one-method interface so tests substitute a fake.
 - **Volatile knowledge is quarantined.** Decoration IDs, URLs and the posts `queryId` default live only in `endpoints.ts`. When LinkedIn changes something, there is one file to touch and a fixture test to tell you what moved; the `queryId` is additionally overridable from the environment, so the most perishable constant needs no redeploy at all.
 - **The account is protected.** Per-IP rate limiting, a 15-minute cache, and a concurrency semaphore (default 2) keep request volume to LinkedIn low even under a burst of API traffic. The semaphore bounds concurrent _bundles_, not upstream requests: a posts bundle is 2 requests and a profile is 2 or more, so the real ceiling on in-flight LinkedIn calls is a small multiple of the limit.
-- **Order in `buildApp` is load-bearing.** Swagger UI is registered before helmet so the docs keep their looser CSP; the playground's static files are registered before the rate limiter so loading a page never spends the budget. `@fastify/static` runs with `wildcard: false` on purpose: its default `GET /*` would swallow every unmatched path and answer with `reply.callNotFound()`, which skips the not-found route's own hooks, so unknown URLs would come back unbudgeted. A route per file is registered instead, which is exact for a folder holding one file that is baked into the image.
-- **Secrets never touch logs.** Cookie headers are redacted by pino; config is logged through `redactConfig`, which masks `LI_AT` and reports only the length of `LI_COOKIES`.
+- **Order in `buildApp` matters.** Swagger UI is registered before helmet so the docs keep their own CSP, and the static files before the rate limiter so page loads never spend the budget. `@fastify/static` runs with `wildcard: false`: its default `GET /*` would answer unknown paths through `reply.callNotFound()`, skipping the not-found route's hooks and leaving those requests unbudgeted.
+- **Secrets never touch logs.** Cookie headers are redacted by pino and config is logged through `redactConfig` (see [Configuration](#configuration)).
 
 ---
 
@@ -643,12 +641,14 @@ The service ships as a small `node:22-slim` Docker image. Two stages: the build 
 
 ```bash
 docker build -t linkedin-profile-api .
-docker run --rm -p 3000:3000 -e LI_AT="$LI_AT" linkedin-profile-api
+docker run --rm -p 3000:3000 -e LI_AT="$LI_AT" -e SESSION_KEY="$(openssl rand -hex 32)" linkedin-profile-api
 ```
+
+Without `NODE_ENV=production` the container runs in development mode and logs sign-in codes instead of mailing them.
 
 ### Render
 
-`render.yaml` describes the service. Connect the repo in the Render dashboard, create a Blueprint, and set `LI_AT` in Render as a secret environment variable (it is marked `sync: false`, so it is never read from the repo). Render provisions HTTPS automatically. `NODE_ENV`, `RATE_LIMIT_PER_MINUTE` and `CACHE_TTL_SECONDS` are set in the blueprint itself, since none of them is a secret.
+`render.yaml` describes the service. Connect the repo in the Render dashboard, create a Blueprint, then set the secrets marked `sync: false` in the dashboard: `LI_AT`, `SESSION_KEY`, `BREVO_API_KEY` (or `SMTP_USER`/`SMTP_PASS`), and optionally `ADMIN_EMAIL`/`ADMIN_PASSWORD`. Non-secret values (`APP_ORIGIN`, `EMAIL_FROM`, limits, `NODE_ENV`) come from the blueprint. Render provisions HTTPS automatically.
 
 The blueprint targets the **free** plan. Free instances sleep after 15 minutes of inactivity, so the first request after a pause takes ~30–50 s while the container wakes.
 
@@ -686,7 +686,7 @@ The blueprint targets the **free** plan. Free instances sleep after 15 minutes o
 
 **No persistence.** The cache is in-memory; a restart clears it. That's appropriate for this scope but means a multi-instance deployment would not share it.
 
-**A per-IP rate limit is the only access control, and an IP is rented, not owned.** Nothing identifies a caller: `RATE_LIMIT_PER_MINUTE` is counted against the source address and nothing else. A datacentre proxy pool, a residential proxy service or a phone's flight-mode toggle all hand out a fresh address in seconds, and the budget resets with it, so the ceiling on what one determined caller can pull is that number times however many addresses they can cycle through. It also punishes the wrong people: an office, a university or a mobile carrier NAT puts thousands of unrelated users behind one address, and they share a budget none of them agreed to. What the limit actually buys is protection against a careless script, not against a determined one.
+**Access control is a deterrent, not a wall.** The email gate proves control of an inbox, and free mailboxes are cheap; the per-address and per-IP budgets slow a determined caller down rather than stop them, and the per-IP ones also penalise everyone behind a shared office, campus or carrier address. The limits protect the LinkedIn account from careless scripts, not from someone willing to rotate mailboxes and addresses.
 
 ---
 
